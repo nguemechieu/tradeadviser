@@ -1,0 +1,72 @@
+{
+  "name": "tradeadviser",
+  "version": "0.1.6",
+  "private": true,
+  "proxy": "http://localhost:3000",
+  "homepage": "https://nguemechieu.github.io/tradeadviser",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nguemechieu/tradeadviser.git"
+  },
+  "author": "Noel nguemechieu <nguemechieu.github.io>",
+  "bugs": {
+    "url": "https://github.com/nguemechieu/tradeadviser/issues"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
+    "@babel/plugin-transform-private-property-in-object": "^7.25.9",
+    "@fortawesome/fontawesome-svg-core": "^1.2.36",
+    "@fortawesome/free-solid-svg-icons": "^5.15.4",
+    "@fortawesome/react-fontawesome": "^0.1.16",
+    "axios": "^1.7.7",
+    "mysql": "^2.18.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.2.1",
+    "react-scripts": "^5.0.1"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.1",
+    "gh-pages": "5.0.0",
+    "husky": "^8.0.1",
+    "lint-staged": "^13.0.3",
+    "prettier": "^2.8.8",
+    "serve": "^14.2.4",
+    "stylelint": "^16.10.0",
+    "stylelint-config-standard": "^36.0.1"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build --production",
+    "deploy": "gh-pages -d build",
+    "lint": "eslint src",
+    "precommit": "lint-staged",
+    "production": "serve -s build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "lint-staged": {
+    "*.js": "eslint --fix",
+    "*.css": "stylelint --fix",
+    "*.md": "markdownlint"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}

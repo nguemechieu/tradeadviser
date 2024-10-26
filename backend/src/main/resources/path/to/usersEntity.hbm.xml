@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+        "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
+
+<hibernate-mapping>
+
+    <class name="com.sopotek.backend.entities.User" table="users">
+
+        <!-- Primary key definition -->
+        <id name="id" type="integer" column="id">
+            <generator class="identity"/>
+        </id>
+
+        <!-- User attributes -->
+        <property name="username" type="string">
+            <column name="username" length="100" not-null="true"/>
+        </property>
+
+        <property name="password" type="string">
+            <column name="password" length="100" not-null="true"/>
+        </property>
+
+        <property name="email" type="string">
+            <column name="email" length="100" not-null="true" unique="true"/>
+        </property>
+
+        <property name="firstName" type="string">
+            <column name="first_name" length="50"/>
+        </property>
+
+        <property name="lastName" type="string">
+            <column name="last_name" length="50"/>
+        </property>
+
+        <property name="middleName" type="string">
+            <column name="middle_name" length="50"/>
+        </property>
+
+        <property name="phone" type="string">
+            <column name="phone" length="20"/>
+        </property>
+
+        <property name="gender" type="string">
+            <column name="gender" length="10"/>
+        </property>
+
+        <property name="address" type="string">
+            <column name="address" length="255"/>
+        </property>
+
+        <property name="dateOfBirth" type="date">
+            <column name="date_of_birth"/>
+        </property>
+
+        <property name="country" type="string">
+            <column name="country" length="50"/>
+        </property>
+
+        <property name="state" type="string">
+            <column name="state" length="50"/>
+        </property>
+
+        <property name="city" type="string">
+            <column name="city" length="50"/>
+        </property>
+
+    </class>
+
+</hibernate-mapping>
