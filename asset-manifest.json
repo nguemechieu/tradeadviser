@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/tradeadviser/static/css/main.a7b1ef12.css",
+    "main.js": "/tradeadviser/static/js/main.73324cb8.js",
+    "index.html": "/tradeadviser/index.html",
+    "main.a7b1ef12.css.map": "/tradeadviser/static/css/main.a7b1ef12.css.map",
+    "main.73324cb8.js.map": "/tradeadviser/static/js/main.73324cb8.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.a7b1ef12.css",
+    "static/js/main.73324cb8.js"
+  ]
+}
