@@ -1,13 +1,13 @@
 {
   "files": {
-    "main.css": "/tradeadviser/static/css/main.a7b1ef12.css",
-    "main.js": "/tradeadviser/static/js/main.73324cb8.js",
+    "main.css": "/tradeadviser/static/css/main.4a151467.css",
+    "main.js": "/tradeadviser/static/js/main.21de8a7e.js",
     "index.html": "/tradeadviser/index.html",
-    "main.a7b1ef12.css.map": "/tradeadviser/static/css/main.a7b1ef12.css.map",
-    "main.73324cb8.js.map": "/tradeadviser/static/js/main.73324cb8.js.map"
+    "main.4a151467.css.map": "/tradeadviser/static/css/main.4a151467.css.map",
+    "main.21de8a7e.js.map": "/tradeadviser/static/js/main.21de8a7e.js.map"
   },
   "entrypoints": [
-    "static/css/main.a7b1ef12.css",
-    "static/js/main.73324cb8.js"
+    "static/css/main.4a151467.css",
+    "static/js/main.21de8a7e.js"
   ]
 }
