@@ -13,7 +13,7 @@ const Login = () => {
 
     const emailRef = useRef();
 
-    const [email, setEmail] = useState('');
+    const [identifier, setIdentifier] = useState('');
     const [pwd, setPwd] = useState('');
     const [errMsg, setErrMsg] = useState('');
     const [loading, setLoading] = useState(false);
@@ -25,20 +25,20 @@ const Login = () => {
 
     useEffect(() => {
         setErrMsg('');
-    }, [email, pwd]);
+    }, [identifier, pwd]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        if (!email || !pwd) {
-            setErrMsg('Please enter both email and password.');
+        if (!identifier || !pwd) {
+            setErrMsg('Please enter both username/email and password.');
             return;
         }
 
         try {
             setLoading(true);
             const response = await axiosInstance.post(LOGIN_URL, {
-                identifier: email,
+                identifier: identifier,
                 password: pwd,
                 remember_me: rememberMe
             });
@@ -49,19 +49,19 @@ const Login = () => {
             localStorage.setItem('tradeadviser-token', access_token);
             
             if (rememberMe) {
-                localStorage.setItem('remember-email', email);
+                localStorage.setItem('remember-identifier', identifier);
             } else {
-                localStorage.removeItem('remember-email');
+                localStorage.removeItem('remember-identifier');
             }
 
-            setEmail('');
+            setIdentifier('');
             setPwd('');
             navigate(from, { replace: true });
         } catch (err) {
             if (!err?.response) {
                 setErrMsg('No server response. Please try again.');
             } else if (err.response?.status === 401) {
-                setErrMsg('Invalid email or password.');
+                setErrMsg('Invalid username/email or password.');
             } else if (err.response?.status === 400) {
                 setErrMsg('Invalid login credentials.');
             } else {
@@ -98,17 +98,17 @@ const Login = () => {
 
                 {/* Login Form */}
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                    {/* Email Field */}
+                {/* Email/Username Field */}
                     <div className="form-field">
-                        <label htmlFor="email">Email Address</label>
+                        <label htmlFor="identifier">Username or Email</label>
                         <input
-                            type="email"
-                            id="email"
+                            type="text"
+                            id="identifier"
                             ref={emailRef}
-                            autoComplete="email"
-                            onChange={(e) => setEmail(e.target.value)}
-                            value={email}
-                            placeholder="you@example.com"
+                            autoComplete="username"
+                            onChange={(e) => setIdentifier(e.target.value)}
+                            value={identifier}
+                            placeholder="Enter your username or email"
                             required
                             className="input-field"
                         />
