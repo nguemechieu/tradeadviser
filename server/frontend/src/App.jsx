@@ -17,11 +17,12 @@ import RequireAuth from './components/RequireAuth';
 import TradeAdviser from './components/TradeAdviser';
 import PersistLogin from './components/PersistLogin';
 import SystemStatus from './components/SystemStatus';
+import Docs from './components/Docs';
 
 const ROLES = {
-  'User': 2001,
-  'Editor': 1984,
-  'Admin': 5150
+  'trader': 'trader',
+  'editor': 'editor',
+  'admin': 'admin'
 };
 
 function App() {
@@ -38,10 +39,11 @@ function App() {
         <Route path="/tradeadviser" element={<TradeAdviser />} />
         <Route path="/verify-link" element={<VerifyLink />} />
         <Route path="/access-denied" element={<AccessDenied />} />
+        <Route path="/docs" element={<Docs />} />
 
         {/* Protected routes */}
         <Route element={<PersistLogin />}>
-          <Route element={<RequireAuth allowedRoles={[ROLES.User, ROLES.Editor, ROLES.Admin]} />}>
+          <Route element={<RequireAuth allowedRoles={[ROLES.trader, ROLES.editor, ROLES.admin]} />}>
             <Route path="/home" element={<HomePage />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/account" element={<AccountPage />} />
@@ -49,15 +51,15 @@ function App() {
             <Route path="/not-found" element={<NotFound />} />
           </Route>
 
-          <Route element={<RequireAuth allowedRoles={[ROLES.Editor, ROLES.Admin]} />}>
+          <Route element={<RequireAuth allowedRoles={[ROLES.editor, ROLES.admin]} />}>
             <Route path="/trading-editor" element={<TradingEditor />} />
           </Route>
 
-          <Route element={<RequireAuth allowedRoles={[ROLES.Editor, ROLES.Admin]} />}>
+          <Route element={<RequireAuth allowedRoles={[ROLES.editor, ROLES.admin]} />}>
             <Route path="/community" element={<Community />} />
           </Route>
 
-          <Route element={<RequireAuth allowedRoles={[ROLES.Admin]} />}>
+          <Route element={<RequireAuth allowedRoles={[ROLES.admin]} />}>
             <Route path="/admin-panel" element={<AdminPanel />} />
             <Route path="/system-status" element={<SystemStatus />} />
           </Route>

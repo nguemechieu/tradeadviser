@@ -1,5 +1,6 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useContext } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import AuthContext from '../context/AuthProvider';
 import axiosInstance from '../api/axiosConfig';
 import logo from '../assets/logo.png';
 import '../app.css';
@@ -9,6 +10,7 @@ const LOGIN_URL = '/auth/login';
 const Login = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { setAuth } = useContext(AuthContext);
     const from = location.state?.from?.pathname || "/home";
 
     const emailRef = useRef();
@@ -43,10 +45,18 @@ const Login = () => {
                 remember_me: rememberMe
             });
 
-            const { access_token, token_type } = response.data;
+            const { access_token, token_type, user } = response.data;
             
             // Store token
             localStorage.setItem('tradeadviser-token', access_token);
+            
+            // Store user in auth context with role mapping
+            const authUser = {
+                user: user,
+                token: access_token,
+                role: user?.role || 'trader'
+            };
+            setAuth(authUser);
             
             if (rememberMe) {
                 localStorage.setItem('remember-identifier', identifier);
