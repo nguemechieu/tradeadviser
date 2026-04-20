@@ -50,7 +50,7 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/account" element={<AccountPage />} />
             <Route path="/trading" element={<TradingPage />} />
-            <R
+            <Route path="/portfolio" element={<Dashboard />} />
             <Route path="/unautorized" element={<Unauthorized />} />
           </Route>
 
