@@ -1,36 +1,55 @@
 import { useNavigate, Link } from "react-router-dom";
-import { useContext } from "react";
+import { useContext, useState } from "react";
 import AuthContext from "../context/AuthProvider";
+import axiosInstance from "../api/axiosConfig";
 
-const Home = () => {
-    const { setAuth } = useContext(AuthContext);
+const Dashboard = () => {
+    const { auth, setAuth } = useContext(AuthContext);
     const navigate = useNavigate();
+    const [loading, setLoading] = useState(false);
 
     const logout = async () => {
-        // if used in more components, this should be in context 
-        // axios to /logout endpoint 
-        setAuth({});
-        navigate('/linkpage');
+        try {
+            setLoading(true);
+            await axiosInstance.post('/auth/logout');
+            localStorage.removeItem('tradeadviser-token');
+            setAuth({});
+            navigate('/login');
+        } catch (error) {
+            console.error('Logout failed:', error);
+            localStorage.removeItem('tradeadviser-token');
+            setAuth({});
+            navigate('/login');
+        } finally {
+            setLoading(false);
+        }
     }
 
     return (
-        <section>
-            <h1>Home</h1>
+        <section className="dashboard-page">
+            <h1>Dashboard</h1>
+            <p>You are logged in as {auth?.user?.email}!</p>
             <br />
-            <p>You are logged in!</p>
-            <br />
-            <Link to="/editor">Go to the Editor page</Link>
-            <br />
-            <Link to="/admin">Go to the Admin page</Link>
-            <br />
-            <Link to="/lounge">Go to the Lounge</Link>
-            <br />
-            <Link to="/linkpage">Go to the link page</Link>
+            
+            <div className="dashboard-links">
+                <Link to="/trading-editor" className="btn btn-primary">Go to the Editor page</Link>
+                <br />
+                <Link to="/admin-panel" className="btn btn-primary">Go to the Admin page</Link>
+                <br />
+                <Link to="/community" className="btn btn-primary">Go to the Community</Link>
+                <br />
+                <Link to="/account" className="btn btn-primary">Go to Account Settings</Link>
+                <br />
+                <Link to="/trading" className="btn btn-primary">Go to Trading</Link>
+            </div>
+            
             <div className="flexGrow">
-                <button onClick={logout}>Sign Out</button>
+                <button onClick={logout} disabled={loading} className="btn btn-secondary">
+                    {loading ? 'Signing out...' : 'Sign Out'}
+                </button>
             </div>
         </section>
     )
 }
 
-export default Home
+export default Dashboard

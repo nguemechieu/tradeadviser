@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="actions-runner-win-x64-2.333.1">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/desktop/actions-runner/actions-runner-win-x64-2.333.1.zip!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

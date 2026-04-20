@@ -3,11 +3,11 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.config import get_settings
-from backend.db.session import get_db_session
-from backend.models.user import User
-from backend.schemas.auth import TokenResponse, UserCreate, UserRead
-from backend.utils.security import (
+from server.backend.config import get_settings
+from server.backend.db.session import get_db_session
+from server.backend.models.user import User
+from server.backend.schemas.auth import TokenResponse, UserCreate, UserRead
+from server.backend.utils.security import (
     create_access_token,
     decode_access_token,
     hash_password,

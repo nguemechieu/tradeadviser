@@ -38,21 +38,47 @@ services:
       ALLOWED_ORIGINS: http://localhost:4173,http://localhost:5173,http://localhost:8000,https://tradeadviser.org
       FRONTEND_DIST: /app/frontend/dist
       LOG_LEVEL: INFO
+      PYTHONPATH: /app
     depends_on:
       database:
         condition: service_healthy
     volumes:
-      - ./backend:/app/backend
+      - ./backend:/app/server/backend
       - ./frontend/dist:/app/frontend/dist
       - ./logs:/app/logs
     command: >
       sh -c "
         python -m alembic upgrade head || true &&
-        python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
+        python -m uvicorn server.backend.main:app --host 0.0.0.0 --port 8000
       "
     networks:
       - tradeadviser-network
     restart: unless-stopped
+
+  # React Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    container_name: tradeadviser-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://backend:8000
+      VITE_API_BASE_URL: /api
+    volumes:
+      - ./frontend/src:/app/frontend/src
+      - ./frontend/index.html:/app/frontend/index.html
+      - ./frontend/vite.config.js:/app/frontend/vite.config.js
+      - ./frontend/package.json:/app/frontend/package.json
+      - /app/frontend/node_modules
+    networks:
+      - tradeadviser-network
+    restart: unless-stopped
+    command: npm run dev -- --host 0.0.0.0 --port 5173
+    depends_on:
+      backend:
+        condition: service_started
 
   # React Frontend (built and served via backend)
   # Note: Frontend is served by backend in production
@@ -112,23 +138,25 @@ services:
     profiles:
       - with-kafka
 
-  # Optional: Nginx Reverse Proxy
+  # Nginx Reverse Proxy
   nginx:
-    image: nginx:alpine
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.nginx
     container_name: tradeadviser-nginx
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./ssl:/etc/nginx/ssl:ro
     depends_on:
-      - backend
+      backend:
+        condition: service_started
+      frontend:
+        condition: service_started
     networks:
       - tradeadviser-network
     restart: unless-stopped
-    profiles:
-      - with-nginx
 
   # Optional: pgAdmin for Database Management
   pgadmin:
@@ -174,7 +202,7 @@ networks:
 
 # Usage:
 # 
-# Basic setup (Backend + Database):
+# Basic setup (Backend + Database + Frontend + Nginx):
 # $ docker-compose up --build
 # 
 # With Redis caching:
@@ -183,22 +211,26 @@ networks:
 # With Kafka event streaming:
 # $ docker-compose --profile with-kafka up --build
 # 
-# With all services:
-# $ docker-compose --profile with-redis --profile with-kafka --profile with-nginx --profile with-pgadmin up --build
+# With Redis + Kafka + pgAdmin + Adminer:
+# $ docker-compose --profile with-redis --profile with-kafka --profile with-pgadmin --profile with-adminer up --build
 # 
 # Stop services:
 # $ docker-compose down
 # 
 # View logs:
 # $ docker-compose logs -f backend
+# $ docker-compose logs -f frontend
+# $ docker-compose logs -f nginx
 # $ docker-compose logs -f database
 # 
 # Run migrations:
 # $ docker-compose exec backend python -m alembic upgrade head
 #
 # Access services:
-# - Frontend: http://localhost:8000 (served by backend)
+# - Frontend via Nginx: http://localhost (port 80)
+# - Frontend Dev Server: http://localhost:5173 (development only)
 # - Backend API: http://localhost:8000/api
 # - API Docs: http://localhost:8000/docs
+# - Backend Health: http://localhost:8000/health
 # - pgAdmin: http://localhost:5050 (if with-pgadmin profile)
 # - Adminer: http://localhost:8080 (if with-adminer profile)

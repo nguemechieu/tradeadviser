@@ -1,20 +1,19 @@
 import { useRef, useState, useEffect } from "react";
-import { faCheck, faTimes, faInfoCircle } from "@fortawesome/free-solid-svg-icons";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import axios from '../api/axios';
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import axiosInstance from '../api/axiosConfig';
+import logo from '../assets/logo.png';
+import '../app.css';
 
 const USER_REGEX = /^[A-z][A-z0-9-_]{3,23}$/;
 const PWD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%]).{8,24}$/;
-const REGISTER_URL = '/api/v1/register/auth';
+const REGISTER_URL = '/auth/register';
 
 const Register = () => {
     const userRef = useRef();
-    const errRef = useRef();
+    const navigate = useNavigate();
 
-    const [user, setUser] = useState('');
-    const [validName, setValidName] = useState(false);
-    const [userFocus, setUserFocus] = useState(false);
+    const [email, setEmail] = useState('');
+    const [validEmail, setValidEmail] = useState(false);
 
     const [pwd, setPwd] = useState('');
     const [validPwd, setValidPwd] = useState(false);
@@ -25,159 +24,212 @@ const Register = () => {
     const [matchFocus, setMatchFocus] = useState(false);
 
     const [errMsg, setErrMsg] = useState('');
+    const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
 
     useEffect(() => {
-        userRef.current.focus();
-    }, [])
+        userRef.current?.focus();
+    }, []);
 
     useEffect(() => {
-        setValidName(USER_REGEX.test(user));
-    }, [user])
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        setValidEmail(emailRegex.test(email));
+    }, [email]);
 
     useEffect(() => {
         setValidPwd(PWD_REGEX.test(pwd));
         setValidMatch(pwd === matchPwd);
-    }, [pwd, matchPwd])
+    }, [pwd, matchPwd]);
 
     useEffect(() => {
         setErrMsg('');
-    }, [user, pwd, matchPwd])
+    }, [email, pwd, matchPwd]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        // if button enabled with JS hack
-        const v1 = USER_REGEX.test(user);
-        const v2 = PWD_REGEX.test(pwd);
-        if (!v1 || !v2) {
-            setErrMsg("Invalid Entry");
+
+        if (!validEmail || !validPwd || !validMatch) {
+            setErrMsg("Invalid entry. Please check all fields.");
             return;
         }
+
         try {
-            const response = await axios.post(REGISTER_URL,
-                JSON.stringify({ user, pwd }),
-                {
-                    headers: { 'Content-Type': 'application/json' },
-                    withCredentials: true
-                }
-            );
-            // TODO: remove console.logs before deployment
-            console.log(JSON.stringify(response?.data));
-            //console.log(JSON.stringify(response))
+            setLoading(true);
+            await axiosInstance.post(REGISTER_URL, {
+                email,
+                password: pwd
+            });
+
             setSuccess(true);
-            //clear state and controlled inputs
-            setUser('');
+            setEmail('');
             setPwd('');
             setMatchPwd('');
+            
+            setTimeout(() => {
+                navigate('/login');
+            }, 2000);
         } catch (err) {
             if (!err?.response) {
-                setErrMsg('No Server Response');
+                setErrMsg('No server response. Please try again.');
             } else if (err.response?.status === 409) {
-                setErrMsg('Username Taken');
+                setErrMsg('Email already registered.');
+            } else if (err.response?.status === 400) {
+                setErrMsg(err.response?.data?.detail || 'Invalid registration data.');
             } else {
-                setErrMsg('Registration Failed')
+                setErrMsg('Registration failed. Please try again.');
             }
-            errRef.current.focus();
+        } finally {
+            setLoading(false);
         }
-    }
+    };
 
     return (
-        <>
+        <section className="auth-page" style={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            alignItems: 'center',
+            minHeight: '100vh',
+            padding: '2rem 1rem'
+        }}>
             {success ? (
-                <section>
-                    <h1>Success!</h1>
-                    <p>
-                        <a href="#">Sign In</a>
-                    </p>
-                </section>
+                <div className="card" style={{ textAlign: 'center', maxWidth: '500px' }}>
+                    <div style={{ marginBottom: '2rem' }}>
+                        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>✓</div>
+                        <h1>Welcome to TradeAdviser!</h1>
+                        <p style={{ color: '#8ea3bc' }}>Your account has been created successfully.</p>
+                        <p style={{ color: '#78e6c8', marginTop: '1rem' }}>Redirecting to login...</p>
+                    </div>
+                </div>
             ) : (
-                <section>
-                    <p ref={errRef} className={errMsg ? "errmsg" : "offscreen"} aria-live="assertive">{errMsg}</p>
-                    <h1>Register</h1>
-                    <form onSubmit={handleSubmit}>
-                        <label htmlFor="username">
-                            Username:
-                            <FontAwesomeIcon icon={faCheck} className={validName ? "valid" : "hide"} />
-                            <FontAwesomeIcon icon={faTimes} className={validName || !user ? "hide" : "invalid"} />
-                        </label>
-                        <input
-                            type="text"
-                            id="username"
-                            ref={userRef}
-                            autoComplete="off"
-                            onChange={(e) => setUser(e.target.value)}
-                            value={user}
-                            required
-                            aria-invalid={validName ? "false" : "true"}
-                            aria-describedby="uidnote"
-                            onFocus={() => setUserFocus(true)}
-                            onBlur={() => setUserFocus(false)}
-                        />
-                        <p id="uidnote" className={userFocus && user && !validName ? "instructions" : "offscreen"}>
-                            <FontAwesomeIcon icon={faInfoCircle} />
-                            4 to 24 characters.<br />
-                            Must begin with a letter.<br />
-                            Letters, numbers, underscores, hyphens allowed.
-                        </p>
+                <div className="card" style={{ maxWidth: '500px', width: '100%' }}>
+                    {/* Header */}
+                    <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                        <img src={logo} alt="TradeAdviser" style={{ height: '60px', marginBottom: '1rem' }} />
+                        <h1 style={{ fontSize: '1.8rem' }}>Create Account</h1>
+                        <p style={{ color: '#8ea3bc' }}>Join TradeAdviser today</p>
+                    </div>
 
+                    {/* Error Message */}
+                    {errMsg && (
+                        <div className="error-message" style={{ marginBottom: '1rem' }}>
+                            {errMsg}
+                        </div>
+                    )}
 
-                        <label htmlFor="password">
-                            Password:
-                            <FontAwesomeIcon icon={faCheck} className={validPwd ? "valid" : "hide"} />
-                            <FontAwesomeIcon icon={faTimes} className={validPwd || !pwd ? "hide" : "invalid"} />
-                        </label>
-                        <input
-                            type="password"
-                            id="password"
-                            onChange={(e) => setPwd(e.target.value)}
-                            value={pwd}
-                            required
-                            aria-invalid={validPwd ? "false" : "true"}
-                            aria-describedby="pwdnote"
-                            onFocus={() => setPwdFocus(true)}
-                            onBlur={() => setPwdFocus(false)}
-                        />
-                        <p id="pwdnote" className={pwdFocus && !validPwd ? "instructions" : "offscreen"}>
-                            <FontAwesomeIcon icon={faInfoCircle} />
-                            8 to 24 characters.<br />
-                            Must include uppercase and lowercase letters, a number and a special character.<br />
-                            Allowed special characters: <span aria-label="exclamation mark">!</span> <span aria-label="at symbol">@</span> <span aria-label="hashtag">#</span> <span aria-label="dollar sign">$</span> <span aria-label="percent">%</span>
-                        </p>
+                    {/* Registration Form */}
+                    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                        {/* Email Field */}
+                        <div className="form-field">
+                            <label htmlFor="email" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span>Email Address</span>
+                                {email && <span style={{ fontSize: '0.9rem', color: validEmail ? '#67e2a3' : '#ff7d8d' }}>
+                                    {validEmail ? '✓' : '✗'}
+                                </span>}
+                            </label>
+                            <input
+                                type="email"
+                                id="email"
+                                ref={userRef}
+                                autoComplete="email"
+                                onChange={(e) => setEmail(e.target.value)}
+                                value={email}
+                                placeholder="you@example.com"
+                                required
+                                className="input-field"
+                            />
+                            {email && !validEmail && (
+                                <p style={{ fontSize: '0.85rem', color: '#ff7d8d', marginTop: '0.5rem' }}>
+                                    Please enter a valid email address.
+                                </p>
+                            )}
+                        </div>
 
+                        {/* Password Field */}
+                        <div className="form-field">
+                            <label htmlFor="password" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span>Password</span>
+                                {pwd && <span style={{ fontSize: '0.9rem', color: validPwd ? '#67e2a3' : '#ff7d8d' }}>
+                                    {validPwd ? '✓' : '✗'}
+                                </span>}
+                            </label>
+                            <input
+                                type="password"
+                                id="password"
+                                onChange={(e) => setPwd(e.target.value)}
+                                value={pwd}
+                                placeholder="••••••••"
+                                required
+                                className="input-field"
+                                onFocus={() => setPwdFocus(true)}
+                                onBlur={() => setPwdFocus(false)}
+                            />
+                            {pwdFocus && pwd && !validPwd && (
+                                <div style={{ fontSize: '0.85rem', color: '#f7b666', marginTop: '0.5rem', padding: '0.75rem', backgroundColor: 'rgba(247, 182, 102, 0.1)', borderRadius: '4px' }}>
+                                    <p>Password must contain:</p>
+                                    <ul style={{ marginLeft: '1rem', marginTop: '0.5rem' }}>
+                                        <li>✓ Uppercase letter</li>
+                                        <li>✓ Lowercase letter</li>
+                                        <li>✓ Number</li>
+                                        <li>✓ Special character (!@#$%)</li>
+                                        <li>✓ 8-24 characters total</li>
+                                    </ul>
+                                </div>
+                            )}
+                        </div>
 
-                        <label htmlFor="confirm_pwd">
-                            Confirm Password:
-                            <FontAwesomeIcon icon={faCheck} className={validMatch && matchPwd ? "valid" : "hide"} />
-                            <FontAwesomeIcon icon={faTimes} className={validMatch || !matchPwd ? "hide" : "invalid"} />
-                        </label>
-                        <input
-                            type="password"
-                            id="confirm_pwd"
-                            onChange={(e) => setMatchPwd(e.target.value)}
-                            value={matchPwd}
-                            required
-                            aria-invalid={validMatch ? "false" : "true"}
-                            aria-describedby="confirmnote"
-                            onFocus={() => setMatchFocus(true)}
-                            onBlur={() => setMatchFocus(false)}
-                        />
-                        <p id="confirmnote" className={matchFocus && !validMatch ? "instructions" : "offscreen"}>
-                            <FontAwesomeIcon icon={faInfoCircle} />
-                            Must match the first password input field.
-                        </p>
+                        {/* Confirm Password Field */}
+                        <div className="form-field">
+                            <label htmlFor="confirm_pwd" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span>Confirm Password</span>
+                                {matchPwd && <span style={{ fontSize: '0.9rem', color: validMatch ? '#67e2a3' : '#ff7d8d' }}>
+                                    {validMatch ? '✓' : '✗'}
+                                </span>}
+                            </label>
+                            <input
+                                type="password"
+                                id="confirm_pwd"
+                                onChange={(e) => setMatchPwd(e.target.value)}
+                                value={matchPwd}
+                                placeholder="••••••••"
+                                required
+                                className="input-field"
+                                onFocus={() => setMatchFocus(true)}
+                                onBlur={() => setMatchFocus(false)}
+                            />
+                            {matchFocus && matchPwd && !validMatch && (
+                                <p style={{ fontSize: '0.85rem', color: '#ff7d8d', marginTop: '0.5rem' }}>
+                                    Passwords do not match.
+                                </p>
+                            )}
+                        </div>
 
-                        <button disabled={!validName || !validPwd || !validMatch}>Sign Up</button>
+                        {/* Submit Button */}
+                        <button 
+                            type="submit" 
+                            disabled={!validEmail || !validPwd || !validMatch || loading}
+                            className="btn btn-primary"
+                            style={{ width: '100%', padding: '0.875rem' }}
+                        >
+                            {loading ? 'Creating account...' : 'Create Account'}
+                        </button>
                     </form>
-                    <p>
-                        Already registered?<br />
-                        <span className="line">
-                            <Link to="/">Sign In</Link>
-                        </span>
-                    </p>
-                </section>
-            )}
-        </>
-    )
-}
 
-export default Register
+                    {/* Login Link */}
+                    <div style={{ textAlign: 'center', marginTop: '2rem', paddingTop: '2rem', borderTop: '1px solid rgba(136, 168, 203, 0.2)' }}>
+                        <p style={{ color: '#8ea3bc' }}>
+                            Already have an account?{' '}
+                            <Link to="/login" style={{ color: '#53b4ff', fontWeight: '600' }}>
+                                Sign In
+                            </Link>
+                        </p>
+                        <p style={{ color: '#8ea3bc', marginTop: '1rem', fontSize: '0.85rem', opacity: 0.7 }}>
+                            © 2026 TradeAdviser. All rights reserved.
+                        </p>
+                    </div>
+                </div>
+            )}
+        </section>
+    );
+};
+
+export default Register;

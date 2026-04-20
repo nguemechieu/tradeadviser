@@ -1,9 +1,9 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.agents.regime_agent import RegimeAgent
-from backend.models.signal import Signal
-from backend.models.user import User
-from backend.schemas.signal import SignalCreate
+from server.backend.agents.regime_agent import RegimeAgent
+from server.backend.models.signal import Signal
+from server.backend.models.user import User
+from server.backend.schemas.signal import SignalCreate
 
 
 async def create_signal(session: AsyncSession, user: User, payload: SignalCreate) -> Signal:

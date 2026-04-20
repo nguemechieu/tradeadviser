@@ -1,10 +1,10 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.agents.feedback_agent import FeedbackAgent
-from backend.core.learning_engine import LearningEngine
-from backend.models.trade import Trade
-from backend.models.user import User
-from backend.schemas.trade import TradeCreate
+from server.backend.agents.feedback_agent import FeedbackAgent
+from server.backend.core.learning_engine import LearningEngine
+from server.backend.models.trade import Trade
+from server.backend.models.user import User
+from server.backend.schemas.trade import TradeCreate
 
 
 async def create_trade(session: AsyncSession, user: User, payload: TradeCreate) -> Trade:

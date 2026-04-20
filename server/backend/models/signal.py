@@ -4,7 +4,7 @@ from decimal import Decimal
 from sqlalchemy import DateTime, ForeignKey, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from backend.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
+from server.backend.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
 
 class Signal(UUIDPrimaryKeyMixin, TimestampMixin, Base):

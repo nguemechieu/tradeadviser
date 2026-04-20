@@ -334,9 +334,10 @@ case "$MODE" in
             echo ""
             
             # Start backend in background
-            cd "$PROJECT_ROOT/backend"
-            source venv/bin/activate
-            python -m uvicorn main:app --reload --port 8000 --host 0.0.0.0 > "$PROJECT_ROOT/logs/backend.log" 2>&1 &
+            cd "$PROJECT_ROOT"
+            source backend/venv/bin/activate
+            export PYTHONPATH="$PROJECT_ROOT"
+            python -m uvicorn server.backend.main:app --reload --port 8000 --host 0.0.0.0 > "$PROJECT_ROOT/logs/backend.log" 2>&1 &
             BACKEND_PID=$!
             echo -e "${GREEN}✓ Backend started (PID: $BACKEND_PID)${NC}"
             echo "  Logs: tail -f logs/backend.log"

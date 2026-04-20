@@ -4,7 +4,7 @@ import bcrypt
 import jwt
 from jwt import InvalidTokenError
 
-from backend.config import Settings
+from server.backend.config import Settings
 
 
 def utcnow() -> datetime:

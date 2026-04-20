@@ -1,10 +1,9 @@
-"""DEPRECATED: Use app/backend/main.py instead.
+"""Entry point for the FastAPI backend.
 
-This file is kept for compatibility but should not be used directly.
-The correct entry point is sqs_server/main.py which imports app/backend/main.py.
+This module provides the FastAPI application instance for deployment.
 """
 
-# Legacy import compatibility - redirect to the real app
-from app.backend.main import app
+# Import the app from the backend module
+from server.backend.main import app
 
 __all__ = ["app"]

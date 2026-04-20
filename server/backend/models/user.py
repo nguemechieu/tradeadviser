@@ -2,7 +2,7 @@ from sqlalchemy import Boolean, String, Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 import enum
 
-from backend.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
+from server.backend.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
 
 class UserRole(str, enum.Enum):

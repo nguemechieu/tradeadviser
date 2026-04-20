@@ -7,9 +7,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 
-from backend.dependencies import get_db, get_current_user
-from backend.models import AuditLog, PerformanceSnapshot, TradeStats, User
-from backend.schemas import UserSchema
+from server.backend.dependencies import get_db, get_current_user
+from server.backend.models import AuditLog, PerformanceSnapshot, TradeStats, User
+from server.backend.schemas import UserSchema
 
 router = APIRouter(prefix="/admin/performance-audit", tags=["performance-audit"])
 

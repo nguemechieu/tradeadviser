@@ -4,7 +4,7 @@ import logging
 
 from fastapi import Header, HTTPException, status
 
-from backend.dependencies import ServerServiceContainer, ServerUser
+from server.backend.dependencies import ServerServiceContainer, ServerUser
 
 logger = logging.getLogger(__name__)
 

@@ -19,21 +19,21 @@ if str(project_root) not in sys.path:
 
 logger = logging.getLogger(__name__)
 
-from backend.api.routes.auth import router as auth_router
-from backend.api.routes.admin import router as admin_router
-from backend.api.routes.agents import router as agents_router
-from backend.api.routes.operations import router as operations_router
-from backend.api.routes.performance import router as performance_router
-from backend.api.routes.performance_audit import router as performance_audit_router
-from backend.api.routes.portfolio import router as portfolio_router
-from backend.api.routes.risk import router as risk_router
-from backend.api.routes.session import router as session_router
-from backend.api.routes.signals import router as signals_router
-from backend.api.routes.trades import router as trades_router
-from backend.api.routes.trading import router as trading_router
-from backend.api.routes.users_licenses import router as users_licenses_router
-from backend.api.routes.workspace import router as workspace_router
-from backend.dependencies import get_services
+from server.backend.api.routes.auth import router as auth_router
+from server.backend.api.routes.admin import router as admin_router
+from server.backend.api.routes.agents import router as agents_router
+from server.backend.api.routes.operations import router as operations_router
+from server.backend.api.routes.performance import router as performance_router
+from server.backend.api.routes.performance_audit import router as performance_audit_router
+from server.backend.api.routes.portfolio import router as portfolio_router
+from server.backend.api.routes.risk import router as risk_router
+from server.backend.api.routes.session import router as session_router
+from server.backend.api.routes.signals import router as signals_router
+from server.backend.api.routes.trades import router as trades_router
+from server.backend.api.routes.trading import router as trading_router
+from server.backend.api.routes.users_licenses import router as users_licenses_router
+from server.backend.api.routes.workspace import router as workspace_router
+from server.backend.dependencies import get_services
 
 
 FRONTEND_DIST = Path(__file__).resolve().parents[1] / "frontend" / "dist"

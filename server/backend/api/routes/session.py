@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
-from backend.dependencies import ServerServiceContainer, get_services
+from server.backend.dependencies import ServerServiceContainer, get_services
 
 
 router = APIRouter(prefix="/api/v1/session", tags=["session"])

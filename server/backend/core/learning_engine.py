@@ -3,8 +3,8 @@ from decimal import Decimal
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.models.trade import Trade
-from backend.schemas.performance import PerformanceResponse, StrategyPerformance
+from server.backend.models.trade import Trade
+from server.backend.schemas.performance import PerformanceResponse, StrategyPerformance
 
 
 class LearningEngine:

@@ -1,9 +1,12 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
 
 import App from "./App.jsx";
-import AppAdmin from "./AppAdmin";
+import AppAdmin from "./AppAdmin.jsx";
+import { AuthProvider } from "./context/AuthProvider.jsx";
 import "./styles.css";
+import "./app.css";
 
 // Router component that determines which dashboard to render
 function RootRouter() {
@@ -49,7 +52,11 @@ function RootRouter() {
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <RootRouter />
+    <BrowserRouter>
+      <AuthProvider>
+        <RootRouter />
+      </AuthProvider>
+    </BrowserRouter>
   </React.StrictMode>
 );
 

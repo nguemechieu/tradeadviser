@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from backend.models.trade import TradeSide
+from server.backend.models.trade import TradeSide
 
 
 class TradeCreate(BaseModel):

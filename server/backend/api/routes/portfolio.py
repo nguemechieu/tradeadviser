@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Header
 
-from backend.api.routes._auth_helpers import resolve_bearer_user
-from backend.dependencies import ServerServiceContainer, get_services
+from server.backend.api.routes._auth_helpers import resolve_bearer_user
+from server.backend.dependencies import ServerServiceContainer, get_services
 
 
 router = APIRouter(prefix="/portfolio", tags=["Portfolio"])

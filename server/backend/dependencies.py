@@ -1189,8 +1189,8 @@ def get_services() -> ServerServiceContainer:
 
 # ==================== FastAPI Database & Auth Dependencies ====================
 
-from backend.db.session import get_db_session
-from backend.schemas import UserSchema
+from server.backend.db.session import get_db_session
+from server.backend.schemas import UserSchema
 from fastapi import Header, HTTPException, status, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Annotated
@@ -1263,7 +1263,7 @@ async def get_current_user(
 
 # ==================== Database Dependencies ====================
 
-from backend.db.session import get_db_session
+from server.backend.db.session import get_db_session
 from fastapi import Header, HTTPException, status
 from sqlalchemy.orm import Session as SyncSession
 from sqlalchemy.ext.asyncio import AsyncSession
