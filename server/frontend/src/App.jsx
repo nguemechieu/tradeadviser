@@ -20,6 +20,11 @@ import TradeAdviser from './components/TradeAdviser';
 import PersistLogin from './components/PersistLogin';
 import SystemStatus from './components/SystemStatus';
 import Docs from './components/Docs';
+import AgentsPage from './components/AgentsPage';
+import OperationsPage from './components/OperationsPage';
+import PerformanceAuditPage from './components/PerformanceAuditPage';
+import RiskManagementPage from './components/RiskManagementPage';
+import UsersLicensesPage from './components/UsersLicensesPage';
 
 const ROLES = {
   'trader': 'trader',
@@ -68,6 +73,11 @@ function App() {
             <Route path="/admin-panel" element={<AdminPanel />} />
             <Route path="/admin/users" element={<UserManagement />} />
             <Route path="/system-status" element={<SystemStatus />} />
+            <Route path="/agents" element={<AgentsPage />} />
+            <Route path="/operations" element={<OperationsPage />} />
+            <Route path="/performance-audit" element={<PerformanceAuditPage />} />
+            <Route path="/risk-management" element={<RiskManagementPage />} />
+            <Route path="/users-licenses" element={<UsersLicensesPage />} />
           </Route>
         </Route>
         
