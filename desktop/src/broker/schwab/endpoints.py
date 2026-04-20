@@ -1,0 +1,12 @@
+AUTHORIZE_URL = "https://api.schwabapi.com/v1/oauth/authorize"
+TOKEN_URL = "https://api.schwabapi.com/v1/oauth/token"
+TRADER_BASE_URL = "https://api.schwabapi.com/trader/v1"
+MARKET_DATA_BASE_URL = "https://api.schwabapi.com/marketdata/v1"
+
+ACCOUNT_NUMBERS = "/accounts/accountNumbers"
+ACCOUNT = "/accounts/{account_hash}"
+ORDERS = "/accounts/{account_hash}/orders"
+ORDER = "/accounts/{account_hash}/orders/{order_id}"
+QUOTES = "/quotes"
+OPTION_CHAINS = "/chains"
+PRICE_HISTORY = "/pricehistory"

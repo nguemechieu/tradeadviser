@@ -1,0 +1,156 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., 1.0.0)'
+        required: true
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Extract version
+      id: version
+      run: |
+        if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          VERSION="${{ github.ref_name }}"
+        else
+          VERSION="v${{ github.event.inputs.version }}"
+        fi
+        echo "version=${VERSION}" >> $GITHUB_OUTPUT
+        echo "version_number=${VERSION#v}" >> $GITHUB_OUTPUT
+
+    - name: Update version in files
+      if: github.event_name == 'workflow_dispatch'
+      run: |
+        # Update version in Python files
+        sed -i "s/__version__ = .*/__version__ = '${{ steps.version.outputs.version_number }}'/" backend/main.py
+        
+        # Update version in package.json
+        npm version ${{ steps.version.outputs.version_number }} --no-git-tag-v
+        cd backend && npm version ${{ steps.version.outputs.version_number }} --no-git-tag-v || true
+        
+        # Commit changes
+        git config --global user.email "action@github.com"
+        git config --global user.name "GitHub Action"
+        git add .
+        git commit -m "chore: bump version to ${{ steps.version.outputs.version }}" || true
+
+    - name: Generate changelog
+      id: changelog
+      run: |
+        {
+          echo "changelog<<EOF"
+          git log $(git describe --tags --abbrev=0)..HEAD --oneline --format="- %s (%an)"
+          echo "EOF"
+        } >> $GITHUB_OUTPUT
+
+    - name: Create Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.version.outputs.version }}
+        release_name: Release ${{ steps.version.outputs.version }}
+        body: |
+          ## TradeAdviser ${{ steps.version.outputs.version }}
+          
+          **Release Date**: $(date +'%Y-%m-%d')
+          
+          ### Changes
+          ${{ steps.changelog.outputs.changelog }}
+          
+          ### Docker Images
+          
+          Backend:
+          ```
+          docker pull ghcr.io/${{ github.repository }}/backend:${{ steps.version.outputs.version }}
+          ```
+          
+          Frontend:
+          ```
+          docker pull ghcr.io/${{ github.repository }}/frontend:${{ steps.version.outputs.version }}
+          ```
+          
+          ### Installation
+          
+          See [README.md](README.md) for installation instructions.
+          
+          ### Documentation
+          
+          - [Architecture](docs/ARCHITECTURE.md)
+          - [Deployment](docs/DEPLOYMENT.md)
+          - [Contributing](docs/CONTRIBUTING.md)
+        draft: false
+        prerelease: false
+
+    - name: Push release tag
+      if: github.event_name == 'workflow_dispatch'
+      run: |
+        git tag ${{ steps.version.outputs.version }}
+        git push origin ${{ steps.version.outputs.version }}
+        git push
+
+    - name: Notify Release
+      uses: slackapi/slack-github-action@v1.24.0
+      with:
+        webhook-url: ${{ secrets.SLACK_WEBHOOK }}
+        payload: |
+          {
+            "text": "🎉 TradeAdviser ${{ steps.version.outputs.version }} Released",
+            "blocks": [
+              {
+                "type": "header",
+                "text": {
+                  "type": "plain_text",
+                  "text": "🎉 TradeAdviser ${{ steps.version.outputs.version }} Released"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "View release: https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.version }}"
+                }
+              }
+            ]
+          }
+
+  publish-packages:
+    runs-on: ubuntu-latest
+    needs: create-release
+    permissions:
+      packages: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Publish to PyPI (Backend)
+      if: false
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        password: ${{ secrets.PYPI_API_TOKEN }}
+        packages-dir: backend/
+
+    - name: Publish to NPM (Frontend)
+      if: false
+      uses: JS-DevTools/npm-publish@v1
+      with:
+        token: ${{ secrets.NPM_TOKEN }}
+        registry: https://registry.npmjs.org
+        package: ./frontend/package.json

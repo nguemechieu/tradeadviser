@@ -1,0 +1,22 @@
+strategies:
+
+  momentum:
+    enabled: true
+    symbols:
+      - BTC/USDT
+      - ETH/USDT
+    timeframe: 1h
+    short_ma: 5
+    long_ma: 20
+
+  mean_reversion:
+    enabled: false
+    symbols:
+      - BTC/USDT
+    timeframe: 5m
+    deviation: 0.02
+
+  arbitrage:
+    enabled: false
+    symbols:
+      - BTC/USDT

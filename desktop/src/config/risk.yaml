@@ -1,0 +1,15 @@
+account:
+
+  initial_equity: 10000
+
+risk_limits:
+
+  max_portfolio_risk: 0.10
+  max_risk_per_trade: 0.02
+  max_position_size_pct: 0.10
+  max_gross_exposure_pct: 2.0
+
+drawdown_guard:
+
+  enabled: true
+  max_drawdown: 0.20

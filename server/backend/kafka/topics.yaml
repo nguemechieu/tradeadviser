@@ -1,0 +1,33 @@
+topics:
+  - name: market.data
+    partitions: 12
+    replication_factor: 1
+    description: "Normalized market prices, candle updates, and order book events from the trading core."
+  - name: execution.events
+    partitions: 12
+    replication_factor: 1
+    description: "Order lifecycle, fills, rejects, and broker execution reports."
+  - name: portfolio.updates
+    partitions: 6
+    replication_factor: 1
+    description: "Equity snapshots, balances, exposures, and portfolio deltas."
+  - name: risk.alerts
+    partitions: 6
+    replication_factor: 1
+    description: "Risk engine alerts, drawdown breaks, limit usage, and supervisor actions."
+  - name: strategy.state
+    partitions: 6
+    replication_factor: 1
+    description: "Runtime strategy health, status changes, and performance snapshots."
+  - name: strategy.commands
+    partitions: 6
+    replication_factor: 1
+    description: "Operator commands to enable, disable, pause, or reconfigure strategies."
+  - name: trading.commands
+    partitions: 6
+    replication_factor: 1
+    description: "Start, stop, symbol selection, and order submission commands."
+  - name: risk.commands
+    partitions: 3
+    replication_factor: 1
+    description: "Risk parameter updates and portfolio-level control changes."

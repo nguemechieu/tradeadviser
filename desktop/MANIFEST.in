@@ -1,0 +1,69 @@
+# =========================
+# EXCLUDE NON-PYTHON SYSTEM FILES
+# =========================
+
+prune .deps_ui
+prune .deps
+prune .deps_legacy
+
+# =========================
+# FRONTEND / NODE
+# =========================
+
+prune node_modules
+prune server_app/frontend
+prune server_app/frontend/.next
+prune server_app/frontend/node_modules
+
+# =========================
+# DATA / LOGS / OUTPUT
+# =========================
+
+prune data
+prune logs
+prune output
+prune reports
+prune tmp
+
+# =========================
+# BUILD / CACHE
+# =========================
+
+prune build
+prune dist
+prune *.egg-info
+
+# =========================
+# TESTS (optional)
+# =========================
+
+prune tests
+
+# =========================
+# GLOBAL EXCLUDES (CRITICAL)
+# =========================
+
+global-exclude *.dll
+global-exclude *.so
+global-exclude *.dylib
+global-exclude *.pak
+global-exclude *.node
+global-exclude *.sst
+global-exclude *.log
+global-exclude *.db
+global-exclude *.sqlite
+
+# =========================
+# PYTHON CACHE
+# =========================
+
+global-exclude __pycache__
+global-exclude *.pyc
+global-exclude *.pyo
+
+# =========================
+# OS / EDITOR FILES
+# =========================
+
+global-exclude .DS_Store
+global-exclude Thumbs.db

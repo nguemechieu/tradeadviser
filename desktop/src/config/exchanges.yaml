@@ -1,0 +1,12 @@
+crypto:
+  exchange: binanceus
+  sandbox: true
+  rate_limit: 10
+
+stocks:
+  broker: alpaca
+  paper_trading: true
+
+forex:
+  broker: oanda
+  environment: practice

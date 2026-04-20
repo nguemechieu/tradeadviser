@@ -1,0 +1,56 @@
+site_name: Sopotek Quant System
+site_description: Desktop trading workstation by Sopotek Corporation
+site_author: Sopotek Corporation
+repo_url: https://github.com/nguemechieu/sopotek_quant_system
+repo_name: nguemechieu/sopotek_quant_system
+
+docs_dir: .
+site_dir: ../output/docs-site
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: blue grey
+      accent: blue
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - content.action.edit
+    - search.highlight
+    - content.code.copy
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Full App Guide: FULL_APP_GUIDE.md
+  - Release Notes: release-notes.md
+  - Adaptive Runtime Guide: adaptive-runtime.md
+  - Quant Fund Roadmap: quant-fund-roadmap.md
+  - Architecture: architecture.md
+  - Strategies: strategy_docs.md
+  - Brokers And Modes: brokers-and-modes.md
+  - Derivatives Guide: derivatives.md
+  - UI Workspace: ui-workspace.md
+  - Integrations: integrations.md
+  - Internal API Notes: api.md
+  - Testing And Operations: testing-and-operations.md
+  - Code Quality: code-quality.md
+  - Troubleshooting: troubleshooting.md
+  - Contributing Guide: contributing.md
+  - Development Notes: development.md
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.superfences
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed
+
+plugins:
+  - search

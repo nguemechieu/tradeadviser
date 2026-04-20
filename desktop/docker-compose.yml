@@ -1,0 +1,126 @@
+x-desktop-env: &desktop-env
+  PYTHONPATH: /app:/app/src
+  PYTHONUNBUFFERED: 1
+  SOPOTEK_DATABASE_MODE: remote
+  SOPOTEK_DATABASE_URL: ${SOPOTEK_DATABASE_URL:-postgresql+psycopg://sopotek:sopotek_local@postgres:5432/sopotek_trading}
+  SOPOTEK_API_URL: ${SOPOTEK_API_URL:-http://api:8000}
+  SOPOTEK_WS_URL: ${SOPOTEK_WS_URL:-ws://api:8000/ws/events}
+  SOPOTEK_ENABLE_HYBRID_DESKTOP: ${SOPOTEK_ENABLE_HYBRID_DESKTOP:-1}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: sopotek_quant_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sopotek_trading}
+      POSTGRES_USER: ${POSTGRES_USER:-sopotek}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sopotek_local}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  api:
+    build:
+      context: ..
+      dockerfile: ./sqs_server/docker/Dockerfile
+    container_name: sopotek_quant_api
+    restart: unless-stopped
+    environment:
+      PYTHONUNBUFFERED: 1
+      PYTHONPATH: /app
+      DATABASE_URL: ${SOPOTEK_DATABASE_URL:-postgresql+asyncpg://sopotek:sopotek_local@postgres:5432/sopotek_trading}
+      SOPOTEK_DATABASE_URL: ${SOPOTEK_DATABASE_URL:-postgresql+asyncpg://sopotek:sopotek_local@postgres:5432/sopotek_trading}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  app:
+    build:
+      context: ..
+      dockerfile: ./sqs_desktop/Dockerfile
+    container_name: sopotek_quant_app
+    restart: unless-stopped
+    environment:
+      <<: *desktop-env
+      QT_X11_NO_MITSHM: "1"
+      DISPLAY: ${DISPLAY:-}
+    depends_on:
+      api:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./credentials.json:/app/credentials.json
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./output:/app/output
+      - ./.env:/app/.env:ro
+    stdin_open: true
+    tty: true
+    command: sopotek_quant_system
+
+  app-http:
+    build:
+      context: ..
+      dockerfile: ./sqs_desktop/Dockerfile
+    container_name: sopotek_quant_http
+    restart: unless-stopped
+    profiles: ["browser"]
+    environment:
+      <<: *desktop-env
+      SOPOTEK_HTTP_UI: "1"
+      SOPOTEK_DISABLE_WEBENGINE: "1"
+      DISPLAY: :99
+      QT_QPA_PLATFORM: xcb
+      LIBGL_ALWAYS_SOFTWARE: "1"
+      QT_OPENGL: software
+      QT_QUICK_BACKEND: software
+      QSG_RHI_BACKEND: software
+      QT_XCB_GL_INTEGRATION: none
+      QTWEBENGINE_DISABLE_SANDBOX: "1"
+      QTWEBENGINE_CHROMIUM_FLAGS: --no-sandbox --disable-gpu --disable-gpu-compositing --disable-gpu-rasterization --disable-dev-shm-usage --disable-features=Vulkan,VulkanFromANGLE,UseSkiaRenderer
+      SCREEN_WIDTH: ${SCREEN_WIDTH:-1600}
+      SCREEN_HEIGHT: ${SCREEN_HEIGHT:-900}
+      SCREEN_DEPTH: ${SCREEN_DEPTH:-24}
+      NOVNC_PORT: 6080
+      NOVNC_RESIZE_MODE: ${NOVNC_RESIZE_MODE:-off}
+      NOVNC_RECONNECT: ${NOVNC_RECONNECT:-1}
+      NOVNC_SHOW_DOT: ${NOVNC_SHOW_DOT:-1}
+      NOVNC_TLS_ENABLED: ${NOVNC_TLS_ENABLED:-0}
+      NOVNC_TLS_HOSTNAME: ${NOVNC_TLS_HOSTNAME:-localhost}
+      VNC_PORT: 5900
+    depends_on:
+      api:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${APP_HTTP_PORT:-6080}:6080"
+    volumes:
+      - ./credentials.json:/app/credentials.json
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./output:/app/output
+      - ./.env:/app/.env:ro
+    command: /app/src/scripts/start_http_ui.sh
+
+volumes:
+  postgres_data:

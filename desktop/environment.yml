@@ -1,0 +1,11 @@
+
+name: sopotek-quant-system-desktop
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - portaudio
+  - pip:
+      - -r requirements.txt

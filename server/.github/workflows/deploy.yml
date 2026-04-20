@@ -1,0 +1,195 @@
+name: Deploy to Environments
+
+on:
+  push:
+    branches: [ main, develop ]
+    tags: [ 'v*' ]
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE: ${{ github.repository }}/backend
+  FRONTEND_IMAGE: ${{ github.repository }}/frontend
+
+jobs:
+  deploy-staging:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    environment:
+      name: staging
+      url: https://staging-tradeadviser.org
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Deploy to staging
+      env:
+        DEPLOY_KEY: ${{ secrets.STAGING_DEPLOY_KEY }}
+        DEPLOY_HOST: ${{ secrets.STAGING_HOST }}
+        DEPLOY_USER: ${{ secrets.STAGING_USER }}
+      run: |
+        mkdir -p ~/.ssh
+        echo "$DEPLOY_KEY" > ~/.ssh/deploy_key
+        chmod 600 ~/.ssh/deploy_key
+        ssh-keyscan -H $DEPLOY_HOST >> ~/.ssh/known_hosts
+        
+        # Deploy via SSH
+        ssh -i ~/.ssh/deploy_key $DEPLOY_USER@$DEPLOY_HOST << 'EOF'
+          cd /app/tradeadviser
+          git pull origin develop
+          docker-compose pull
+          docker-compose up -d
+          docker-compose exec -T backend python -m alembic upgrade head
+        EOF
+      if: github.event_name == 'push'
+
+    - name: Health check
+      run: |
+        for i in {1..30}; do
+          if curl -f https://staging-tradeadviser.org/health; then
+            echo "Staging deployment successful"
+            exit 0
+          fi
+          echo "Waiting for deployment... ($i/30)"
+          sleep 10
+        done
+        echo "Deployment health check failed"
+        exit 1
+
+    - name: Notify Slack
+      uses: slackapi/slack-github-action@v1.24.0
+      with:
+        webhook-url: ${{ secrets.SLACK_WEBHOOK }}
+        payload: |
+          {
+            "text": "✅ Staging deployment successful",
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "✅ TradeAdviser staging deployment successful\n*Branch:* develop\n*Commit:* ${{ github.sha }}"
+                }
+              }
+            ]
+          }
+
+  deploy-production:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    environment:
+      name: production
+      url: https://tradeadviser.org
+    needs: [deploy-staging]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Deploy to production
+      env:
+        DEPLOY_KEY: ${{ secrets.PRODUCTION_DEPLOY_KEY }}
+        DEPLOY_HOST: ${{ secrets.PRODUCTION_HOST }}
+        DEPLOY_USER: ${{ secrets.PRODUCTION_USER }}
+      run: |
+        mkdir -p ~/.ssh
+        echo "$DEPLOY_KEY" > ~/.ssh/deploy_key
+        chmod 600 ~/.ssh/deploy_key
+        ssh-keyscan -H $DEPLOY_HOST >> ~/.ssh/known_hosts
+        
+        # Deploy via SSH
+        ssh -i ~/.ssh/deploy_key $DEPLOY_USER@$DEPLOY_HOST << 'EOF'
+          cd /app/tradeadviser
+          git checkout ${{ github.ref_name }}
+          docker-compose pull
+          docker-compose up -d
+          docker-compose exec -T backend python -m alembic upgrade head
+        EOF
+
+    - name: Health check
+      run: |
+        for i in {1..30}; do
+          if curl -f https://tradeadviser.org/health; then
+            echo "Production deployment successful"
+            exit 0
+          fi
+          echo "Waiting for deployment... ($i/30)"
+          sleep 10
+        done
+        echo "Production deployment health check failed"
+        exit 1
+
+    - name: Create GitHub Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref_name }}
+        release_name: Release ${{ github.ref_name }}
+        body: |
+          Production release: ${{ github.ref_name }}
+          
+          Changes: https://github.com/${{ github.repository }}/compare/${{ github.event.before }}...${{ github.sha }}
+        draft: false
+        prerelease: false
+
+    - name: Notify Slack
+      uses: slackapi/slack-github-action@v1.24.0
+      with:
+        webhook-url: ${{ secrets.SLACK_WEBHOOK }}
+        payload: |
+          {
+            "text": "🚀 Production deployment successful",
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "🚀 TradeAdviser production deployment successful\n*Version:* ${{ github.ref_name }}\n*Commit:* ${{ github.sha }}"
+                }
+              }
+            ]
+          }
+
+  rollback:
+    runs-on: ubuntu-latest
+    if: failure() && startsWith(github.ref, 'refs/tags/v')
+    needs: [deploy-production]
+
+    steps:
+    - name: Rollback production deployment
+      env:
+        DEPLOY_KEY: ${{ secrets.PRODUCTION_DEPLOY_KEY }}
+        DEPLOY_HOST: ${{ secrets.PRODUCTION_HOST }}
+        DEPLOY_USER: ${{ secrets.PRODUCTION_USER }}
+      run: |
+        mkdir -p ~/.ssh
+        echo "$DEPLOY_KEY" > ~/.ssh/deploy_key
+        chmod 600 ~/.ssh/deploy_key
+        ssh-keyscan -H $DEPLOY_HOST >> ~/.ssh/known_hosts
+        
+        ssh -i ~/.ssh/deploy_key $DEPLOY_USER@$DEPLOY_HOST << 'EOF'
+          cd /app/tradeadviser
+          git checkout HEAD~1
+          docker-compose down
+          docker-compose pull
+          docker-compose up -d
+        EOF
+
+    - name: Notify Slack of rollback
+      uses: slackapi/slack-github-action@v1.24.0
+      with:
+        webhook-url: ${{ secrets.SLACK_WEBHOOK }}
+        payload: |
+          {
+            "text": "⚠️ Production rollback performed",
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "⚠️ Production deployment failed. Rolled back to previous version.\n*Version:* ${{ github.ref_name }}\n*Commit:* ${{ github.sha }}"
+                }
+              }
+            ]
+          }

@@ -1,0 +1,29 @@
+[flake8]
+max-line-length = 100
+max-complexity = 12
+statistics = True
+show-source = True
+jobs = 1
+extend-ignore = E203, E501, W503
+extend-select = B950
+exclude =
+    .git,
+    .github,
+    .idea,
+    .mypy_cache,
+    .pytest_cache,
+    .venv,
+    .vscode,
+    .deps,
+    .deps_legacy,
+    .deps_ui,
+    build,
+    dist,
+    htmlcov,
+    output,
+    reports,
+    src/assets,
+    src/logs,
+    src/reports,
+    src/sopotek_trading_ai.egg-info,
+    tmp

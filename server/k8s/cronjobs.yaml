@@ -1,0 +1,276 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: tradeadviser
+  labels:
+    app: tradeadviser
+    component: backup
+spec:
+  # Every day at 2:00 AM UTC
+  schedule: "0 2 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: tradeadviser
+            component: backup
+        spec:
+          serviceAccountName: tradeadviser-backup
+          containers:
+          - name: postgres-backup
+            image: postgres:15-alpine
+            command:
+            - /bin/sh
+            - -c
+            - |
+              BACKUP_DIR="/backups"
+              BACKUP_FILE="$BACKUP_DIR/tradeadviser-backup-$(date +%Y%m%d-%H%M%S).sql"
+              mkdir -p "$BACKUP_DIR"
+              
+              pg_dump -h postgres -U postgres \
+                --format=custom \
+                --verbose \
+                --blobs \
+                tradeadviser > "$BACKUP_FILE"
+              
+              echo "Backup completed: $BACKUP_FILE"
+              
+              # Keep only last 7 days of backups
+              find "$BACKUP_DIR" -name "tradeadviser-backup-*.sql" -mtime +7 -delete
+              
+              echo "Cleanup completed"
+            env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: tradeadviser-secrets
+                  key: POSTGRES_PASSWORD
+            resources:
+              requests:
+                memory: "256Mi"
+                cpu: "250m"
+              limits:
+                memory: "512Mi"
+                cpu: "500m"
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /backups
+          volumes:
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: backup-pvc
+          restartPolicy: OnFailure
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: database-cleanup
+  namespace: tradeadviser
+  labels:
+    app: tradeadviser
+    component: maintenance
+spec:
+  # Every day at 3:00 AM UTC
+  schedule: "0 3 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: tradeadviser
+            component: maintenance
+        spec:
+          serviceAccountName: tradeadviser-maintenance
+          containers:
+          - name: db-cleanup
+            image: postgres:15-alpine
+            command:
+            - /bin/sh
+            - -c
+            - |
+              psql -h postgres -U postgres -d tradeadviser << EOF
+              -- Clean up old sessions (older than 30 days)
+              DELETE FROM sessions WHERE updated_at < NOW() - INTERVAL '30 days';
+              
+              -- Clean up old audit logs (older than 90 days)
+              DELETE FROM audit_logs WHERE created_at < NOW() - INTERVAL '90 days';
+              
+              -- Analyze tables for query optimization
+              ANALYZE;
+              
+              -- Vacuum to reclaim space
+              VACUUM ANALYZE;
+              
+              SELECT 'Database cleanup completed' as status;
+              EOF
+            env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: tradeadviser-secrets
+                  key: POSTGRES_PASSWORD
+            resources:
+              requests:
+                memory: "256Mi"
+                cpu: "250m"
+              limits:
+                memory: "512Mi"
+                cpu: "500m"
+          restartPolicy: OnFailure
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: health-check
+  namespace: tradeadviser
+  labels:
+    app: tradeadviser
+    component: monitoring
+spec:
+  # Every 5 minutes
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: tradeadviser
+            component: monitoring
+        spec:
+          containers:
+          - name: health-check
+            image: curlimages/curl:latest
+            command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Checking backend health..."
+              curl -f -s http://tradeadviser-backend:8000/health || exit 1
+              
+              echo "Checking frontend health..."
+              curl -f -s http://tradeadviser-frontend:80/ || exit 1
+              
+              echo "Health checks passed"
+            resources:
+              requests:
+                memory: "64Mi"
+                cpu: "50m"
+              limits:
+                memory: "128Mi"
+                cpu: "100m"
+          restartPolicy: OnFailure
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pod-resource-cleanup
+  namespace: tradeadviser
+  labels:
+    app: tradeadviser
+    component: maintenance
+spec:
+  # Every day at 4:00 AM UTC
+  schedule: "0 4 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: tradeadviser
+            component: maintenance
+        spec:
+          serviceAccountName: tradeadviser-cleanup
+          containers:
+          - name: cleanup
+            image: bitnami/kubectl:latest
+            command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Cleaning up evicted pods..."
+              kubectl delete pod \
+                --field-selector=status.phase=Failed \
+                -n tradeadviser
+              
+              echo "Cleaning up succeeded pods older than 1 day..."
+              kubectl delete pod \
+                --field-selector=status.phase=Succeeded \
+                -n tradeadviser \
+                --sort-by=.metadata.creationTimestamp
+              
+              echo "Cleanup completed"
+            resources:
+              requests:
+                memory: "64Mi"
+                cpu: "50m"
+              limits:
+                memory: "128Mi"
+                cpu: "100m"
+          restartPolicy: OnFailure
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tradeadviser-backup
+  namespace: tradeadviser
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tradeadviser-maintenance
+  namespace: tradeadviser
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tradeadviser-cleanup
+  namespace: tradeadviser
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: pod-cleanup
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: tradeadviser-cleanup-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: pod-cleanup
+subjects:
+- kind: ServiceAccount
+  name: tradeadviser-cleanup
+  namespace: tradeadviser
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backup-pvc
+  namespace: tradeadviser
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: standard

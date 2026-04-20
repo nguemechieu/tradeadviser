@@ -1,0 +1,11 @@
+exclude_dirs:
+  - src/tests
+  - src/assets
+  - src/logs
+  - src/reports
+  - src/sopotek_trading_ai.egg-info
+  - .venv
+  - .deps
+  - .deps_legacy
+  - .deps_ui
+  - tmp

@@ -1,0 +1,1 @@
+-e .[ui,brokers,ml,distributed,docs,dev]

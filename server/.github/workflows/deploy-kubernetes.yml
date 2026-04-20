@@ -1,0 +1,214 @@
+name: Deploy to Kubernetes
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      kubernetes_cluster:
+        description: 'Kubernetes cluster'
+        required: true
+        type: choice
+        options:
+          - aks-staging
+          - aks-production
+          - gke-production
+          - eks-production
+
+jobs:
+  deploy-kubernetes:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.event.inputs.environment }}
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+      if: contains(github.event.inputs.kubernetes_cluster, 'aks')
+
+    - name: Set AKS context
+      run: |
+        az aks get-credentials \
+          --resource-group ${{ secrets.AKS_RESOURCE_GROUP }} \
+          --name ${{ secrets.AKS_CLUSTER_NAME }} \
+          --overwrite-existing
+      if: contains(github.event.inputs.kubernetes_cluster, 'aks')
+
+    - name: Verify cluster connection
+      run: kubectl cluster-info && kubectl get nodes
+
+    - name: Create namespace
+      run: kubectl create namespace tradeadviser --dry-run=client -o yaml | kubectl apply -f -
+
+    - name: Create secrets
+      run: |
+        kubectl create secret generic tradeadviser-secrets \
+          --from-literal=DATABASE_URL=${{ secrets.DATABASE_URL }} \
+          --from-literal=SECRET_KEY=${{ secrets.SECRET_KEY }} \
+          --from-literal=JWT_SECRET=${{ secrets.JWT_SECRET }} \
+          -n tradeadviser --dry-run=client -o yaml | kubectl apply -f -
+
+    - name: Pull latest images
+      run: |
+        docker pull ${{ secrets.REGISTRY }}/backend:latest
+        docker pull ${{ secrets.REGISTRY }}/frontend:latest
+
+    - name: Deploy PostgreSQL
+      run: |
+        kubectl apply -f k8s/postgres.yaml
+        kubectl rollout status deployment/postgres -n tradeadviser --timeout=300s
+
+    - name: Deploy backend
+      run: |
+        kubectl set image deployment/tradeadviser-backend \
+          backend=${{ secrets.REGISTRY }}/backend:latest \
+          -n tradeadviser || kubectl apply -f k8s/backend.yaml
+        kubectl rollout status deployment/tradeadviser-backend -n tradeadviser --timeout=300s
+
+    - name: Deploy frontend
+      run: |
+        kubectl set image deployment/tradeadviser-frontend \
+          frontend=${{ secrets.REGISTRY }}/frontend:latest \
+          -n tradeadviser || kubectl apply -f k8s/frontend.yaml
+        kubectl rollout status deployment/tradeadviser-frontend -n tradeadviser --timeout=300s
+
+    - name: Apply ingress
+      run: |
+        kubectl apply -f k8s/ingress.yaml
+
+    - name: Wait for services
+      run: |
+        echo "Waiting for services to be ready..."
+        kubectl wait --for=condition=ready pod -l app=tradeadviser -n tradeadviser --timeout=300s
+
+    - name: Get service endpoints
+      run: |
+        echo "Backend Service:"
+        kubectl get service tradeadviser-backend -n tradeadviser
+        echo "Frontend Service:"
+        kubectl get service tradeadviser-frontend -n tradeadviser
+        echo "Ingress:"
+        kubectl get ingress -n tradeadviser
+
+    - name: Health check
+      run: |
+        BACKEND_POD=$(kubectl get pods -n tradeadviser -l app=tradeadviser,component=backend -o jsonpath='{.items[0].metadata.name}')
+        kubectl exec -n tradeadviser $BACKEND_POD -- curl -s http://localhost:8000/health || true
+
+    - name: Verify deployment
+      run: |
+        echo "Deployment Status:"
+        kubectl get deployments -n tradeadviser
+        echo "Pods:"
+        kubectl get pods -n tradeadviser
+        echo "Services:"
+        kubectl get services -n tradeadviser
+        echo "Ingress:"
+        kubectl get ingress -n tradeadviser
+
+    - name: Notify Slack on success
+      uses: slackapi/slack-github-action@v1.24.0
+      with:
+        webhook-url: ${{ secrets.SLACK_WEBHOOK }}
+        payload: |
+          {
+            "text": "✅ Kubernetes deployment successful",
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "✅ TradeAdviser deployed to Kubernetes\n*Environment:* ${{ github.event.inputs.environment }}\n*Cluster:* ${{ github.event.inputs.kubernetes_cluster }}\n*Triggered by:* ${{ github.actor }}"
+                }
+              }
+            ]
+          }
+
+    - name: Notify Slack on failure
+      if: failure()
+      uses: slackapi/slack-github-action@v1.24.0
+      with:
+        webhook-url: ${{ secrets.SLACK_WEBHOOK }}
+        payload: |
+          {
+            "text": "❌ Kubernetes deployment failed",
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "❌ TradeAdviser Kubernetes deployment failed\n*Environment:* ${{ github.event.inputs.environment }}\n*Cluster:* ${{ github.event.inputs.kubernetes_cluster }}\n*View logs:* https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                }
+              }
+            ]
+          }
+
+  helm-deployment:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.event.inputs.environment }}
+    permissions:
+      contents: read
+      packages: read
+    if: github.event.inputs.environment == 'production'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Helm
+      uses: azure/setup-helm@v3
+
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Set AKS context
+      run: |
+        az aks get-credentials \
+          --resource-group ${{ secrets.AKS_RESOURCE_GROUP }} \
+          --name ${{ secrets.AKS_CLUSTER_NAME }} \
+          --overwrite-existing
+
+    - name: Add Helm repositories
+      run: |
+        helm repo add tradeadviser https://charts.tradeadviser.org
+        helm repo update
+
+    - name: Deploy with Helm
+      run: |
+        helm upgrade --install tradeadviser ./helm/tradeadviser \
+          --namespace tradeadviser \
+          --create-namespace \
+          --values helm/tradeadviser/values.yaml \
+          --set image.tag=latest \
+          --set secrets.databaseUrl=${{ secrets.DATABASE_URL }} \
+          --set secrets.secretKey=${{ secrets.SECRET_KEY }} \
+          --set secrets.jwtSecret=${{ secrets.JWT_SECRET }} \
+          --wait \
+          --timeout 10m
+
+    - name: Verify Helm deployment
+      run: |
+        helm list -n tradeadviser
+        helm status tradeadviser -n tradeadviser

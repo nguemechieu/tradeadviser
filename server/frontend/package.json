@@ -1,0 +1,30 @@
+{
+  "name": "tradeadviser",
+  "description": "Intelligent Trading Advisory Platform by Sopotek Inc",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "homepage": "https://tradeadviser.org",
+  "author": {
+    "name": "Sopotek Inc",
+    "email": "info@sopotek.com",
+    "url": "https://sopotek.com"
+  },
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 5173",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0 --port 4173",
+    "lint": "eslint src --ext .js,.jsx",
+    "test": "vitest",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^5.4.10"
+  }
+}

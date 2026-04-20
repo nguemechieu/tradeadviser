@@ -1,0 +1,204 @@
+
+services:
+  # PostgreSQL Database
+  database:
+    image: postgres:15-alpine
+    container_name: tradeadviser-db
+    environment:
+      POSTGRES_DB: tradeadviser
+      POSTGRES_USER: tradeadviser
+      POSTGRES_PASSWORD: tradeadviser_dev_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tradeadviser"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tradeadviser-network
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: tradeadviser-backend
+    ports:
+      - "8000:8000"
+    environment:
+      APP_NAME: TradeAdviser
+      APP_ENV: production
+      APP_DEBUG: "false"
+      DATABASE_URL: postgresql+asyncpg://tradeadviser:tradeadviser_dev_password@database:5432/tradeadviser
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-secret-key-change-in-production}
+      ALLOWED_ORIGINS: http://localhost:4173,http://localhost:5173,http://localhost:8000,https://tradeadviser.org
+      FRONTEND_DIST: /app/frontend/dist
+      LOG_LEVEL: INFO
+    depends_on:
+      database:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app/backend
+      - ./frontend/dist:/app/frontend/dist
+      - ./logs:/app/logs
+    command: >
+      sh -c "
+        python -m alembic upgrade head || true &&
+        python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
+      "
+    networks:
+      - tradeadviser-network
+    restart: unless-stopped
+
+  # React Frontend (built and served via backend)
+  # Note: Frontend is served by backend in production
+  # For development with hot reload, run: cd frontend && npm run dev
+
+  # Optional: Redis for Caching
+  redis:
+    image: redis:7-alpine
+    container_name: tradeadviser-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tradeadviser-network
+    restart: unless-stopped
+    profiles:
+      - with-redis
+
+  # Optional: Kafka for Event Streaming
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: tradeadviser-kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    depends_on:
+      - zookeeper
+    networks:
+      - tradeadviser-network
+    restart: unless-stopped
+    profiles:
+      - with-kafka
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: tradeadviser-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - tradeadviser-network
+    restart: unless-stopped
+    profiles:
+      - with-kafka
+
+  # Optional: Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: tradeadviser-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+    networks:
+      - tradeadviser-network
+    restart: unless-stopped
+    profiles:
+      - with-nginx
+
+  # Optional: pgAdmin for Database Management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: tradeadviser-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@tradeadviser.org
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "5050:80"
+    depends_on:
+      - database
+    networks:
+      - tradeadviser-network
+    restart: unless-stopped
+    profiles:
+      - with-pgadmin
+
+  # Optional: Adminer for Database UI
+  adminer:
+    image: adminer:latest
+    container_name: tradeadviser-adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - database
+    networks:
+      - tradeadviser-network
+    restart: unless-stopped
+    profiles:
+      - with-adminer
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  tradeadviser-network:
+    driver: bridge
+
+# Usage:
+# 
+# Basic setup (Backend + Database):
+# $ docker-compose up --build
+# 
+# With Redis caching:
+# $ docker-compose --profile with-redis up --build
+# 
+# With Kafka event streaming:
+# $ docker-compose --profile with-kafka up --build
+# 
+# With all services:
+# $ docker-compose --profile with-redis --profile with-kafka --profile with-nginx --profile with-pgadmin up --build
+# 
+# Stop services:
+# $ docker-compose down
+# 
+# View logs:
+# $ docker-compose logs -f backend
+# $ docker-compose logs -f database
+# 
+# Run migrations:
+# $ docker-compose exec backend python -m alembic upgrade head
+#
+# Access services:
+# - Frontend: http://localhost:8000 (served by backend)
+# - Backend API: http://localhost:8000/api
+# - API Docs: http://localhost:8000/docs
+# - pgAdmin: http://localhost:5050 (if with-pgadmin profile)
+# - Adminer: http://localhost:8080 (if with-adminer profile)

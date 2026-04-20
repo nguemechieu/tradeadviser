@@ -1,0 +1,50 @@
+{{- if .Values.namespace.create }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.namespace.name }}
+  labels:
+    app: tradeadviser
+{{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tradeadviser-config
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app: tradeadviser
+data:
+  LOG_LEVEL: {{ .Values.config.logLevel | quote }}
+  DEBUG: {{ .Values.config.debug | quote }}
+  ENVIRONMENT: {{ .Values.config.environment | quote }}
+---
+{{- if .Values.secrets.create }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tradeadviser-secrets
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app: tradeadviser
+type: Opaque
+stringData:
+  DATABASE_URL: {{ .Values.secrets.databaseUrl | quote }}
+  SECRET_KEY: {{ .Values.secrets.secretKey | quote }}
+  JWT_SECRET: {{ .Values.secrets.jwtSecret | quote }}
+{{- end }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app: tradeadviser
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.database.persistence.size }}
+  storageClassName: {{ .Values.database.persistence.storageClass }}

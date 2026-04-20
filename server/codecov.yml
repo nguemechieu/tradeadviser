@@ -1,0 +1,75 @@
+codecov:
+  require_ci_to_pass: true
+  precision: 2
+  round: down
+  layout: "reach,diff,flags,tree"
+  branches:
+    - main
+    - develop
+
+coverage:
+  precision: 2
+  round: down
+  range:
+    - 70
+    - 100
+  status:
+    project:
+      default:
+        target: 70
+        threshold: 2
+        branches:
+          - main
+          - develop
+    patch:
+      default:
+        target: 80
+        threshold: 5
+    changes:
+      default:
+        branches:
+          - main
+          - develop
+
+flags:
+  backend:
+    paths:
+      - backend
+    carryforward: true
+  frontend:
+    paths:
+      - frontend/src
+    carryforward: true
+
+ignore:
+  - "tests"
+  - "**/test_*.py"
+  - "**/*.test.js"
+  - "**/*.spec.js"
+  - "**/node_modules"
+  - "**/dist"
+  - "**/build"
+
+comment:
+  layout: "reach,diff,flags,tree"
+  behavior: default
+  require_changes: no
+  require_base: no
+  require_head: yes
+  branches:
+    - develop
+    - main
+
+github:
+  require_ci_to_pass: true
+  notify:
+    - default
+    - gists
+
+parsers:
+  gcov:
+    branch_detection:
+      conditional: yes
+      loop: yes
+      method: no
+      partial: yes

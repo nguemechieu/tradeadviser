@@ -1,0 +1,188 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  code-quality:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install backend dependencies
+      working-directory: ./backend
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install black isort flake8 pylint
+
+    - name: Format check with Black
+      working-directory: ./backend
+      run: black --check --diff .
+
+    - name: Import sorting with isort
+      working-directory: ./backend
+      run: isort --check-only --diff .
+
+    - name: Lint with Pylint
+      working-directory: ./backend
+      run: |
+        pylint app/ --exit-zero --output-format=text
+
+    - name: Lint with Flake8
+      working-directory: ./backend
+      run: |
+        flake8 . --count --statistics
+
+    - name: Install frontend dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: Format check with Prettier
+      working-directory: ./frontend
+      run: npx prettier --check src/
+
+    - name: Lint with ESLint
+      working-directory: ./frontend
+      run: npx eslint src/ --max-warnings 0
+
+    - name: SonarCloud Scan
+      uses: SonarSource/sonarcloud-github-action@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      with:
+        args: >
+          -Dsonar.python.coverage.reportPaths=backend/coverage.xml
+          -Dsonar.sources=backend,frontend
+
+    - name: SAST Scan with Semgrep
+      uses: returntocorp/semgrep-action@v1
+      with:
+        config: >-
+          p/security-audit
+          p/python
+          p/owasp-top-ten
+
+  dependency-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      working-directory: ./backend
+      run: |
+        python -m pip install --upgrade pip
+        pip install safety pip-audit
+
+    - name: Check Python dependencies
+      working-directory: ./backend
+      run: |
+        pip-audit || true
+        safety check --json || true
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+
+    - name: Check Node dependencies
+      working-directory: ./frontend
+      run: |
+        npm audit --audit-level=moderate || true
+        npm outdated || true
+
+  license-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Check license headers
+      run: |
+        # Check for license headers in source files
+        find backend -name "*.py" -type f | head -1 | xargs head -5 | grep -i "license" || echo "Warning: No license headers found"
+        find frontend/src -name "*.js" -o -name "*.jsx" | head -1 | xargs head -5 | grep -i "license" || echo "Warning: No license headers found"
+
+  architecture-compliance:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Check architecture compliance
+      run: |
+        echo "Checking architecture compliance..."
+        
+        # Check if backend code imports from frontend
+        if grep -r "from frontend" backend/ 2>/dev/null; then
+          echo "ERROR: Backend should not import from frontend"
+          exit 1
+        fi
+        
+        # Check if frontend code tries to access backend directly without API
+        if grep -r "import.*backend" frontend/src/ 2>/dev/null; then
+          echo "ERROR: Frontend should not import backend code"
+          exit 1
+        fi
+        
+        echo "Architecture compliance check passed"
+
+  documentation:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Check documentation
+      run: |
+        echo "Checking documentation..."
+        
+        # Check if README exists
+        if [ ! -f README.md ]; then
+          echo "ERROR: README.md not found"
+          exit 1
+        fi
+        
+        # Check if ARCHITECTURE.md exists
+        if [ ! -f docs/ARCHITECTURE.md ]; then
+          echo "ERROR: docs/ARCHITECTURE.md not found"
+          exit 1
+        fi
+        
+        echo "Documentation check passed"
+
+    - name: Validate Markdown
+      uses: nosborn/github-action-markdown-cli@v3.3.0
+      with:
+        files: .
+        config_file: .markdownlint.json

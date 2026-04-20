@@ -1,0 +1,74 @@
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Git
+.git
+.gitignore
+
+# Docker
+docker-compose.yml
+server_app/*
+!server_app/backend/
+!server_app/backend/**
+server_app/backend/.pytest_tmp*/
+server_app/backend/.verification_tmp*/
+server_app/backend/tmp/
+server_app/backend/tests/
+server_app/backend/examples/
+server_app/backend/*.db
+server_app/backend/tmp_smoke_kafka.db
+# Logs / data
+data/
+logs/
+output/
+
+# Env
+.env
+credentials.json
+oauth_tokens.json
+platform_sync.json
+license.json
+license_server/
+
+# Pytest / temp
+.pytest*
+.pytest_tmp_terminal
+
+# OS
+*.log
+*.tmp
+*.swp
+Thumbs.db
+.git
+.github
+.idea
+.codex-tmp
+.deps
+.deps_legacy
+.deps_ui
+.mypy_cache
+.pytest_cache
+.venv
+.vscode
+.coverage
+coverage.xml
+htmlcov
+build
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.log
+dist
+docs
+output
+reports
+tmp
+data
+logs
+src/tests/.pytest_cache
+Sopotek_Screenshot_*.png

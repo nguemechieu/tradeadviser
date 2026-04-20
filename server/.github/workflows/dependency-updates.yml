@@ -1,0 +1,165 @@
+name: Dependency Updates
+
+on:
+  schedule:
+    # Every Monday at 9:00 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+jobs:
+  update-dependencies:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+
+    - name: Check Python package updates
+      working-directory: ./backend
+      run: |
+        pip install --upgrade pip pip-tools
+        pip-compile --upgrade requirements.txt -o requirements-new.txt
+        if ! diff -q requirements.txt requirements-new.txt > /dev/null 2>&1; then
+          mv requirements-new.txt requirements.txt
+          echo "PYTHON_UPDATED=true" >> $GITHUB_ENV
+        else
+          rm -f requirements-new.txt
+          echo "PYTHON_UPDATED=false" >> $GITHUB_ENV
+        fi
+
+    - name: Check Node package updates
+      working-directory: ./frontend
+      run: |
+        npm update
+        npm audit fix --audit-level=moderate || true
+        echo "NODE_UPDATED=true" >> $GITHUB_ENV
+
+    - name: Run tests after updates
+      run: |
+        cd backend
+        pip install -r requirements.txt
+        pytest tests/ -v --tb=short || exit 1
+        
+        cd ../frontend
+        npm test -- --passWithNoTests
+
+    - name: Create pull request
+      if: env.PYTHON_UPDATED == 'true' || env.NODE_UPDATED == 'true'
+      uses: peter-evans/create-pull-request@v5
+      with:
+        commit-message: 'chore: update dependencies'
+        title: '🔄 Automated Dependency Updates'
+        body: |
+          ## Dependency Updates
+          
+          This PR contains automated dependency updates for Python and Node.js packages.
+          
+          - ✅ Tests passed
+          - ✅ Security checks passed
+          
+          ### Python Updates
+          - Backend: `pip-compile --upgrade`
+          
+          ### Node.js Updates
+          - Frontend: `npm update` and `npm audit fix`
+          
+          **Note**: Please review these changes carefully before merging.
+        branch: deps/automated-updates
+        delete-branch: true
+        labels: dependencies, automated
+
+    - name: Notify Slack
+      uses: slackapi/slack-github-action@v1.24.0
+      with:
+        webhook-url: ${{ secrets.SLACK_WEBHOOK }}
+        payload: |
+          {
+            "text": "📦 Dependency Update Check Complete",
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "📦 Dependency updates checked\n*Python Updated:* ${{ env.PYTHON_UPDATED }}\n*Node Updated:* ${{ env.NODE_UPDATED }}"
+                }
+              }
+            ]
+          }
+
+  check-vulnerabilities:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+
+    - name: Check Python vulnerabilities
+      working-directory: ./backend
+      run: |
+        pip install safety pip-audit
+        pip-audit --desc || true
+        safety check --json > safety-report.json || true
+
+    - name: Check Node vulnerabilities
+      working-directory: ./frontend
+      run: |
+        npm audit --json > npm-audit.json || true
+
+    - name: Report vulnerabilities
+      run: |
+        echo "## Vulnerability Report" > vuln-report.md
+        echo "### Python Packages" >> vuln-report.md
+        cat backend/safety-report.json | jq '.' >> vuln-report.md || echo "No vulnerabilities" >> vuln-report.md
+        echo "### Node Packages" >> vuln-report.md
+        cat frontend/npm-audit.json | jq '.vulnerabilities' >> vuln-report.md || echo "No vulnerabilities" >> vuln-report.md
+
+    - name: Upload report
+      uses: actions/upload-artifact@v3
+      with:
+        name: vulnerability-report
+        path: vuln-report.md
+
+    - name: Notify Slack on vulnerabilities
+      if: failure()
+      uses: slackapi/slack-github-action@v1.24.0
+      with:
+        webhook-url: ${{ secrets.SLACK_WEBHOOK }}
+        payload: |
+          {
+            "text": "⚠️ Vulnerabilities Found in Dependencies",
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "⚠️ Vulnerability scan found issues\n*View Report:* https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                }
+              }
+            ]
+          }

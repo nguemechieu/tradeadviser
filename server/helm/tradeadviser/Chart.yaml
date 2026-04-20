@@ -1,0 +1,20 @@
+apiVersion: v2
+name: tradeadviser
+description: A Helm chart for TradeAdviser - AI-Powered Trading Advisory Platform
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - trading
+  - advisory
+  - ai
+  - agents
+  - portfolio
+  - risk
+home: https://tradeadviser.org
+sources:
+  - https://github.com/sopotek/tradeadviser
+maintainers:
+  - name: Sopotek Inc
+    email: info@sopotek.com
+icon: https://tradeadviser.org/logo.png

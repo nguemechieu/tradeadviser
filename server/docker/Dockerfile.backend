@@ -1,0 +1,48 @@
+# Backend Dockerfile for TradeAdviser
+# Build: docker build -f docker/Dockerfile.backend -t tradeadviser-backend .
+# Run: docker run -p 8000:8000 -e DATABASE_URL=sqlite:///./test.db tradeadviser-backend
+
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    postgresql-client \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy backend requirements
+COPY backend/requirements.txt .
+
+# Install Python dependencies
+RUN pip install -U pip setuptools && \
+    pip install -r requirements.txt
+
+# Copy backend code
+COPY backend /app/backend
+
+# Copy frontend dist (if it exists, otherwise create empty directory)
+RUN mkdir -p /app/frontend/dist && \
+    ([ -d frontend/dist ] && cp -r frontend/dist/* /app/frontend/dist/ || true)
+
+# Create logs directory
+RUN mkdir -p /app/logs
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Run application
+CMD ["python", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]

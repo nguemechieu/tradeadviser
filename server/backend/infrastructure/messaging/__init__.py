@@ -1,0 +1,2 @@
+"""Internal messaging infrastructure package."""
+

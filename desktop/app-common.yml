@@ -1,0 +1,10 @@
+worker:
+  <<: *app-common
+  command: python -m worker
+env_file:
+  - .env
+deploy:
+  resources:
+    limits:
+      cpus: "1.0"
+      memory: 512M

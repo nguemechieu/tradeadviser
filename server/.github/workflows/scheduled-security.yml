@@ -1,0 +1,90 @@
+name: Scheduled Security Scan
+
+on:
+  schedule:
+    # Every Sunday at 2:00 AM UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Trivy full scan
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-full.sarif'
+        severity: 'CRITICAL,HIGH'
+
+    - name: Upload Trivy results
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-full.sarif'
+        category: 'Trivy'
+
+    - name: Run Bandit security check
+      run: |
+        pip install bandit[toml]
+        bandit -r backend/ -f json -o bandit-report.json || true
+
+    - name: Run SonarCloud scan
+      uses: SonarSource/sonarcloud-github-action@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+    - name: Check OWASP Top 10
+      run: |
+        pip install semgrep
+        semgrep --config=p/owasp-top-ten backend/ --json > semgrep-owasp.json || true
+
+    - name: Generate security report
+      run: |
+        cat > security-report.md << 'EOF'
+        # Security Scan Report
+        Generated: $(date)
+        
+        ## Trivy Scan
+        $(cat trivy-full.sarif | jq '.runs[0].results | length') issues found
+        
+        ## Bandit Scan
+        $(cat bandit-report.json | jq '.metrics' || echo "No issues")
+        
+        ## SonarCloud
+        Check SonarCloud dashboard for details
+        EOF
+
+    - name: Upload security report
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-report
+        path: security-report.md
+
+    - name: Notify Slack on security issues
+      if: always()
+      uses: slackapi/slack-github-action@v1.24.0
+      with:
+        webhook-url: ${{ secrets.SLACK_WEBHOOK }}
+        payload: |
+          {
+            "text": "🔒 Scheduled Security Scan Complete",
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "🔒 Weekly Security Scan completed\n*Status:* Check GitHub Security tab for details\n*Run:* https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                }
+              }
+            ]
+          }
