@@ -162,12 +162,76 @@ a:visited {
   border-color: rgba(120, 230, 200, 0.5);
 }
 
+/* Home Page Styles */
+.home-page {
+  width: 100%;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: #0a0e27;
+}
+
+.home-container {
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0;
+}
+
+.home-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid rgba(136, 168, 203, 0.2);
+}
+
+.home-header h1 {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+  color: #53b4ff;
+}
+
+.home-header .subtitle {
+  font-size: 1.1rem;
+  color: #8ea3bc;
+  margin-top: 0.5rem;
+}
+
+.user-greeting {
+  background: linear-gradient(135deg, rgba(83, 180, 255, 0.1) 0%, rgba(120, 230, 200, 0.1) 100%);
+  border-left: 4px solid #53b4ff;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  border-radius: 4px;
+}
+
+.user-greeting h2 {
+  margin: 0;
+  color: #78e6c8;
+  font-size: 1.5rem;
+}
+
 /* Grid */
 .home-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 1.5rem;
   margin: 2rem 0;
+}
+
+.home-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid rgba(136, 168, 203, 0.2);
+  justify-content: center;
+}
+
+.home-actions button {
+  padding: 0.75rem 2rem;
+  font-size: 1rem;
 }
 
 /* Tables */
