@@ -15,6 +15,14 @@ const Register = () => {
     const [email, setEmail] = useState('');
     const [validEmail, setValidEmail] = useState(false);
 
+    const [username, setUsername] = useState('');
+    const [validUsername, setValidUsername] = useState(false);
+
+    const [firstName, setFirstName] = useState('');
+    const [lastName, setLastName] = useState('');
+    const [middleName, setMiddleName] = useState('');
+    const [phoneNumber, setPhoneNumber] = useState('');
+
     const [pwd, setPwd] = useState('');
     const [validPwd, setValidPwd] = useState(false);
     const [pwdFocus, setPwdFocus] = useState(false);
@@ -37,19 +45,23 @@ const Register = () => {
     }, [email]);
 
     useEffect(() => {
+        setValidUsername(USER_REGEX.test(username));
+    }, [username]);
+
+    useEffect(() => {
         setValidPwd(PWD_REGEX.test(pwd));
         setValidMatch(pwd === matchPwd);
     }, [pwd, matchPwd]);
 
     useEffect(() => {
         setErrMsg('');
-    }, [email, pwd, matchPwd]);
+    }, [email, username, firstName, lastName, pwd, matchPwd]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        if (!validEmail || !validPwd || !validMatch) {
-            setErrMsg("Invalid entry. Please check all fields.");
+        if (!validEmail || !validUsername || !firstName || !lastName || !validPwd || !validMatch) {
+            setErrMsg("Invalid entry. Please check all required fields.");
             return;
         }
 
@@ -57,11 +69,21 @@ const Register = () => {
             setLoading(true);
             await axiosInstance.post(REGISTER_URL, {
                 email,
+                username,
+                first_name: firstName,
+                last_name: lastName,
+                middle_name: middleName || null,
+                phone_number: phoneNumber || null,
                 password: pwd
             });
 
             setSuccess(true);
             setEmail('');
+            setUsername('');
+            setFirstName('');
+            setLastName('');
+            setMiddleName('');
+            setPhoneNumber('');
             setPwd('');
             setMatchPwd('');
             
@@ -72,7 +94,7 @@ const Register = () => {
             if (!err?.response) {
                 setErrMsg('No server response. Please try again.');
             } else if (err.response?.status === 409) {
-                setErrMsg('Email already registered.');
+                setErrMsg('Email or username already registered.');
             } else if (err.response?.status === 400) {
                 setErrMsg(err.response?.data?.detail || 'Invalid registration data.');
             } else {
@@ -121,7 +143,7 @@ const Register = () => {
                         {/* Email Field */}
                         <div className="form-field">
                             <label htmlFor="email" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span>Email Address</span>
+                                <span>Email Address *</span>
                                 {email && <span style={{ fontSize: '0.9rem', color: validEmail ? '#67e2a3' : '#ff7d8d' }}>
                                     {validEmail ? '✓' : '✗'}
                                 </span>}
@@ -144,10 +166,107 @@ const Register = () => {
                             )}
                         </div>
 
+                        {/* Username Field */}
+                        <div className="form-field">
+                            <label htmlFor="username" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span>Username *</span>
+                                {username && <span style={{ fontSize: '0.9rem', color: validUsername ? '#67e2a3' : '#ff7d8d' }}>
+                                    {validUsername ? '✓' : '✗'}
+                                </span>}
+                            </label>
+                            <input
+                                type="text"
+                                id="username"
+                                autoComplete="username"
+                                onChange={(e) => setUsername(e.target.value)}
+                                value={username}
+                                placeholder="4-24 characters (letters, numbers, -, _)"
+                                required
+                                className="input-field"
+                            />
+                            {username && !validUsername && (
+                                <p style={{ fontSize: '0.85rem', color: '#ff7d8d', marginTop: '0.5rem' }}>
+                                    Username must be 4-24 characters and start with a letter.
+                                </p>
+                            )}
+                        </div>
+
+                        {/* Name Fields Row */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                            {/* First Name Field */}
+                            <div className="form-field">
+                                <label htmlFor="firstName">
+                                    <span>First Name *</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    id="firstName"
+                                    autoComplete="given-name"
+                                    onChange={(e) => setFirstName(e.target.value)}
+                                    value={firstName}
+                                    placeholder="John"
+                                    required
+                                    className="input-field"
+                                />
+                            </div>
+
+                            {/* Last Name Field */}
+                            <div className="form-field">
+                                <label htmlFor="lastName">
+                                    <span>Last Name *</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    id="lastName"
+                                    autoComplete="family-name"
+                                    onChange={(e) => setLastName(e.target.value)}
+                                    value={lastName}
+                                    placeholder="Doe"
+                                    required
+                                    className="input-field"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Middle Name & Phone Number Row */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                            {/* Middle Name Field (Optional) */}
+                            <div className="form-field">
+                                <label htmlFor="middleName">
+                                    <span>Middle Name</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    id="middleName"
+                                    autoComplete="additional-name"
+                                    onChange={(e) => setMiddleName(e.target.value)}
+                                    value={middleName}
+                                    placeholder="(Optional)"
+                                    className="input-field"
+                                />
+                            </div>
+
+                            {/* Phone Number Field (Optional) */}
+                            <div className="form-field">
+                                <label htmlFor="phoneNumber">
+                                    <span>Phone Number</span>
+                                </label>
+                                <input
+                                    type="tel"
+                                    id="phoneNumber"
+                                    autoComplete="tel"
+                                    onChange={(e) => setPhoneNumber(e.target.value)}
+                                    value={phoneNumber}
+                                    placeholder="(Optional)"
+                                    className="input-field"
+                                />
+                            </div>
+                        </div>
+
                         {/* Password Field */}
                         <div className="form-field">
                             <label htmlFor="password" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span>Password</span>
+                                <span>Password *</span>
                                 {pwd && <span style={{ fontSize: '0.9rem', color: validPwd ? '#67e2a3' : '#ff7d8d' }}>
                                     {validPwd ? '✓' : '✗'}
                                 </span>}
@@ -180,7 +299,7 @@ const Register = () => {
                         {/* Confirm Password Field */}
                         <div className="form-field">
                             <label htmlFor="confirm_pwd" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span>Confirm Password</span>
+                                <span>Confirm Password *</span>
                                 {matchPwd && <span style={{ fontSize: '0.9rem', color: validMatch ? '#67e2a3' : '#ff7d8d' }}>
                                     {validMatch ? '✓' : '✗'}
                                 </span>}
@@ -206,7 +325,7 @@ const Register = () => {
                         {/* Submit Button */}
                         <button 
                             type="submit" 
-                            disabled={!validEmail || !validPwd || !validMatch || loading}
+                            disabled={!validEmail || !validUsername || !firstName || !lastName || !validPwd || !validMatch || loading}
                             className="btn btn-primary"
                             style={{ width: '100%', padding: '0.875rem' }}
                         >

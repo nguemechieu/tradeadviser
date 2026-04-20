@@ -19,8 +19,11 @@ class LoginRequest(BaseModel):
 class RegisterRequest(BaseModel):
     email: str = Field(min_length=3)
     password: str = Field(min_length=6)
-    username: str | None = None
-    display_name: str | None = None
+    username: str = Field(min_length=3)
+    first_name: str = Field(min_length=1)
+    last_name: str = Field(min_length=1)
+    middle_name: str | None = None
+    phone_number: str | None = None
 
 
 class RefreshRequest(BaseModel):
