@@ -5,6 +5,7 @@ import Landing from './components/Landing';
 import Dashboard from './components/Dashboard';
 import HomePage from './components/HomePage';
 import AccountPage from './components/AccountPage';
+import PortfolioPage from './components/PortfolioPage';
 import TradingPage from './components/TradingPage';
 import Layout from './components/Layout';
 import TradingEditor from './components/TradingEditor';
@@ -19,12 +20,12 @@ import TradeAdviser from './components/TradeAdviser';
 import PersistLogin from './components/PersistLogin';
 import SystemStatus from './components/SystemStatus';
 import Docs from './components/Docs';
-import Unauthorized from './components/AccessDenied';
 
 const ROLES = {
   'trader': 'trader',
   'editor': 'editor',
-  'admin': 'admin'
+  'admin': 'admin',
+  'super-admin': 'super-admin'
 };
 
 function App() {
@@ -49,9 +50,10 @@ function App() {
             <Route path="/home" element={<HomePage />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/account" element={<AccountPage />} />
+            <Route path="/portfolio" element={<PortfolioPage />} />
             <Route path="/trading" element={<TradingPage />} />
-            <Route path="/portfolio" element={<Dashboard />} />
-            <Route path="/unautorized" element={<Unauthorized />} />
+            <Route path="/not-found" element={<NotFound />} />
+            <Route path="/unauthorized" element={<AccessDenied />} />
           </Route>
 
           <Route element={<RequireAuth allowedRoles={[ROLES.editor, ROLES.admin]} />}>
