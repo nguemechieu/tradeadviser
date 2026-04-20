@@ -1,0 +1,108 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ master, main ]
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+    
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v4
+      with:
+        images: |
+          ${{ secrets.DOCKER_USERNAME }}/tradeadviser-backend
+        tags: |
+          type=ref,event=branch
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=sha
+    
+    - name: Build and push backend
+      uses: docker/build-push-action@v4
+      with:
+        context: ./backend
+        file: ./backend/Dockerfile
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    - name: Build and push frontend
+      uses: docker/build-push-action@v4
+      with:
+        context: ./server
+        file: ./server/Dockerfile
+        push: true
+        tags: ${{ secrets.DOCKER_USERNAME }}/tradeadviser-frontend:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Deploy to Kubernetes
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: |
+        # Configure kubectl
+        mkdir -p $HOME/.kube
+        echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
+        chmod 600 $HOME/.kube/config
+        
+        # Deploy
+        kubectl set image deployment/tradeadviser-backend \
+          backend=${{ secrets.DOCKER_USERNAME }}/tradeadviser-backend:latest \
+          -n production
+        
+        kubectl rollout status deployment/tradeadviser-backend \
+          -n production --timeout=5m
+    
+    - name: Deploy to Docker Compose (staging)
+      if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+      run: |
+        echo "Deploying to staging environment..."
+        # Add your staging deployment commands here
+        
+    - name: Notify Slack
+      if: always()
+      uses: slackapi/slack-github-action@v1
+      with:
+        webhook-url: ${{ secrets.SLACK_WEBHOOK }}
+        payload: |
+          {
+            "text": "Deployment ${{ job.status }}",
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "TradeAdviser Deployment: ${{ job.status }}\nBranch: ${{ github.ref }}\nCommit: ${{ github.sha }}"
+                }
+              }
+            ]
+          }
