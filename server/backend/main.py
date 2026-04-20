@@ -100,8 +100,42 @@ async def startup_event() -> None:
     try:
         services = get_services()
         logger.info(f"Services initialized successfully")
+        
+        # Create super admin user if it doesn't exist
+        await create_super_admin(services)
     except Exception as e:
         logger.error(f"Error during startup: {e}", exc_info=True)
+
+
+async def create_super_admin(services) -> None:
+    """Create a super admin user if one doesn't exist."""
+    try:
+        # Check if super admin already exists
+        admin = services.find_user("admin@tradeadviser.local")
+        if admin:
+            logger.info("Super admin user already exists")
+            return
+        
+        # Create super admin user
+        await services.register_user(
+            {
+                "email": "admin@tradeadviser.local",
+                "username": "superadmin",
+                "password": "SuperAdmin@2026",
+                "first_name": "Super",
+                "last_name": "Admin",
+                "middle_name": None,
+                "phone_number": None,
+            },
+            role="admin"
+        )
+        logger.info("✓ Super admin user created successfully")
+        logger.info("  Email: admin@tradeadviser.local")
+        logger.info("  Username: superadmin")
+        logger.info("  Password: SuperAdmin@2026")
+        logger.info("  ⚠️  Please change the password after first login!")
+    except Exception as e:
+        logger.warning(f"Could not create super admin user: {e}")
 
 
 @app.on_event("shutdown")

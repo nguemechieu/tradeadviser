@@ -9,6 +9,7 @@ import TradingPage from './components/TradingPage';
 import Layout from './components/Layout';
 import TradingEditor from './components/TradingEditor';
 import AdminPanel from './components/AdminPanel';
+import UserManagement from './components/UserManagement';
 import NotFound from './components/NotFound';
 import AccessDenied from './components/AccessDenied';
 import Community from './components/Community';
@@ -18,6 +19,7 @@ import TradeAdviser from './components/TradeAdviser';
 import PersistLogin from './components/PersistLogin';
 import SystemStatus from './components/SystemStatus';
 import Docs from './components/Docs';
+import Unauthorized from './components/AccessDenied';
 
 const ROLES = {
   'trader': 'trader',
@@ -48,7 +50,8 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/account" element={<AccountPage />} />
             <Route path="/trading" element={<TradingPage />} />
-            <Route path="/not-found" element={<NotFound />} />
+            <R
+            <Route path="/unautorized" element={<Unauthorized />} />
           </Route>
 
           <Route element={<RequireAuth allowedRoles={[ROLES.editor, ROLES.admin]} />}>
@@ -61,9 +64,11 @@ function App() {
 
           <Route element={<RequireAuth allowedRoles={[ROLES.admin]} />}>
             <Route path="/admin-panel" element={<AdminPanel />} />
+            <Route path="/admin/users" element={<UserManagement />} />
             <Route path="/system-status" element={<SystemStatus />} />
           </Route>
         </Route>
+        
       </Route>
 
       {/* Catch-all for undefined routes */}
