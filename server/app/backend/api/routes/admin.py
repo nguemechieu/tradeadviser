@@ -34,6 +34,20 @@ class BulkRoleUpdateRequest(BaseModel):
     )
 
 
+class CreateAdminRequest(BaseModel):
+    """Request to create admin user by super admin."""
+    email: str = Field(min_length=5)
+    username: str | None = None
+    display_name: str | None = None
+
+
+class CreateSuperAdminRequest(BaseModel):
+    """Request to create super admin user by super admin."""
+    email: str = Field(min_length=5)
+    username: str | None = None
+    display_name: str | None = None
+
+
 @router.get("/overview")
 async def get_admin_overview(
     authorization: str | None = Header(default=None),
@@ -148,5 +162,51 @@ async def get_user_audit_logs(
     admin_user = resolve_admin_user(authorization, services)
     try:
         return services.admin_get_user_audit_logs(admin_user, user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.post("/create-admin", status_code=status.HTTP_201_CREATED)
+async def super_admin_create_admin(
+    payload: CreateAdminRequest,
+    authorization: str | None = Header(default=None),
+    services: ServerServiceContainer = Depends(get_services),
+) -> dict:
+    """Super admin creates a new admin user.
+    
+    Only super_admin role can call this endpoint.
+    Returns temporary password for the new admin.
+    """
+    admin_user = resolve_admin_user(authorization, services)
+    try:
+        return services.super_admin_create_admin(
+            admin_user,
+            payload.email,
+            payload.username or "",
+            payload.display_name or ""
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.post("/create-super-admin", status_code=status.HTTP_201_CREATED)
+async def super_admin_create_super_admin(
+    payload: CreateSuperAdminRequest,
+    authorization: str | None = Header(default=None),
+    services: ServerServiceContainer = Depends(get_services),
+) -> dict:
+    """Super admin creates another super admin user.
+    
+    Only super_admin role can call this endpoint.
+    Returns temporary password for the new super admin.
+    """
+    admin_user = resolve_admin_user(authorization, services)
+    try:
+        return services.super_admin_create_super_admin(
+            admin_user,
+            payload.email,
+            payload.username or "",
+            payload.display_name or ""
+        )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc

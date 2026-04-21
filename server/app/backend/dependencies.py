@@ -45,6 +45,14 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
         "multi_exchange",
         "portfolio_view",
     ],
+    "editor": [
+        "trading",
+        "auto_trading",
+        "ml_signals",
+        "multi_exchange",
+        "portfolio_view",
+        "edit_data",
+    ],
     "admin": [
         "trading",
         "auto_trading",
@@ -55,6 +63,21 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
         "user_management",
         "agent_network",
         "server_control",
+    ],
+    "super_admin": [
+        "trading",
+        "auto_trading",
+        "ml_signals",
+        "multi_exchange",
+        "portfolio_view",
+        "admin",
+        "user_management",
+        "agent_network",
+        "server_control",
+        "super_admin",
+        "create_admin",
+        "create_super_admin",
+        "system_control",
     ],
 }
 
@@ -868,7 +891,7 @@ class ServerServiceContainer:
         Validates:
         - Admin must have higher role than target user
         - Role must be valid
-        - Cannot promote users above admin level
+        - Admin can only change to roles below them; super_admin can create admins
         
         Creates audit log entry for tracking.
         """
@@ -884,11 +907,20 @@ class ServerServiceContainer:
         if normalized_role not in VALID_ROLES:
             raise ValueError(f"Invalid role. Must be one of: {', '.join(sorted(VALID_ROLES))}")
         
-        # Role hierarchy validation: admin cannot elevate user above their own level
+        # Role hierarchy validation
         admin_level = ROLE_HIERARCHY.get(admin_user.role, 0)
         target_level = ROLE_HIERARCHY.get(normalized_role, 0)
-        if target_level > admin_level:
-            raise ValueError(f"Cannot promote user to {normalized_role}. Insufficient permissions.")
+        
+        # Super admin can create admins; regular admins can only create traders/editors
+        if admin_user.role == "admin":
+            # Regular admin: can only promote to editor or trader
+            if target_level > ROLE_HIERARCHY["editor"]:
+                raise ValueError(f"Cannot promote user to {normalized_role}. Insufficient permissions.")
+        elif admin_user.role == "super_admin":
+            # Super admin: can promote to anything
+            pass
+        else:
+            raise ValueError("Administrator access is required.")
         
         old_role = target.role
         
@@ -904,7 +936,7 @@ class ServerServiceContainer:
             target_user_email=target.email,
             old_value=old_role,
             new_value=normalized_role,
-            details={"reason": "admin_update"}
+            details={"reason": "admin_update", "by_role": admin_user.role}
         )
         self.audit_logs.append(audit)
         
@@ -914,6 +946,110 @@ class ServerServiceContainer:
             "success": True,
             "user": target.as_public_dict(),
             "audit": audit.as_dict()
+        }
+    
+    def super_admin_create_admin(self, super_admin_user: ServerUser, email: str, username: str, display_name: str) -> dict[str, Any]:
+        """Super admin creates a new admin user.
+        
+        Only super_admin can call this method. Creates a new user with admin role.
+        """
+        self._require_super_admin(super_admin_user)
+        
+        # Validate inputs
+        email = _normalize_email(email)
+        username = _normalize_username(username or email.split("@", 1)[0])
+        display_name = str(display_name or username).strip()
+        
+        if not email or "@" not in email:
+            raise ValueError("Valid email is required.")
+        if email in self.users:
+            raise ValueError("User with this email already exists.")
+        
+        # Create admin user with temporary password
+        temp_password = token_hex(8)
+        admin_user = self._create_user_record(
+            email=email,
+            password=temp_password,
+            username=username,
+            display_name=display_name,
+            role="admin",
+            starting_balance=250_000.0,
+        )
+        self._seed_workspace(admin_user)
+        
+        # Create audit log
+        audit = AuditLog(
+            action="admin_created",
+            admin_id=super_admin_user.user_id,
+            admin_email=super_admin_user.email,
+            target_user_id=admin_user.user_id,
+            target_user_email=admin_user.email,
+            old_value=None,
+            new_value="admin",
+            details={"username": username, "temp_password": temp_password}
+        )
+        self.audit_logs.append(audit)
+        
+        logger.info(f"Admin created by {super_admin_user.email}: {admin_user.email}")
+        
+        return {
+            "success": True,
+            "user": admin_user.as_public_dict(),
+            "temp_password": temp_password,
+            "audit": audit.as_dict(),
+            "message": f"Admin user created. Temporary password: {temp_password}"
+        }
+    
+    def super_admin_create_super_admin(self, super_admin_user: ServerUser, email: str, username: str, display_name: str) -> dict[str, Any]:
+        """Super admin creates another super admin user.
+        
+        Only super_admin can call this method. Creates a new user with super_admin role.
+        """
+        self._require_super_admin(super_admin_user)
+        
+        # Validate inputs
+        email = _normalize_email(email)
+        username = _normalize_username(username or email.split("@", 1)[0])
+        display_name = str(display_name or username).strip()
+        
+        if not email or "@" not in email:
+            raise ValueError("Valid email is required.")
+        if email in self.users:
+            raise ValueError("User with this email already exists.")
+        
+        # Create super admin user with temporary password
+        temp_password = token_hex(8)
+        new_super_admin = self._create_user_record(
+            email=email,
+            password=temp_password,
+            username=username,
+            display_name=display_name,
+            role="super_admin",
+            starting_balance=500_000.0,
+        )
+        self._seed_workspace(new_super_admin)
+        
+        # Create audit log
+        audit = AuditLog(
+            action="super_admin_created",
+            admin_id=super_admin_user.user_id,
+            admin_email=super_admin_user.email,
+            target_user_id=new_super_admin.user_id,
+            target_user_email=new_super_admin.email,
+            old_value=None,
+            new_value="super_admin",
+            details={"username": username, "temp_password": temp_password}
+        )
+        self.audit_logs.append(audit)
+        
+        logger.info(f"Super admin created by {super_admin_user.email}: {new_super_admin.email}")
+        
+        return {
+            "success": True,
+            "user": new_super_admin.as_public_dict(),
+            "temp_password": temp_password,
+            "audit": audit.as_dict(),
+            "message": f"Super admin user created. Temporary password: {temp_password}"
         }
 
     def admin_bulk_update_roles(self, admin_user: ServerUser, updates: list[dict[str, str]]) -> dict[str, Any]:
@@ -1011,6 +1147,14 @@ class ServerServiceContainer:
 
     def _seed_demo_state(self) -> None:
         seeded_users = [
+            self._create_user_record(
+                email="superadmin@sopotek.local",
+                password="super123",
+                username="superadmin",
+                display_name="Sopotek Super Administrator",
+                role="super_admin",
+                starting_balance=500_000.0,
+            ),
             self._create_user_record(
                 email="operator@sopotek.local",
                 password="changeme",
@@ -1314,8 +1458,14 @@ class ServerServiceContainer:
         return user
 
     def _require_admin(self, user: ServerUser) -> None:
-        if user.role != "admin":
+        """Check if user is admin or super_admin."""
+        if user.role not in {"admin", "super_admin"}:
             raise ValueError("Administrator access is required.")
+    
+    def _require_super_admin(self, user: ServerUser) -> None:
+        """Check if user is super_admin."""
+        if user.role != "super_admin":
+            raise ValueError("Super administrator access is required.")
 
     async def update_user_profile(
         self,

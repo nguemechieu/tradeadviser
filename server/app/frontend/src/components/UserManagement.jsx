@@ -6,7 +6,8 @@ import '../app.css';
 const ROLES = [
     { value: 'trader', label: 'Trader', color: '#53b4ff', description: 'Can view dashboards and place trades' },
     { value: 'editor', label: 'Editor', color: '#ffd93d', description: 'Can edit trading strategies' },
-    { value: 'admin', label: 'Admin', color: '#ff6b6b', description: 'Full system access' }
+    { value: 'admin', label: 'Admin', color: '#ff6b6b', description: 'Full system access' },
+    { value: 'super_admin', label: 'Super Admin', color: '#9d4edd', description: 'System-wide control, can create admins' }
 ];
 
 const UserManagement = () => {
@@ -22,6 +23,16 @@ const UserManagement = () => {
     const [auditLogs, setAuditLogs] = useState([]);
     const [showAuditLogs, setShowAuditLogs] = useState(false);
     const [auditLoading, setAuditLoading] = useState(false);
+    const [showCreateAdminForm, setShowCreateAdminForm] = useState(false);
+    const [showCreateSuperAdminForm, setShowCreateSuperAdminForm] = useState(false);
+    const [adminFormData, setAdminFormData] = useState({
+        email: '',
+        username: '',
+        display_name: ''
+    });
+    const [adminFormError, setAdminFormError] = useState('');
+    const [adminFormSuccess, setAdminFormSuccess] = useState('');
+    const [creatingAdmin, setCreatingAdmin] = useState(false);
 
     // Form state for creating new user
     const [formData, setFormData] = useState({
@@ -189,6 +200,41 @@ const UserManagement = () => {
         }
     };
 
+    const handleCreateAdmin = async (e, isSuperAdmin = false) => {
+        e.preventDefault();
+        setAdminFormError('');
+        setAdminFormSuccess('');
+
+        if (!adminFormData.email || !adminFormData.username) {
+            setAdminFormError('Email and username are required');
+            return;
+        }
+
+        try {
+            setCreatingAdmin(true);
+            const endpoint = isSuperAdmin ? '/admin/create-super-admin' : '/admin/create-admin';
+            const response = await axiosInstance.post(endpoint, adminFormData);
+            
+            setAdminFormSuccess(`${isSuperAdmin ? 'Super Admin' : 'Admin'} created successfully! Temporary password: ${response.data.temp_password}`);
+            setAdminFormData({ email: '', username: '', display_name: '' });
+            
+            setTimeout(() => {
+                if (isSuperAdmin) {
+                    setShowCreateSuperAdminForm(false);
+                } else {
+                    setShowCreateAdminForm(false);
+                }
+                fetchUsers();
+                fetchAuditLogs();
+            }, 2000);
+        } catch (err) {
+            setAdminFormError(err.response?.data?.detail || `Failed to create ${isSuperAdmin ? 'super admin' : 'admin'}`);
+            console.error('Error creating admin:', err);
+        } finally {
+            setCreatingAdmin(false);
+        }
+    };
+
     return (
         <section style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
             <div style={{ marginBottom: '2rem' }}>
@@ -227,6 +273,200 @@ const UserManagement = () => {
                     border: '1px solid #fcc'
                 }}>
                     ⚠️ {error}
+                </div>
+            )}
+
+            {/* Super Admin Creation Section - Only visible to super admins */}
+            {auth?.user?.role === 'super_admin' && (
+                <div style={{ marginBottom: '2rem' }}>
+                    <div style={{
+                        display: 'flex',
+                        gap: '0.5rem',
+                        flexWrap: 'wrap',
+                        padding: '1rem',
+                        backgroundColor: 'rgba(157, 78, 221, 0.1)',
+                        border: '1px solid rgba(157, 78, 221, 0.3)',
+                        borderRadius: '4px'
+                    }}>
+                        <button
+                            onClick={() => {
+                                setShowCreateAdminForm(!showCreateAdminForm);
+                                setShowCreateSuperAdminForm(false);
+                            }}
+                            className="btn btn-secondary"
+                            style={{ padding: '0.5rem 1rem' }}
+                        >
+                            {showCreateAdminForm ? '✕ Cancel' : '👤 Create Admin'}
+                        </button>
+                        <button
+                            onClick={() => {
+                                setShowCreateSuperAdminForm(!showCreateSuperAdminForm);
+                                setShowCreateAdminForm(false);
+                            }}
+                            className="btn btn-secondary"
+                            style={{ padding: '0.5rem 1rem' }}
+                        >
+                            {showCreateSuperAdminForm ? '✕ Cancel' : '👑 Create Super Admin'}
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Create Admin Form */}
+            {showCreateAdminForm && auth?.user?.role === 'super_admin' && (
+                <div className="card" style={{ padding: '2rem', marginBottom: '2rem', backgroundColor: 'rgba(255, 107, 107, 0.05)' }}>
+                    <h2>Create Admin User</h2>
+                    <form onSubmit={(e) => handleCreateAdmin(e, false)} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div>
+                            <label>Email *</label>
+                            <input
+                                type="email"
+                                value={adminFormData.email}
+                                onChange={(e) => setAdminFormData({ ...adminFormData, email: e.target.value })}
+                                className="input-field"
+                                placeholder="admin@example.com"
+                                required
+                            />
+                        </div>
+
+                        <div>
+                            <label>Username *</label>
+                            <input
+                                type="text"
+                                value={adminFormData.username}
+                                onChange={(e) => setAdminFormData({ ...adminFormData, username: e.target.value })}
+                                className="input-field"
+                                placeholder="admin_username"
+                                required
+                            />
+                        </div>
+
+                        <div style={{ gridColumn: '1 / -1' }}>
+                            <label>Display Name (Optional)</label>
+                            <input
+                                type="text"
+                                value={adminFormData.display_name}
+                                onChange={(e) => setAdminFormData({ ...adminFormData, display_name: e.target.value })}
+                                className="input-field"
+                                placeholder="Admin Full Name"
+                            />
+                        </div>
+
+                        <div style={{ gridColumn: '1 / -1' }}>
+                            {adminFormError && (
+                                <div style={{
+                                    backgroundColor: '#fee',
+                                    color: '#c33',
+                                    padding: '0.75rem',
+                                    borderRadius: '4px',
+                                    marginBottom: '1rem'
+                                }}>
+                                    {adminFormError}
+                                </div>
+                            )}
+
+                            {adminFormSuccess && (
+                                <div style={{
+                                    backgroundColor: '#efe',
+                                    color: '#3c3',
+                                    padding: '0.75rem',
+                                    borderRadius: '4px',
+                                    marginBottom: '1rem',
+                                    fontSize: '0.9rem'
+                                }}>
+                                    {adminFormSuccess}
+                                </div>
+                            )}
+
+                            <button
+                                type="submit"
+                                disabled={creatingAdmin}
+                                className="btn btn-primary"
+                                style={{ width: '100%' }}
+                            >
+                                {creatingAdmin ? 'Creating...' : 'Create Admin'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            )}
+
+            {/* Create Super Admin Form */}
+            {showCreateSuperAdminForm && auth?.user?.role === 'super_admin' && (
+                <div className="card" style={{ padding: '2rem', marginBottom: '2rem', backgroundColor: 'rgba(157, 78, 221, 0.05)' }}>
+                    <h2>Create Super Admin User</h2>
+                    <form onSubmit={(e) => handleCreateAdmin(e, true)} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div>
+                            <label>Email *</label>
+                            <input
+                                type="email"
+                                value={adminFormData.email}
+                                onChange={(e) => setAdminFormData({ ...adminFormData, email: e.target.value })}
+                                className="input-field"
+                                placeholder="superadmin@example.com"
+                                required
+                            />
+                        </div>
+
+                        <div>
+                            <label>Username *</label>
+                            <input
+                                type="text"
+                                value={adminFormData.username}
+                                onChange={(e) => setAdminFormData({ ...adminFormData, username: e.target.value })}
+                                className="input-field"
+                                placeholder="superadmin_username"
+                                required
+                            />
+                        </div>
+
+                        <div style={{ gridColumn: '1 / -1' }}>
+                            <label>Display Name (Optional)</label>
+                            <input
+                                type="text"
+                                value={adminFormData.display_name}
+                                onChange={(e) => setAdminFormData({ ...adminFormData, display_name: e.target.value })}
+                                className="input-field"
+                                placeholder="Super Admin Full Name"
+                            />
+                        </div>
+
+                        <div style={{ gridColumn: '1 / -1' }}>
+                            {adminFormError && (
+                                <div style={{
+                                    backgroundColor: '#fee',
+                                    color: '#c33',
+                                    padding: '0.75rem',
+                                    borderRadius: '4px',
+                                    marginBottom: '1rem'
+                                }}>
+                                    {adminFormError}
+                                </div>
+                            )}
+
+                            {adminFormSuccess && (
+                                <div style={{
+                                    backgroundColor: '#efe',
+                                    color: '#3c3',
+                                    padding: '0.75rem',
+                                    borderRadius: '4px',
+                                    marginBottom: '1rem',
+                                    fontSize: '0.9rem'
+                                }}>
+                                    {adminFormSuccess}
+                                </div>
+                            )}
+
+                            <button
+                                type="submit"
+                                disabled={creatingAdmin}
+                                className="btn btn-primary"
+                                style={{ width: '100%' }}
+                            >
+                                {creatingAdmin ? 'Creating...' : 'Create Super Admin'}
+                            </button>
+                        </div>
+                    </form>
                 </div>
             )}
 
