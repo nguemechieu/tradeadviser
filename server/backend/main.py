@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 from backend.api.routes.auth import router as auth_router
 from backend.api.routes.admin import router as admin_router
 from backend.api.routes.agents import router as agents_router
+from backend.api.routes.docs import router as docs_router
 from backend.api.routes.operations import router as operations_router
 from backend.api.routes.performance import router as performance_router
 from backend.api.routes.performance_audit import router as performance_audit_router
@@ -74,6 +75,7 @@ app.add_middleware(
 app.include_router(auth_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
 app.include_router(agents_router, prefix="/api")
+app.include_router(docs_router, prefix="/api")
 app.include_router(operations_router, prefix="/api")
 app.include_router(performance_router, prefix="/api")
 app.include_router(performance_audit_router, prefix="/api")

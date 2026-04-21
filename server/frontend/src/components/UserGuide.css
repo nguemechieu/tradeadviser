@@ -1,0 +1,277 @@
+/* User Guide Styles */
+
+.user-guide {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 20px;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.5), rgba(20, 30, 50, 0.5));
+  min-height: 100vh;
+}
+
+.guide-header {
+  text-align: center;
+  margin-bottom: 50px;
+  padding: 30px;
+  background: linear-gradient(135deg, rgba(120, 230, 200, 0.05), rgba(83, 180, 255, 0.05));
+  border: 1px solid rgba(120, 230, 200, 0.1);
+  border-radius: 16px;
+}
+
+.guide-header h1 {
+  font-size: 2rem;
+  margin: 0 0 10px 0;
+  background: linear-gradient(135deg, #78e6c8, #53b4ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.guide-header p {
+  margin: 0;
+  color: rgba(120, 230, 200, 0.7);
+  font-size: 1.05rem;
+}
+
+.guide-container {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+/* Guide Sections */
+.guide-section {
+  background: rgba(120, 230, 200, 0.05);
+  border: 1px solid rgba(120, 230, 200, 0.1);
+  border-radius: 12px;
+  padding: 30px;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.section-title {
+  font-size: 1.5rem;
+  color: #78e6c8;
+  margin: 0 0 24px 0;
+  padding-bottom: 12px;
+  border-bottom: 2px solid rgba(120, 230, 200, 0.2);
+}
+
+/* Subsections */
+.subsection {
+  margin-bottom: 24px;
+}
+
+.subsection:last-child {
+  margin-bottom: 0;
+}
+
+.subsection h3 {
+  font-size: 1.1rem;
+  color: #78e6c8;
+  margin: 0 0 12px 0;
+}
+
+.subsection p {
+  color: rgba(120, 230, 200, 0.8);
+  line-height: 1.6;
+  margin: 0 0 12px 0;
+}
+
+.guide-list {
+  margin: 0;
+  padding-left: 20px;
+  list-style-position: inside;
+}
+
+.guide-list li {
+  margin: 8px 0;
+  color: rgba(120, 230, 200, 0.8);
+  line-height: 1.6;
+}
+
+.guide-list li strong {
+  color: #78e6c8;
+}
+
+/* Role Cards */
+.role-card {
+  background: linear-gradient(135deg, rgba(120, 230, 200, 0.08), rgba(83, 180, 255, 0.05));
+  border: 1px solid rgba(120, 230, 200, 0.15);
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 16px;
+  transition: all 0.2s ease;
+}
+
+.role-card:hover {
+  background: linear-gradient(135deg, rgba(120, 230, 200, 0.12), rgba(83, 180, 255, 0.08));
+  border-color: rgba(120, 230, 200, 0.25);
+}
+
+.role-card h3 {
+  font-size: 1.1rem;
+  color: #78e6c8;
+  margin: 0 0 12px 0;
+}
+
+.role-card p {
+  color: rgba(120, 230, 200, 0.7);
+  margin: 0 0 12px 0;
+  font-size: 0.95rem;
+}
+
+.role-card .guide-list {
+  font-size: 0.9rem;
+}
+
+/* FAQ Items */
+.faq-item {
+  background: rgba(0, 0, 0, 0.1);
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  border-left: 3px solid rgba(120, 230, 200, 0.3);
+}
+
+.faq-item h4 {
+  color: #78e6c8;
+  margin: 0 0 8px 0;
+  font-size: 1rem;
+}
+
+.faq-item p {
+  color: rgba(120, 230, 200, 0.7);
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+/* Resources Grid */
+.resources-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.resource-card {
+  background: linear-gradient(135deg, rgba(120, 230, 200, 0.08), rgba(83, 180, 255, 0.05));
+  border: 1px solid rgba(120, 230, 200, 0.15);
+  border-radius: 10px;
+  padding: 20px;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.resource-card:hover {
+  background: linear-gradient(135deg, rgba(120, 230, 200, 0.12), rgba(83, 180, 255, 0.08));
+  border-color: rgba(120, 230, 200, 0.25);
+  transform: translateY(-4px);
+}
+
+.resource-card h3 {
+  color: #78e6c8;
+  margin: 0 0 8px 0;
+  font-size: 1rem;
+}
+
+.resource-card p {
+  color: rgba(120, 230, 200, 0.7);
+  margin: 0 0 12px 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.resource-link {
+  display: inline-block;
+  color: #53b4ff;
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.resource-link:hover {
+  color: #78e6c8;
+  transform: translateX(4px);
+}
+
+/* Tips Grid */
+.tips-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.tip-card {
+  background: linear-gradient(135deg, rgba(120, 230, 200, 0.08), rgba(83, 180, 255, 0.05));
+  border: 1px solid rgba(120, 230, 200, 0.15);
+  border-radius: 10px;
+  padding: 16px;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.tip-card:hover {
+  background: linear-gradient(135deg, rgba(120, 230, 200, 0.12), rgba(83, 180, 255, 0.08));
+  border-color: rgba(120, 230, 200, 0.25);
+  transform: translateY(-4px);
+}
+
+.tip-icon {
+  font-size: 1.8rem;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.tip-card h4 {
+  color: #78e6c8;
+  margin: 0 0 8px 0;
+  font-size: 0.95rem;
+}
+
+.tip-card p {
+  color: rgba(120, 230, 200, 0.7);
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .user-guide {
+    padding: 20px 16px;
+  }
+
+  .guide-header {
+    padding: 20px;
+    margin-bottom: 30px;
+  }
+
+  .guide-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .guide-section {
+    padding: 20px;
+  }
+
+  .section-title {
+    font-size: 1.2rem;
+  }
+
+  .resources-grid,
+  .tips-grid {
+    grid-template-columns: 1fr;
+  }
+}

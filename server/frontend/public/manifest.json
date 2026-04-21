@@ -1,5 +1,5 @@
 {
-  "name": "TradeAdviser Console",
+  "name": "TradeAdviser",
   "short_name": "TradeAdviser",
   "description": "AI-powered trading platform console for health, auth, workspace, and trading contract visibility",
   "start_url": "/",
