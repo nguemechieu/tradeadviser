@@ -1,7 +1,7 @@
 # TradeAdviser - Institutional Trading Platform
 
 A comprehensive, institutional-grade AI trading platform featuring automated trading strategies, risk management, real-time portfolio monitoring, and multi-broker support. TradeAdviser combines a powerful backend server with a professional desktop application and web console.
-![logo](./server/frontend/src/assets/logo.png)
+![logo](./server/app/frontend/src/assets/logo.png)
 
 ## 🎯 Overview
 

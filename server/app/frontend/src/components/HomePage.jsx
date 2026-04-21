@@ -22,7 +22,11 @@ const HomePage = () => {
       const savedToken = localStorage.getItem('tradeadviser-token');
       if (!savedToken) {
         navigate('/login', { replace: true });
+      } else {
+        console.debug('HomePage: token exists in localStorage but auth context empty, may need re-hydration');
       }
+    } else {
+      console.debug('HomePage: user authenticated', { email: auth?.user?.email, role: auth?.role });
     }
   }, [auth, navigate]);
 

@@ -137,12 +137,48 @@ class PasswordResetRecord:
 
 
 @dataclass(slots=True)
+class AuditLog:
+    """Audit log entry for tracking admin actions."""
+    action: str  # e.g., 'role_change', 'user_create', 'user_deactivate'
+    admin_id: str
+    admin_email: str
+    target_user_id: str
+    target_user_email: str
+    old_value: str | None = None
+    new_value: str = ""
+    details: dict = field(default_factory=dict)
+    timestamp: datetime = field(default_factory=_utcnow)
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "action": self.action,
+            "admin": {"id": self.admin_id, "email": self.admin_email},
+            "target": {"id": self.target_user_id, "email": self.target_user_email},
+            "old_value": self.old_value,
+            "new_value": self.new_value,
+            "details": self.details,
+            "timestamp": self.timestamp.isoformat(),
+        }
+
+
+# Valid role hierarchy
+VALID_ROLES = {"trader", "editor", "admin", "super_admin"}
+ROLE_HIERARCHY = {
+    "trader": 0,
+    "editor": 1,
+    "admin": 2,
+    "super_admin": 3,
+}
+
+
+@dataclass(slots=True)
 class ServerServiceContainer:
     users: dict[str, ServerUser] = field(default_factory=dict)
     users_by_id: dict[str, ServerUser] = field(default_factory=dict)
     tokens: dict[str, TokenRecord] = field(default_factory=dict)
     refresh_tokens: dict[str, TokenRecord] = field(default_factory=dict)
     password_reset_tokens: dict[str, PasswordResetRecord] = field(default_factory=dict)
+    audit_logs: list[AuditLog] = field(default_factory=list)
     sessions: dict[str, ServerSession] = field(default_factory=dict)
     market_data_subscriptions: dict[str, dict[str, object]] = field(default_factory=dict)
     workspace_settings: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -827,16 +863,137 @@ class ServerServiceContainer:
         return target.as_public_dict()
 
     def admin_update_user_role(self, admin_user: ServerUser, user_id: str, role: str) -> dict[str, Any]:
+        """Update user role with validation and audit logging.
+        
+        Validates:
+        - Admin must have higher role than target user
+        - Role must be valid
+        - Cannot promote users above admin level
+        
+        Creates audit log entry for tracking.
+        """
         self._require_admin(admin_user)
-        target = self.users_by_id.get(str(user_id or "").strip())
+        
+        target_id = str(user_id or "").strip()
+        target = self.users_by_id.get(target_id)
         if target is None:
             raise ValueError("User not found.")
+        
+        # Validate role
         normalized_role = str(role or "").strip().lower()
-        if normalized_role not in ROLE_PERMISSIONS:
-            raise ValueError("Unsupported role.")
+        if normalized_role not in VALID_ROLES:
+            raise ValueError(f"Invalid role. Must be one of: {', '.join(sorted(VALID_ROLES))}")
+        
+        # Role hierarchy validation: admin cannot elevate user above their own level
+        admin_level = ROLE_HIERARCHY.get(admin_user.role, 0)
+        target_level = ROLE_HIERARCHY.get(normalized_role, 0)
+        if target_level > admin_level:
+            raise ValueError(f"Cannot promote user to {normalized_role}. Insufficient permissions.")
+        
+        old_role = target.role
+        
+        # Update role and permissions
         target.role = normalized_role
-        target.permissions = list(ROLE_PERMISSIONS[normalized_role])
-        return target.as_public_dict()
+        
+        # Create audit log
+        audit = AuditLog(
+            action="role_change",
+            admin_id=admin_user.user_id,
+            admin_email=admin_user.email,
+            target_user_id=target.user_id,
+            target_user_email=target.email,
+            old_value=old_role,
+            new_value=normalized_role,
+            details={"reason": "admin_update"}
+        )
+        self.audit_logs.append(audit)
+        
+        logger.info(f"Role changed by {admin_user.email}: {target.email} {old_role}→{normalized_role}")
+        
+        return {
+            "success": True,
+            "user": target.as_public_dict(),
+            "audit": audit.as_dict()
+        }
+
+    def admin_bulk_update_roles(self, admin_user: ServerUser, updates: list[dict[str, str]]) -> dict[str, Any]:
+        """Bulk update roles for multiple users.
+        
+        Args:
+            admin_user: Admin performing the update
+            updates: List of {"user_id": "...", "role": "..."} dicts
+            
+        Returns:
+            Dict with success count, failed updates, and audit logs
+        """
+        self._require_admin(admin_user)
+        
+        results = {
+            "success": 0,
+            "failed": [],
+            "audit_logs": []
+        }
+        
+        for update in updates:
+            user_id = update.get("user_id", "").strip()
+            role = update.get("role", "").strip().lower()
+            
+            try:
+                result = self.admin_update_user_role(admin_user, user_id, role)
+                results["success"] += 1
+                results["audit_logs"].append(result.get("audit"))
+            except ValueError as e:
+                results["failed"].append({
+                    "user_id": user_id,
+                    "role": role,
+                    "error": str(e)
+                })
+        
+        logger.info(f"Bulk role update by {admin_user.email}: {results['success']} success, {len(results['failed'])} failed")
+        return results
+
+    def admin_get_audit_logs(self, admin_user: ServerUser, limit: int = 100, offset: int = 0) -> dict[str, Any]:
+        """Get audit logs with pagination.
+        
+        Only admins can view audit logs. Logs are returned in reverse chronological order.
+        """
+        self._require_admin(admin_user)
+        
+        # Sort by timestamp descending (most recent first)
+        sorted_logs = sorted(self.audit_logs, key=lambda x: x.timestamp, reverse=True)
+        
+        # Apply pagination
+        total = len(sorted_logs)
+        paginated = sorted_logs[offset:offset + limit]
+        
+        return {
+            "total": total,
+            "offset": offset,
+            "limit": limit,
+            "logs": [log.as_dict() for log in paginated]
+        }
+
+    def admin_get_user_audit_logs(self, admin_user: ServerUser, user_id: str) -> dict[str, Any]:
+        """Get all audit logs related to a specific user (as target or admin).
+        
+        Shows both actions performed BY this user and actions performed ON this user.
+        """
+        self._require_admin(admin_user)
+        
+        user_id = str(user_id or "").strip()
+        related_logs = [
+            log for log in self.audit_logs
+            if log.target_user_id == user_id or log.admin_id == user_id
+        ]
+        
+        # Sort by timestamp descending
+        related_logs = sorted(related_logs, key=lambda x: x.timestamp, reverse=True)
+        
+        return {
+            "user_id": user_id,
+            "total": len(related_logs),
+            "logs": [log.as_dict() for log in related_logs]
+        }
 
     def health_snapshot(self) -> dict[str, Any]:
         return {

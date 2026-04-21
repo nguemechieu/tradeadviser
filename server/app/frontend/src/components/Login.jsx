@@ -47,6 +47,13 @@ const Login = () => {
 
             const { access_token, token_type, user } = response.data;
             
+            // Ensure user object has role (backend should provide it, default to 'trader')
+            if (user && !user.role) {
+                user.role = 'trader';
+            }
+            
+            console.debug('Login successful:', { email: user?.email, role: user?.role });
+            
             // Store token and user data
             localStorage.setItem('tradeadviser-token', access_token);
             localStorage.setItem('tradeadviser-user', JSON.stringify(user));

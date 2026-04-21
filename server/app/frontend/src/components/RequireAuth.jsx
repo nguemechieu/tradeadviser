@@ -18,11 +18,30 @@ const RequireAuth = ({ allowedRoles }) => {
     }
 
     // Check if user has a role
-    const userRole = auth?.role;
+    let userRole = auth?.role;
+    
+    // Fallback: extract role from localStorage if needed
+    if (!userRole) {
+        try {
+            const savedUser = localStorage.getItem('tradeadviser-user');
+            if (savedUser) {
+                const parsed = JSON.parse(savedUser);
+                userRole = parsed?.role || 'trader';
+            }
+        } catch (e) {
+            console.error('Failed to parse user from localStorage:', e);
+        }
+    }
+    
+    // Default role to 'trader' if still not found
+    userRole = userRole || 'trader';
+    
     const hasAccess = userRole && (allowedRoles === undefined || allowedRoles.includes(userRole));
 
     // Also check token as fallback
     const hasToken = auth?.token || localStorage.getItem('tradeadviser-token');
+    
+    console.debug('RequireAuth check:', { userRole, allowedRoles, hasAccess, hasToken });
 
     return (
         hasAccess || (hasToken && userRole)

@@ -1,5 +1,5 @@
 /**
- * Sopotek Quant System - Admin Dashboard (5-Pillar Architecture)
+ * TradeAdviser - Admin Dashboard (5-Pillar Architecture)
  * 
  * The server dashboard is where the platform is managed, not where trading happens.
  * Desktop app = Trader workspace (live trading, execution, charts)
@@ -114,7 +114,7 @@ function LoginPanel({ onLogin, isLoading, error }) {
     <div className="auth-panel">
       <div className="auth-card">
         <div className="auth-header">
-          <img src={logo} alt="Sopotek" className="auth-logo" />
+          <img src={logo} alt="TradeAdviser" className="auth-logo" />
           <h1>Admin Dashboard</h1>
           <p>Platform Management & Oversight</p>
         </div>
