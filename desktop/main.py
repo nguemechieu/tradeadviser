@@ -30,6 +30,6 @@ if __name__ == "__main__":
     if venv_python.exists() and current_python != venv_python.resolve():
         os.execv(str(venv_python), [str(venv_python), str(__file__), *sys.argv[1:]])
     
-    # Import and run the main module from the main package (desktop/src/main/main.py)
-    from src.main.main import main
+    # Import and run the main module from the main package (desktop/src/main/__init__.py)
+    from src.main import main
     sys.exit(main())

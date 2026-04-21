@@ -1,0 +1,88 @@
+/**
+ * Icon Styles for TradeAdviser
+ */
+
+/* Icon base styles */
+.icon {
+  display: inline;
+  vertical-align: middle;
+  color: currentColor;
+}
+
+/* Icon loading animation */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.icon-loading {
+  animation: spin 1s linear infinite;
+}
+
+/* Icon button styles */
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  background-color: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: inherit;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.icon-button:hover:not(:disabled) {
+  background-color: rgba(83, 180, 255, 0.1);
+  color: #53b4ff;
+}
+
+.icon-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.icon-button .icon {
+  margin-right: 0.25rem;
+}
+
+/* Icon text wrapper */
+.icon-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.icon-text .icon {
+  flex-shrink: 0;
+}
+
+/* Font Awesome icon adjustments */
+.fas {
+  display: inline;
+  margin-right: 0.5rem;
+  vertical-align: -0.125em;
+}
+
+/* Size variants */
+.icon.icon-sm {
+  width: 0.875em;
+  height: 0.875em;
+}
+
+.icon.icon-lg {
+  width: 1.5em;
+  height: 1.5em;
+}
+
+.icon.icon-xl {
+  width: 2em;
+  height: 2em;
+}

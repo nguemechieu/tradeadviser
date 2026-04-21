@@ -59,11 +59,15 @@ RESERVED_FRONTEND_PREFIXES = {
 }
 
 # Create FastAPI app
+# Enable docs in development or if explicitly requested
+show_docs = os.getenv("ENV") != "production" or os.getenv("SHOW_DOCS", "false").lower() == "true"
 app = FastAPI(
     title="Sopotek Quant System Server",
     description="Server backend for the Sopotek Quant System desktop and web applications",
     version="1.0.0",
-    openapi_url=None if os.getenv("ENV") == "production" else "/openapi.json",
+    openapi_url="/openapi.json" if show_docs else None,
+    docs_url="/docs" if show_docs else None,
+    redoc_url="/redoc" if show_docs else None,
 )
 
 

@@ -1,14 +1,14 @@
 """Watchlist Manager - Manages trading watchlists."""
 
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 from datetime import datetime
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from enum import Enum
 
 
 class WatchlistType(str, Enum):
-    """Types of watchlists."""
+    """Types of watch lists."""
     CUSTOM = "custom"
     SECTOR = "sector"  # Group by sector
     ASSET_CLASS = "asset_class"  # Stocks, Options, Crypto, etc.
@@ -21,7 +21,7 @@ class WatchlistType(str, Enum):
 class WatchlistSymbol:
     """A symbol in a watchlist with metadata."""
     symbol: str
-    added_at: datetime = field(default_factory=datetime.utcnow)
+    added_at: datetime = field(default_factory=datetime.now)
     notes: str = ""
     target_price: Optional[float] = None
     alert_on_target: bool = False
@@ -52,8 +52,8 @@ class Watchlist:
     symbols: Dict[str, WatchlistSymbol] = field(default_factory=dict)
     description: str = ""
     is_public: bool = False
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=datetime.now)
+    updated_at: datetime = field(default_factory=datetime.now)
     tags: List[str] = field(default_factory=list)
     
     def add_symbol(self, symbol: str, notes: str = "", target_price: Optional[float] = None) -> bool:
@@ -64,15 +64,15 @@ class Watchlist:
                 notes=notes,
                 target_price=target_price
             )
-            self.updated_at = datetime.utcnow()
+            self.updated_at = datetime.now()
             return True
         return False
     
     def remove_symbol(self, symbol: str) -> bool:
-        """Remove symbol from watchlist."""
+        """Remove symbol from watch list."""
         if symbol in self.symbols:
             del self.symbols[symbol]
-            self.updated_at = datetime.utcnow()
+            self.updated_at = datetime.now()
             return True
         return False
     
@@ -88,7 +88,7 @@ class Watchlist:
         """Update notes for a symbol."""
         if symbol in self.symbols:
             self.symbols[symbol].notes = notes
-            self.updated_at = datetime.utcnow()
+            self.updated_at = datetime.now()
             return True
         return False
     
@@ -96,7 +96,7 @@ class Watchlist:
         """Update target price for a symbol."""
         if symbol in self.symbols:
             self.symbols[symbol].target_price = target_price
-            self.updated_at = datetime.utcnow()
+            self.updated_at = datetime.now()
             return True
         return False
     
@@ -184,7 +184,7 @@ class WatchlistManager:
         """Rename a watchlist."""
         if watchlist_id in self.watchlists:
             self.watchlists[watchlist_id].name = new_name
-            self.watchlists[watchlist_id].updated_at = datetime.utcnow()
+            self.watchlists[watchlist_id].updated_at = datetime.now()
             self.logger.info(f"Renamed watchlist {watchlist_id} to {new_name}")
             self._notify_listeners('watchlist_updated', self.watchlists[watchlist_id])
             return True

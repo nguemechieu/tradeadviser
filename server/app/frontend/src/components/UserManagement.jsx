@@ -2,6 +2,18 @@ import { useState, useEffect, useContext } from 'react';
 import AuthContext from '../context/AuthProvider';
 import axiosInstance from '../api/axiosConfig';
 import '../app.css';
+import '@fortawesome/fontawesome-free/css/all.min.css';
+import {
+  ClipboardIcon,
+  XIcon,
+  PlusIcon,
+  UserIcon,
+  CrownIcon,
+  AlertIcon,
+  LoadingIcon,
+  CheckIcon,
+  IconText
+} from './Icons';
 
 const ROLES = [
     { value: 'trader', label: 'Trader', color: '#53b4ff', description: 'Can view dashboards and place trades' },
@@ -249,14 +261,14 @@ const UserManagement = () => {
                             className="btn btn-secondary"
                             style={{ padding: '0.5rem 1rem' }}
                         >
-                            📋 {showAuditLogs ? 'Hide' : 'Show'} Audit Logs
+                            <IconText icon={ClipboardIcon} text={showAuditLogs ? 'Hide Audit Logs' : 'Show Audit Logs'} />
                         </button>
                         <button
                             onClick={() => setShowCreateForm(!showCreateForm)}
                             className="btn btn-primary"
                             style={{ padding: '0.5rem 1rem' }}
                         >
-                            {showCreateForm ? '✕ Cancel' : '+ New User'}
+                            <IconText icon={showCreateForm ? XIcon : PlusIcon} text={showCreateForm ? 'Cancel' : 'New User'} />
                         </button>
                     </div>
                 </div>
@@ -272,7 +284,7 @@ const UserManagement = () => {
                     marginBottom: '1rem',
                     border: '1px solid #fcc'
                 }}>
-                    ⚠️ {error}
+                    <IconText icon={AlertIcon} text={error} />
                 </div>
             )}
 
@@ -296,7 +308,7 @@ const UserManagement = () => {
                             className="btn btn-secondary"
                             style={{ padding: '0.5rem 1rem' }}
                         >
-                            {showCreateAdminForm ? '✕ Cancel' : '👤 Create Admin'}
+                            <IconText icon={showCreateAdminForm ? XIcon : UserIcon} text={showCreateAdminForm ? 'Cancel' : 'Create Admin'} />
                         </button>
                         <button
                             onClick={() => {
@@ -306,7 +318,7 @@ const UserManagement = () => {
                             className="btn btn-secondary"
                             style={{ padding: '0.5rem 1rem' }}
                         >
-                            {showCreateSuperAdminForm ? '✕ Cancel' : '👑 Create Super Admin'}
+                            <IconText icon={showCreateSuperAdminForm ? XIcon : CrownIcon} text={showCreateSuperAdminForm ? 'Cancel' : 'Create Super Admin'} />
                         </button>
                     </div>
                 </div>
@@ -664,14 +676,14 @@ const UserManagement = () => {
                                 className="btn btn-primary"
                                 style={{ padding: '0.5rem 1rem' }}
                             >
-                                {bulkUpdating ? '⏳ Updating...' : '✓ Apply to Selected'}
+                                <IconText icon={CheckIcon} text={bulkUpdating ? 'Updating...' : 'Apply to Selected'} />
                             </button>
                             <button
                                 onClick={() => setSelectedUsers(new Set())}
                                 className="btn btn-secondary"
                                 style={{ padding: '0.5rem 1rem' }}
                             >
-                                ✕ Cancel
+                                <IconText icon={XIcon} text="Cancel" />
                             </button>
                         </div>
                     </div>
@@ -683,7 +695,7 @@ const UserManagement = () => {
                 <h2 style={{ marginBottom: '1rem' }}>All Users ({users.length})</h2>
                 
                 {loading ? (
-                    <p>⏳ Loading users...</p>
+                    <p><IconText icon={LoadingIcon} text="Loading users..." /></p>
                 ) : users.length === 0 ? (
                     <p style={{ color: '#8ea3bc' }}>No users found</p>
                 ) : (
@@ -763,7 +775,7 @@ const UserManagement = () => {
                                                         <option key={r.value} value={r.value}>{r.label}</option>
                                                     ))}
                                                 </select>
-                                                {updatingRole[user.id] && <span style={{ marginLeft: '0.5rem' }}>⏳</span>}
+                                                {updatingRole[user.id] && <LoadingIcon style={{ marginLeft: '0.5rem' }} />}
                                             </td>
                                         </tr>
                                     );
@@ -780,7 +792,7 @@ const UserManagement = () => {
                     <h2 style={{ marginBottom: '1rem' }}>Recent Audit Logs</h2>
                     
                     {auditLoading ? (
-                        <p>⏳ Loading audit logs...</p>
+                        <p><IconText icon={LoadingIcon} text="Loading audit logs..." /></p>
                     ) : auditLogs.length === 0 ? (
                         <p style={{ color: '#8ea3bc' }}>No audit logs found</p>
                     ) : (

@@ -1,4 +1,4 @@
-"""Shared market-context contracts for Sopotek."""
+"""Shared market-context contracts for TradeAdviser."""
 
 from __future__ import annotations
 
@@ -15,11 +15,11 @@ class SymbolSnapshot(SharedModel):
 
     identifier: SymbolIdentifier
     last_price: float
-    bid: float | None = None
-    ask: float | None = None
+    bid: float | None = 0.0
+    ask: float | None = 0.0
     volume: float = 0.0
-    volatility: float | None = None
-    trend: str | None = None
+    volatility: float | None =0.0
+    trend: str | None = "UNKNOWN"
     timestamp: datetime = Field(default_factory=utc_now)
 
 

@@ -1,0 +1,151 @@
+# Desktop Development - Quick Reference
+
+## 🚀 QUICK START (Copy & Paste)
+
+```powershell
+# Option 1: Interactive Launcher (BEST)
+.\LAUNCH_DESKTOP.ps1
+
+# Option 2: Start App Now
+make dev
+
+# Option 3: Full Setup
+make setup
+make dev
+```
+
+---
+
+## 📋 MAKE COMMANDS
+
+| Command | What it does |
+|---------|-------------|
+| `make launch` | Show menu |
+| `make dev` | Run app |
+| `make setup` | Create venv |
+| `make install` | Install deps |
+| `make test` | Run tests |
+| `make test-coverage` | Tests + report |
+| `make lint` | Check code |
+| `make format` | Fix code style |
+| `make docker-up` | Start Docker |
+| `make docker-logs` | View logs |
+| `make docker-down` | Stop Docker |
+| `make clean` | Clean files |
+| `make status` | App info |
+
+---
+
+## 🎯 COMMON WORKFLOWS
+
+### Development Session
+```bash
+make dev           # Start app
+# ... make changes ...
+# App hot-reloads (if supported)
+```
+
+### Testing & QA
+```bash
+make test          # Run all tests
+make test-coverage # Show coverage
+make lint          # Check code
+```
+
+### Docker Mode
+```bash
+make docker-up     # Start containers
+# Access: http://localhost:6080
+make docker-logs   # Watch logs
+make docker-down   # Stop
+```
+
+### Clean & Reinstall
+```bash
+make clean         # Remove artifacts
+make install       # Reinstall deps
+make dev           # Run app
+```
+
+---
+
+## 🔧 MANUAL COMMANDS
+
+### Activate Virtual Environment
+```powershell
+.\.venv\Scripts\activate.ps1
+```
+
+### Run Directly
+```bash
+python main.py
+```
+
+### View Logs
+```bash
+cat logs/host-ui-latest.txt
+tail -f logs/host-ui-latest.log
+```
+
+### Install Package
+```bash
+pip install package-name
+```
+
+---
+
+## ⚠️ QUICK FIXES
+
+### "Module not found"
+```bash
+make install
+```
+
+### "Port already in use"
+```bash
+# Stop the app and try again
+```
+
+### "PyQt not installed"
+```bash
+make install
+```
+
+### "Can't find logs"
+```bash
+cd logs
+ls -la
+```
+
+---
+
+## 📍 KEY FILES
+
+- `main.py` - App entry point
+- `.venv/` - Python environment  
+- `logs/` - Application logs
+- `requirements.txt` - Python packages
+- `Makefile` - Commands
+- `LAUNCH_DESKTOP.ps1` - Interactive launcher
+
+---
+
+## 🌐 SERVICE PORTS
+
+- **Desktop App** - GUI window (no port)
+- **Docker Web UI** - http://localhost:6080 (if using Docker)
+- **VNC** - localhost:5900 (if using Docker)
+
+---
+
+## 💡 PRO TIPS
+
+1. **Keep Make running** - Don't close terminal while developing
+2. **Check logs** - First troubleshooting step: `cat logs/host-ui-latest.txt`
+3. **Use launcher** - `.\LAUNCH_DESKTOP.ps1` is easiest
+4. **Setup once** - `make setup` only needed once
+5. **Testing first** - Run `make test` before committing
+
+---
+
+**Status**: Ready to develop! 🚀

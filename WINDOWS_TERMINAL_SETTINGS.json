@@ -1,0 +1,114 @@
+{
+  "$schema": "https://aka.ms/terminal-profiles-schema-1.4",
+  "defaultProfile": "{574e775e-4f2a-5b96-ac1e-8aff325d41f6}",
+  "profiles": {
+    "defaults": {
+      "fontFace": "Cascadia Code",
+      "fontSize": 10,
+      "colorScheme": "One Half Dark",
+      "useAcrylic": true,
+      "acrylicOpacity": 0.9,
+      "bellStyle": "none",
+      "scrollbarState": "visible"
+    },
+    "list": [
+      {
+        "guid": "{574e775e-4f2a-5b96-ac1e-8aff325d41f6}",
+        "name": "TradeAdviser - Backend",
+        "commandline": "pwsh.exe -NoProfile -ExecutionPolicy Bypass -Command \"cd '$PROFILE/../../../Documents/GitHub/tradeadviser/server'; Clear-Host; Write-Host '🖥️  Backend Server' -ForegroundColor Cyan; Write-Host 'Available: make docker-up, make docker-down, make docker-logs'; Write-Host ''; pwsh.exe\"",
+        "icon": "⚙️",
+        "startingDirectory": "%USERPROFILE%/Documents/GitHub/tradeadviser/server",
+        "suppressApplicationTitle": false,
+        "hidden": false,
+        "tabColor": "#00A4EF"
+      },
+      {
+        "guid": "{2c4de342-38b7-51cf-b940-2309a097f518}",
+        "name": "TradeAdviser - Frontend",
+        "commandline": "pwsh.exe -NoProfile -ExecutionPolicy Bypass -Command \"cd '$PROFILE/../../../Documents/GitHub/tradeadviser/server/app/frontend'; Clear-Host; Write-Host '⚛️  Frontend (React)' -ForegroundColor Green; Write-Host 'Run: npm run dev (http://localhost:5173)'; Write-Host ''; pwsh.exe\"",
+        "icon": "⚛️",
+        "startingDirectory": "%USERPROFILE%/Documents/GitHub/tradeadviser/server/app/frontend",
+        "suppressApplicationTitle": false,
+        "hidden": false,
+        "tabColor": "#50FA7B"
+      },
+      {
+        "guid": "{b453ae62-4e3d-5e58-b989-0a86694e1dbb}",
+        "name": "TradeAdviser - Desktop",
+        "commandline": "pwsh.exe -NoProfile -ExecutionPolicy Bypass -Command \"cd '$PROFILE/../../../Documents/GitHub/tradeadviser/desktop'; .\.venv\Scripts\Activate.ps1; Clear-Host; Write-Host '🖥️  Desktop Application' -ForegroundColor Yellow; Write-Host 'Run: python main.py'; Write-Host ''; pwsh.exe\"",
+        "icon": "🖥️",
+        "startingDirectory": "%USERPROFILE%/Documents/GitHub/tradeadviser/desktop",
+        "suppressApplicationTitle": false,
+        "hidden": false,
+        "tabColor": "#FFB86C"
+      },
+      {
+        "guid": "{61c54bbd-c2c6-5271-96e7-009a87ff44bf}",
+        "name": "PowerShell",
+        "commandline": "pwsh.exe",
+        "colorScheme": "One Half Dark",
+        "hidden": false
+      },
+      {
+        "guid": "{0caa0dad-35eb-4519-a53f-06275dee1896}",
+        "name": "Command Prompt",
+        "commandline": "cmd.exe",
+        "colorScheme": "One Half Dark",
+        "hidden": false
+      }
+    ]
+  },
+  "schemes": [
+    {
+      "name": "One Half Dark",
+      "background": "#282C34",
+      "foreground": "#ABB2BF",
+      "cursorColor": "#61AFEF",
+      "selectionBackground": "#3E4452",
+      "black": "#282C34",
+      "red": "#E06C75",
+      "green": "#98C379",
+      "yellow": "#D19A66",
+      "blue": "#61AFEF",
+      "purple": "#C678DD",
+      "cyan": "#56B6C2",
+      "white": "#ABB2BF",
+      "brightBlack": "#5C6370",
+      "brightRed": "#E06C75",
+      "brightGreen": "#98C379",
+      "brightYellow": "#D19A66",
+      "brightBlue": "#61AFEF",
+      "brightPurple": "#C678DD",
+      "brightCyan": "#56B6C2",
+      "brightWhite": "#FFFFFF"
+    }
+  ],
+  "actions": [
+    {
+      "command": "newTab",
+      "keys": "ctrl+shift+t",
+      "action": "globalSummon"
+    },
+    {
+      "command": {
+        "action": "newTab",
+        "profile": "TradeAdviser - Backend"
+      },
+      "keys": "alt+shift+b"
+    },
+    {
+      "command": {
+        "action": "newTab",
+        "profile": "TradeAdviser - Frontend"
+      },
+      "keys": "alt+shift+f"
+    },
+    {
+      "command": {
+        "action": "newTab",
+        "profile": "TradeAdviser - Desktop"
+      },
+      "keys": "alt+shift+d"
+    }
+  ]
+}
