@@ -123,8 +123,8 @@ async def health() -> dict[str, Any]:
     try:
         return get_services().health_snapshot()
     except Exception as e:
-        logger.error(f"Health check failed: {e}")
-        return {"service": "TradeAdviser", "status": "error", "error": str(e)}
+        logger.error(f"Health check failed: {e}", exc_info=True)
+        return {"service": "TradeAdviser", "status": "error", "error": "Internal error"}
 
 
 @app.get("/", tags=["system"])
