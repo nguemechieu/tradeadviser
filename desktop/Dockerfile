@@ -11,10 +11,16 @@ WORKDIR /app
 # Install system dependencies needed by the desktop runtime and browser profile.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     autocutsel \
+    bash \
     build-essential \
     ca-certificates \
     curl \
     fluxbox \
+<<<<<<< Updated upstream
+=======
+    gcc \
+    git \
+>>>>>>> Stashed changes
     libasound2 \
     libdbus-1-3 \
     libegl1 \
@@ -64,8 +70,19 @@ COPY shared ./shared
 RUN python -m pip install --upgrade pip setuptools wheel && \
     python -m pip install ".[ui,brokers,ml]" "psycopg[binary]>=3.2" PyJWT keyring
 
+<<<<<<< Updated upstream
 RUN sed -i 's/\r$//' /app/src/scripts/start_http_ui.sh 2>/dev/null || true && \
     chmod +x /app/src/scripts/start_http_ui.sh 2>/dev/null || true && \
     mkdir -p /app/data /app/logs /app/output
+=======
+# Setup startup scripts - fix line endings and make executable
+RUN mkdir -p /app/data /app/logs /app/output && \
+    sed -i 's/\r$//' /app/src/scripts/start_http_ui.sh && \
+    chmod +x /app/src/scripts/start_http_ui.sh
+
+EXPOSE 5900 6080
+
+CMD ["python", "/app/main.py"]
+>>>>>>> Stashed changes
 
 CMD ["sopotek_quant_system"]

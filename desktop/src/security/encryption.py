@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 from pathlib import Path
 
 from cryptography.fernet import Fernet
@@ -36,7 +37,13 @@ class EncryptionManager:
 
         target_path = Path(env_path) if env_path else Path(".env")
         existing_lines = []
-        if target_path.exists():
+        
+        # Handle case where target_path is a directory instead of a file
+        if target_path.exists() and target_path.is_dir():
+            # If .env is a directory, remove it and create the file instead
+            shutil.rmtree(target_path, ignore_errors=True)
+        
+        if target_path.exists() and target_path.is_file():
             existing_lines = target_path.read_text(encoding="utf-8").splitlines()
 
         filtered_lines = [line for line in existing_lines if not line.startswith(f"{env_var}=")]

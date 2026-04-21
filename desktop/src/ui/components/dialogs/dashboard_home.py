@@ -128,7 +128,7 @@ class DashboardHomeScreen(QWidget):
         # Settings button
         settings_btn = QPushButton("⚙ Settings")
         settings_btn.setMaximumWidth(100)
-        settings_btn.clicked.connect(self.configure_broker.emit)
+        settings_btn.clicked.connect(self.show_settings)
         header_layout.addWidget(settings_btn)
         
         # Logout button
@@ -266,3 +266,59 @@ class DashboardHomeScreen(QWidget):
         if profile_name in self.profiles:
             del self.profiles[profile_name]
             self._refresh_profiles_display()
+    
+    def show_settings(self):
+        """Open the settings dialog."""
+        from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton
+        from PySide6.QtCore import Qt
+        from PySide6.QtGui import QFont
+        
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Settings")
+        dialog.setGeometry(100, 100, 400, 300)
+        dialog.setStyleSheet("""
+            QDialog {
+                background-color: #ffffff;
+            }
+        """)
+        
+        layout = QVBoxLayout(dialog)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(10)
+        
+        # Title
+        title = QLabel("Application Settings")
+        title_font = QFont()
+        title_font.setPointSize(14)
+        title_font.setBold(True)
+        title.setFont(title_font)
+        layout.addWidget(title)
+        
+        # Settings options placeholder
+        settings_label = QLabel("Settings options coming soon...")
+        settings_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        settings_label.setStyleSheet("color: #6c757d; padding: 20px;")
+        layout.addWidget(settings_label)
+        
+        layout.addStretch()
+        
+        # Close button
+        close_btn = QPushButton("Close")
+        close_btn.setMaximumWidth(100)
+        close_btn.clicked.connect(dialog.accept)
+        close_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #0d6efd;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 16px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #0b5ed7;
+            }
+        """)
+        layout.addWidget(close_btn)
+        
+        dialog.exec()

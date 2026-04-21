@@ -17,6 +17,33 @@ ENV PYTHONUNBUFFERED=1 \
 RUN apt-get update && apt-get install -y \
     gcc \
     postgresql-client \
+<<<<<<< Updated upstream
+=======
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and build wheels
+COPY server/app/backend/requirements.txt .
+RUN pip install --upgrade pip setuptools && \
+    pip wheel --no-cache-dir --no-deps --wheel-dir /build/wheels -r requirements.txt
+
+
+# Production image
+FROM python:3.11-slim
+
+# Set security-focused environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONPATH=/app \
+    ENV=production \
+    DEBUG=false
+
+WORKDIR /app/server
+
+# Install runtime dependencies only (security: minimal attack surface)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    postgresql-client \
+>>>>>>> Stashed changes
     curl \
     && rm -rf /var/lib/apt/lists/*
 
@@ -27,8 +54,13 @@ COPY backend/requirements.txt .
 RUN pip install -U pip setuptools && \
     pip install -r requirements.txt
 
+<<<<<<< Updated upstream
 # Copy backend code
 COPY backend /app/backend
+=======
+# Copy application code
+COPY server /app/server/
+>>>>>>> Stashed changes
 
 # Copy frontend dist (if it exists, otherwise create empty directory)
 RUN mkdir -p /app/frontend/dist && \

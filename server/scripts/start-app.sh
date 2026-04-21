@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 
 # TradeAdviser Application Startup Script
 # Unix/Linux/macOS Version

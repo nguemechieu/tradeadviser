@@ -28,6 +28,7 @@ services:
       retries: 12
       start_period: 20s
 
+<<<<<<< Updated upstream:desktop/docker-compose.yml
   api:
     build:
       context: ..
@@ -52,6 +53,10 @@ services:
       retries: 10
       start_period: 20s
 
+=======
+  
+  # Desktop Application (GUI)
+>>>>>>> Stashed changes:desktop/docker-compose-desktop.yml
   app:
     build:
       context: ..
@@ -63,6 +68,7 @@ services:
       QT_X11_NO_MITSHM: "1"
       DISPLAY: ${DISPLAY:-}
     depends_on:
+<<<<<<< Updated upstream:desktop/docker-compose.yml
       api:
         condition: service_healthy
       postgres:
@@ -73,6 +79,16 @@ services:
       - ./logs:/app/logs
       - ./output:/app/output
       - ./.env:/app/.env:ro
+=======
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./desktop/credentials.json/:/app/credentials.json/
+      - ./desktop/data:/app/data
+      - ./desktop/logs:/app/logs
+      - ./desktop/output:/app/output
+      - ./.env:/app/.env
+>>>>>>> Stashed changes:desktop/docker-compose-desktop.yml
     stdin_open: true
     tty: true
     command: sopotek_quant_system
@@ -108,19 +124,63 @@ services:
       NOVNC_TLS_HOSTNAME: ${NOVNC_TLS_HOSTNAME:-localhost}
       VNC_PORT: 5900
     depends_on:
+<<<<<<< Updated upstream:desktop/docker-compose.yml
       api:
         condition: service_healthy
+=======
+>>>>>>> Stashed changes:desktop/docker-compose-desktop.yml
       postgres:
         condition: service_healthy
     ports:
       - "127.0.0.1:${APP_HTTP_PORT:-6080}:6080"
     volumes:
+<<<<<<< Updated upstream:desktop/docker-compose.yml
       - ./credentials.json:/app/credentials.json
       - ./data:/app/data
       - ./logs:/app/logs
       - ./output:/app/output
       - ./.env:/app/.env:ro
     command: /app/src/scripts/start_http_ui.sh
+=======
+      - ./desktop/credentials.json/:/app/credentials.json/
+      - ./desktop/data:/app/data
+      - ./desktop/logs:/app/logs
+      - ./desktop/output:/app/output
+      - ./.env:/app/.env
+    networks:
+      - tradeadviser_desktop-network
+    command:
+      - bash
+      - -c
+      - |
+        echo 'Starting Xvfb...'
+        Xvfb :99 -screen 0 1600x900x24 -ac -nolisten tcp > /tmp/xvfb.log 2>&1 &
+        XVFB_PID=$!
+        
+        # Wait for Xvfb to be ready
+        echo 'Waiting for Xvfb to initialize...'
+        export DISPLAY=:99
+        for i in {1..30}; do
+          if xdpyinfo -display :99 > /dev/null 2>&1; then
+            echo "Xvfb is ready!"
+            break
+          fi
+          echo "Attempt $i: Waiting for Xvfb..."
+          sleep 0.5
+        done
+        
+        echo 'Starting VNC server...'
+        x11vnc -display :99 -forever -nopw -rfbport 5900 > /tmp/vnc.log 2>&1 &
+        sleep 2
+        
+        echo 'Starting noVNC web interface...'
+        websockify --web=/usr/share/novnc 0.0.0.0:6080 127.0.0.1:5900 > /tmp/novnc.log 2>&1 &
+        sleep 2
+        
+        echo 'Starting TradeAdviser application...'
+        python /app/main.py
+        wait
+>>>>>>> Stashed changes:desktop/docker-compose-desktop.yml
 
 volumes:
   postgres_data:
