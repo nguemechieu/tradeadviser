@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, FormEvent, ChangeEvent, FC } from "react";
 import { faCheck, faTimes } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import axios from '../api/axios';
+import axiosInstance from '../api/axios';
 import { Link } from "react-router-dom";
 import './Auth.css';
 
@@ -27,7 +27,6 @@ const Register: FC = () => {
 
   const [email, setEmail] = useState<string>('');
   const [validEmail, setValidEmail] = useState<boolean>(false);
-  const [emailFocus, setEmailFocus] = useState<boolean>(false);
 
   const [user, setUser] = useState<string>('');
   const [validName, setValidName] = useState<boolean>(false);
@@ -89,7 +88,7 @@ const Register: FC = () => {
     }
     setLoading(true);
     try {
-      const response = await axios.post<RegisterResponse>(REGISTER_URL,
+      const response = await axiosInstance.post<RegisterResponse>(REGISTER_URL,
         JSON.stringify({ 
           email,
           username: user,
@@ -192,8 +191,6 @@ const Register: FC = () => {
                     required
                     disabled={loading}
                     aria-invalid={validEmail ? "false" : "true"}
-                    onFocus={() => setEmailFocus(true)}
-                    onBlur={() => setEmailFocus(false)}
                   />
                 </div>
 

@@ -21,6 +21,26 @@ services:
     networks:
       - tradeadviser-network
 
+  # React Frontend (TypeScript)
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    container_name: tradeadviser-frontend
+    ports:
+      - "3000:80"
+    environment:
+      - NODE_ENV=production
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    networks:
+      - tradeadviser-network
+    restart: unless-stopped
+
   # FastAPI Backend
   backend:
     build:
@@ -35,7 +55,7 @@ services:
       APP_DEBUG: "false"
       DATABASE_URL: postgresql+asyncpg://tradeadviser:tradeadviser_dev_password@database:5432/tradeadviser
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-secret-key-change-in-production}
-      ALLOWED_ORIGINS: http://localhost:4173,http://localhost:5173,http://localhost:8000,https://tradeadviser.org
+      ALLOWED_ORIGINS: http://localhost,http://localhost:3000,http://localhost:5173,http://localhost:8000,https://tradeadviser.org
       FRONTEND_DIST: /app/frontend/dist
       LOG_LEVEL: INFO
     depends_on:
@@ -45,18 +65,9 @@ services:
       - ./backend:/app/backend
       - ./frontend/dist:/app/frontend/dist
       - ./logs:/app/logs
-    command: >
-      sh -c "
-        python -m alembic upgrade head || true &&
-        python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
-      "
     networks:
       - tradeadviser-network
     restart: unless-stopped
-
-  # React Frontend (built and served via backend)
-  # Note: Frontend is served by backend in production
-  # For development with hot reload, run: cd frontend && npm run dev
 
   # Optional: Redis for Caching
   redis:
@@ -191,14 +202,15 @@ networks:
 # 
 # View logs:
 # $ docker-compose logs -f backend
+# $ docker-compose logs -f frontend
 # $ docker-compose logs -f database
 # 
 # Run migrations:
 # $ docker-compose exec backend python -m alembic upgrade head
 #
 # Access services:
-# - Frontend: http://localhost:8000 (served by backend)
-# - Backend API: http://localhost:8000/api
+# - Frontend: http://localhost:3000 (React TypeScript app via Nginx)
+# - Backend API: http://localhost:8000
 # - API Docs: http://localhost:8000/docs
 # - pgAdmin: http://localhost:5050 (if with-pgadmin profile)
 # - Adminer: http://localhost:8080 (if with-adminer profile)
