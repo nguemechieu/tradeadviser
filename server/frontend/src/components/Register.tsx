@@ -9,7 +9,7 @@ const USER_REGEX = /^[A-Za-z][A-Za-z0-9_-]{3,23}$/;
 const PWD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%]).{8,24}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^[\d\s\-\+\(\)]+$/;
-const REGISTER_URL = '/auth/register';
+const REGISTER_URL = '/api/auth/register';
 
 interface RegisterResponse {
   access_token: string;

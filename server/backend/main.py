@@ -70,21 +70,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register all routers
-app.include_router(auth_router)
-app.include_router(admin_router)
-app.include_router(agents_router)
-app.include_router(operations_router)
-app.include_router(performance_router)
-app.include_router(performance_audit_router)
-app.include_router(portfolio_router)
-app.include_router(risk_router)
-app.include_router(session_router)
-app.include_router(signals_router)
-app.include_router(trades_router)
-app.include_router(trading_router)
-app.include_router(users_licenses_router)
-app.include_router(workspace_router)
+# Register all routers with /api prefix
+app.include_router(auth_router, prefix="/api")
+app.include_router(admin_router, prefix="/api")
+app.include_router(agents_router, prefix="/api")
+app.include_router(operations_router, prefix="/api")
+app.include_router(performance_router, prefix="/api")
+app.include_router(performance_audit_router, prefix="/api")
+app.include_router(portfolio_router, prefix="/api")
+app.include_router(risk_router, prefix="/api")
+app.include_router(session_router, prefix="/api")
+app.include_router(signals_router, prefix="/api")
+app.include_router(trades_router, prefix="/api")
+app.include_router(trading_router, prefix="/api")
+app.include_router(users_licenses_router, prefix="/api")
+app.include_router(workspace_router, prefix="/api")
 
 # Mount frontend assets if they exist
 frontend_assets = FRONTEND_DIST / "assets"

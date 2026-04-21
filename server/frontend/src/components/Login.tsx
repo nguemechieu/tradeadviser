@@ -4,7 +4,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import axiosInstance from '../api/axios';
 import './Auth.css';
 
-const LOGIN_URL = '/auth/login';
+const LOGIN_URL = '/api/auth/login';
 
 interface LoginRequest {
   identifier: string;
