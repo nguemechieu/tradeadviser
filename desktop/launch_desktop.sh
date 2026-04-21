@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 #!/bin/bash
+=======
+﻿#!/bin/bash
+>>>>>>> 4bef926f634c72a86f231ee2b5ab2e56b52111ef
 
 # TradeAdviser Desktop - Bash Launch Wrapper
 # For macOS/Linux users who prefer bash

@@ -22,6 +22,7 @@ if str(project_root) not in sys.path:
 
 logger = logging.getLogger(__name__)
 
+<<<<<<< HEAD:server/app/backend/main.py
 from app.backend.api.routes.auth import router as auth_router
 from app.backend.api.routes.admin import router as admin_router
 from app.backend.api.routes.agents import router as agents_router
@@ -38,6 +39,24 @@ from app.backend.api.routes.users import router as users_router
 from app.backend.api.routes.users_licenses import router as users_licenses_router
 from app.backend.api.routes.workspace import router as workspace_router
 from app.backend.dependencies import get_services
+=======
+from backend.api.routes.auth import router as auth_router
+from backend.api.routes.admin import router as admin_router
+from backend.api.routes.agents import router as agents_router
+from backend.api.routes.docs import router as docs_router
+from backend.api.routes.operations import router as operations_router
+from backend.api.routes.performance import router as performance_router
+from backend.api.routes.performance_audit import router as performance_audit_router
+from backend.api.routes.portfolio import router as portfolio_router
+from backend.api.routes.risk import router as risk_router
+from backend.api.routes.session import router as session_router
+from backend.api.routes.signals import router as signals_router
+from backend.api.routes.trades import router as trades_router
+from backend.api.routes.trading import router as trading_router
+from backend.api.routes.users_licenses import router as users_licenses_router
+from backend.api.routes.workspace import router as workspace_router
+from backend.dependencies import get_services
+>>>>>>> 4bef926f634c72a86f231ee2b5ab2e56b52111ef:server/backend/main.py
 
 
 FRONTEND_DIST = Path(__file__).resolve().parents[1] / "frontend" / "dist"
@@ -119,10 +138,18 @@ app.add_middleware(
     max_age=600,
 )
 
+<<<<<<< HEAD:server/app/backend/main.py
 # Register all routers under /api prefix
 app.include_router(auth_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
 app.include_router(agents_router, prefix="/api")
+=======
+# Register all routers with /api prefix
+app.include_router(auth_router, prefix="/api")
+app.include_router(admin_router, prefix="/api")
+app.include_router(agents_router, prefix="/api")
+app.include_router(docs_router, prefix="/api")
+>>>>>>> 4bef926f634c72a86f231ee2b5ab2e56b52111ef:server/backend/main.py
 app.include_router(operations_router, prefix="/api")
 app.include_router(performance_router, prefix="/api")
 app.include_router(performance_audit_router, prefix="/api")
@@ -132,7 +159,10 @@ app.include_router(session_router, prefix="/api")
 app.include_router(signals_router, prefix="/api")
 app.include_router(trades_router, prefix="/api")
 app.include_router(trading_router, prefix="/api")
+<<<<<<< HEAD:server/app/backend/main.py
 app.include_router(users_router, prefix="/api")
+=======
+>>>>>>> 4bef926f634c72a86f231ee2b5ab2e56b52111ef:server/backend/main.py
 app.include_router(users_licenses_router, prefix="/api")
 app.include_router(workspace_router, prefix="/api")
 

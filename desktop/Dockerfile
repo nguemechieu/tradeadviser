@@ -11,11 +11,20 @@ WORKDIR /app
 # Install system dependencies needed by the desktop runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
     autocutsel \
+    bash \
     build-essential \
     ca-certificates \
     curl \
     fluxbox \
+<<<<<<< HEAD
     gcc \
+=======
+<<<<<<< Updated upstream
+=======
+    gcc \
+    git \
+>>>>>>> Stashed changes
+>>>>>>> 4bef926f634c72a86f231ee2b5ab2e56b52111ef
     libasound2 \
     libdbus-1-3 \
     libegl1 \
@@ -70,11 +79,27 @@ COPY server /app/server
 RUN python -m pip install --upgrade pip setuptools wheel && \
     pip install -r ./requirements.txt
 
+<<<<<<< HEAD
 # Setup startup scripts
 RUN mkdir -p /app/data /app/logs /app/output && \
     chmod +x /app/src/scripts/start_http_ui.sh 2>/dev/null || true
+=======
+<<<<<<< Updated upstream
+RUN sed -i 's/\r$//' /app/src/scripts/start_http_ui.sh 2>/dev/null || true && \
+    chmod +x /app/src/scripts/start_http_ui.sh 2>/dev/null || true && \
+    mkdir -p /app/data /app/logs /app/output
+=======
+# Setup startup scripts - fix line endings and make executable
+RUN mkdir -p /app/data /app/logs /app/output && \
+    sed -i 's/\r$//' /app/src/scripts/start_http_ui.sh && \
+    chmod +x /app/src/scripts/start_http_ui.sh
+>>>>>>> 4bef926f634c72a86f231ee2b5ab2e56b52111ef
 
 EXPOSE 5900 6080
 
 CMD ["python", "/app/main.py"]
+<<<<<<< HEAD
+=======
+>>>>>>> Stashed changes
+>>>>>>> 4bef926f634c72a86f231ee2b5ab2e56b52111ef
 

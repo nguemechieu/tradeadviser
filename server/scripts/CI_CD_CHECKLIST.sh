@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 # CI/CD Setup Checklist for TradeAdviser
 # This script provides a quick checklist for setting up CI/CD
 

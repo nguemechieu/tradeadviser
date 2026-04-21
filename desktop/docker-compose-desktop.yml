@@ -1,0 +1,237 @@
+x-desktop-env: &desktop-env
+  PYTHONPATH: /app
+  PYTHONUNBUFFERED: 1
+  DATABASE_MODE: remote
+  DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://tradeadviser:tradeadviser_dev_password@postgres:5432/tradeadviser}
+  API_URL: ${API_URL:-http://backend:8000}
+  WS_URL: ${WS_URL:-ws://backend:8000/ws}
+  ENABLE_HYBRID_DESKTOP: ${ENABLE_HYBRID_DESKTOP:-1}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+
+networks:
+  tradeadviser_desktop-network:
+    name: tradeadviser_desktop-network
+    driver: bridge
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: tradeadviser_desktop-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-tradeadviser}
+      POSTGRES_USER: ${POSTGRES_USER:-tradeadviser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tradeadviser_dev_password}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - tradeadviser_desktop-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tradeadviser"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - tradeadviser_desktop-network
+
+<<<<<<< HEAD:desktop/docker-compose.yml
+  # FastAPI Backend
+  backend:
+=======
+<<<<<<< Updated upstream:desktop/docker-compose.yml
+  api:
+>>>>>>> 4bef926f634c72a86f231ee2b5ab2e56b52111ef:desktop/docker-compose-desktop.yml
+    build:
+      context: ..
+      dockerfile: ./server/docker/Dockerfile.backend
+    container_name: tradeadviser_desktop-api
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-8001}:8000"
+    environment:
+      APP_NAME: TradeAdviser
+      APP_ENV: development
+      APP_DEBUG: "true"
+      DATABASE_URL: postgresql+asyncpg://tradeadviser:tradeadviser_dev_password@postgres:5432/tradeadviser
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-secret-key-change-in-production}
+      ALLOWED_ORIGINS: http://localhost:6080,http://localhost:5900,http://localhost:8001
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      PYTHONPATH: /app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ../server:/app/server
+      - ../desktop/logs:/app/logs
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import socket; socket.create_connection(('127.0.0.1', 8000), timeout=2)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - tradeadviser_desktop-network
+    working_dir: /app/server
+    command: python main.py
+
+<<<<<<< HEAD:desktop/docker-compose.yml
+  # Desktop Application (GUI)
+=======
+=======
+  
+  # Desktop Application (GUI)
+>>>>>>> Stashed changes:desktop/docker-compose-desktop.yml
+>>>>>>> 4bef926f634c72a86f231ee2b5ab2e56b52111ef:desktop/docker-compose-desktop.yml
+  app:
+    build:
+      context: ..
+      dockerfile: ./desktop/Dockerfile
+    container_name: tradeadviser_desktop-gui
+    restart: unless-stopped
+    environment:
+      <<: *desktop-env
+      QT_X11_NO_MITSHM: "1"
+      DISPLAY: ${DISPLAY:-}
+    depends_on:
+<<<<<<< HEAD:desktop/docker-compose.yml
+      backend:
+=======
+<<<<<<< Updated upstream:desktop/docker-compose.yml
+      api:
+>>>>>>> 4bef926f634c72a86f231ee2b5ab2e56b52111ef:desktop/docker-compose-desktop.yml
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./desktop/credentials.json:/app/credentials.json
+      - ./desktop/data:/app/data
+      - ./desktop/logs:/app/logs
+      - ./desktop/output:/app/output
+      - ./.env:/app/.env:ro
+=======
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./desktop/credentials.json/:/app/credentials.json/
+      - ./desktop/data:/app/data
+      - ./desktop/logs:/app/logs
+      - ./desktop/output:/app/output
+      - ./.env:/app/.env
+>>>>>>> Stashed changes:desktop/docker-compose-desktop.yml
+    stdin_open: true
+    tty: true
+    networks:
+      - tradeadviser_desktop-network
+    command: python /app/main.py
+
+  # Desktop Application (HTTP/Web UI)
+  app-http:
+    build:
+      context: ..
+      dockerfile: ./desktop/Dockerfile
+    container_name: tradeadviser_desktop-web
+    restart: unless-stopped
+    profiles: ["web"]
+    environment:
+      <<: *desktop-env
+      HTTP_UI: "1"
+      DISABLE_WEBENGINE: "1"
+      DISPLAY: :99
+      QT_QPA_PLATFORM: xcb
+      LIBGL_ALWAYS_SOFTWARE: "1"
+      QT_OPENGL: software
+      QT_QUICK_BACKEND: software
+      QSG_RHI_BACKEND: software
+      QT_XCB_GL_INTEGRATION: none
+      QTWEBENGINE_DISABLE_SANDBOX: "1"
+      QTWEBENGINE_CHROMIUM_FLAGS: --no-sandbox --disable-gpu --disable-gpu-compositing --disable-gpu-rasterization --disable-dev-shm-usage --disable-features=Vulkan,VulkanFromANGLE,UseSkiaRenderer
+      SCREEN_WIDTH: ${SCREEN_WIDTH:-1600}
+      SCREEN_HEIGHT: ${SCREEN_HEIGHT:-900}
+      SCREEN_DEPTH: ${SCREEN_DEPTH:-24}
+      NOVNC_PORT: 6080
+      NOVNC_RESIZE_MODE: ${NOVNC_RESIZE_MODE:-off}
+      NOVNC_RECONNECT: ${NOVNC_RECONNECT:-1}
+      NOVNC_SHOW_DOT: ${NOVNC_SHOW_DOT:-1}
+      NOVNC_TLS_ENABLED: ${NOVNC_TLS_ENABLED:-0}
+      NOVNC_TLS_HOSTNAME: ${NOVNC_TLS_HOSTNAME:-localhost}
+      VNC_PORT: 5900
+    depends_on:
+<<<<<<< HEAD:desktop/docker-compose.yml
+      backend:
+=======
+<<<<<<< Updated upstream:desktop/docker-compose.yml
+      api:
+>>>>>>> 4bef926f634c72a86f231ee2b5ab2e56b52111ef:desktop/docker-compose-desktop.yml
+        condition: service_healthy
+=======
+>>>>>>> Stashed changes:desktop/docker-compose-desktop.yml
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${APP_HTTP_PORT:-6080}:6080"
+      - "127.0.0.1:${VNC_PORT:-5900}:5900"
+    volumes:
+<<<<<<< HEAD:desktop/docker-compose.yml
+      - ./desktop/credentials.json:/app/credentials.json
+      - ./desktop/data:/app/data
+      - ./desktop/logs:/app/logs
+      - ./desktop/output:/app/output
+=======
+<<<<<<< Updated upstream:desktop/docker-compose.yml
+      - ./credentials.json:/app/credentials.json
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./output:/app/output
+>>>>>>> 4bef926f634c72a86f231ee2b5ab2e56b52111ef:desktop/docker-compose-desktop.yml
+      - ./.env:/app/.env:ro
+    networks:
+      - tradeadviser_desktop-network
+    command: /app/src/scripts/start_http_ui.sh
+=======
+      - ./desktop/credentials.json/:/app/credentials.json/
+      - ./desktop/data:/app/data
+      - ./desktop/logs:/app/logs
+      - ./desktop/output:/app/output
+      - ./.env:/app/.env
+    networks:
+      - tradeadviser_desktop-network
+    command:
+      - bash
+      - -c
+      - |
+        echo 'Starting Xvfb...'
+        Xvfb :99 -screen 0 1600x900x24 -ac -nolisten tcp > /tmp/xvfb.log 2>&1 &
+        XVFB_PID=$!
+        
+        # Wait for Xvfb to be ready
+        echo 'Waiting for Xvfb to initialize...'
+        export DISPLAY=:99
+        for i in {1..30}; do
+          if xdpyinfo -display :99 > /dev/null 2>&1; then
+            echo "Xvfb is ready!"
+            break
+          fi
+          echo "Attempt $i: Waiting for Xvfb..."
+          sleep 0.5
+        done
+        
+        echo 'Starting VNC server...'
+        x11vnc -display :99 -forever -nopw -rfbport 5900 > /tmp/vnc.log 2>&1 &
+        sleep 2
+        
+        echo 'Starting noVNC web interface...'
+        websockify --web=/usr/share/novnc 0.0.0.0:6080 127.0.0.1:5900 > /tmp/novnc.log 2>&1 &
+        sleep 2
+        
+        echo 'Starting TradeAdviser application...'
+        python /app/main.py
+        wait
+>>>>>>> Stashed changes:desktop/docker-compose-desktop.yml
+
+volumes:
+  tradeadviser_desktop-postgres-data:
+    name: tradeadviser_desktop_postgres_data
+

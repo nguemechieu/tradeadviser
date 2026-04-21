@@ -1,2 +1,0 @@
-"""SQS Server application package."""
-

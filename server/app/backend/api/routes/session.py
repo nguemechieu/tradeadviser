@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from app.backend.dependencies import ServerServiceContainer, get_services
 
 
-router = APIRouter(prefix="/api/v1/session", tags=["session"])
+router = APIRouter(prefix="/session", tags=["session"])
 
 
 class SessionLoginRequest(BaseModel):

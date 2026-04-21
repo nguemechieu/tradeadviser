@@ -38,7 +38,11 @@ function Write-Header {
 }
 
 function Write-Status {
+<<<<<<< HEAD
     param([string]$Text, [string]$Icon = '→', [string]$Color = 'Gray')
+=======
+    param([string]$Text, [string]$Icon = '->', [string]$Color = 'Gray')
+>>>>>>> 4bef926f634c72a86f231ee2b5ab2e56b52111ef
     Write-Host "  $Icon  $Text" -ForegroundColor $Color
 }
 
@@ -50,15 +54,25 @@ function Open-Terminal {
         [string]$Color
     )
     
+<<<<<<< HEAD
     Write-Status "Opening: $Title..." -Icon "▶" -Color $Color
+=======
+    Write-Status "Opening: $Title..." -Icon ">" -Color $Color
+>>>>>>> 4bef926f634c72a86f231ee2b5ab2e56b52111ef
     
     $profileCmd = @"
 `$Host.UI.RawUI.WindowTitle = "$Title"
 cd "$Path"
 Clear-Host
+<<<<<<< HEAD
 Write-Host "╔════════════════════════════════════════════════════════╗" -ForegroundColor $Color
 Write-Host "║ $($Title.PadRight(54)) ║" -ForegroundColor $Color
 Write-Host "╚════════════════════════════════════════════════════════╝" -ForegroundColor $Color
+=======
+Write-Host "========================================================" -ForegroundColor $Color
+Write-Host "  $Title" -ForegroundColor $Color
+Write-Host "========================================================" -ForegroundColor $Color
+>>>>>>> 4bef926f634c72a86f231ee2b5ab2e56b52111ef
 Write-Host ""
 $Command
 "@
@@ -73,7 +87,12 @@ $Command
 function Show-Interactive-Menu {
     Write-Header "TradeAdviser - Development Launcher" "Cyan"
     
+<<<<<<< HEAD
     Write-Host "Select terminal configuration to launch:`n" -ForegroundColor White
+=======
+    Write-Host "Select terminal configuration to launch:" -ForegroundColor White
+    Write-Host ""
+>>>>>>> 4bef926f634c72a86f231ee2b5ab2e56b52111ef
     Write-Host "  [1]  Full Stack    (Backend + Frontend + Desktop)" -ForegroundColor Cyan
     Write-Host "  [2]  Backend Only  (Server + Docker)" -ForegroundColor Green
     Write-Host "  [3]  Frontend Only (React Web UI)" -ForegroundColor Yellow
@@ -191,7 +210,11 @@ Write-Host "  python main.py" -ForegroundColor Green
 
 function Show-Launch-Summary {
     Write-Host ""
+<<<<<<< HEAD
     Write-Header "✓ Terminals Launched" "Green"
+=======
+    Write-Header "Terminals Launched" "Green"
+>>>>>>> 4bef926f634c72a86f231ee2b5ab2e56b52111ef
     
     Write-Host "Service URLs:" -ForegroundColor Yellow
     Write-Status "API Server:        http://localhost:8000" -Color "Gray"

@@ -21,6 +21,10 @@ class RegisterRequest(BaseModel):
     password: str = Field(min_length=6)
     username: str | None = None
     display_name: str | None = None
+    firstname: str | None = None
+    middlename: str | None = None
+    lastname: str | None = None
+    phone: str | None = None
 
 
 class RefreshRequest(BaseModel):
