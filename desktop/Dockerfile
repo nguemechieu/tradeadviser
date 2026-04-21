@@ -4,17 +4,18 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PYTHONPATH=/app:/app/src
+    PYTHONPATH=/app
 
 WORKDIR /app
 
-# Install system dependencies needed by the desktop runtime and browser profile.
+# Install system dependencies needed by the desktop runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
     autocutsel \
     build-essential \
     ca-certificates \
     curl \
     fluxbox \
+    gcc \
     libasound2 \
     libdbus-1-3 \
     libegl1 \
@@ -48,6 +49,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxtst6 \
     novnc \
     openssl \
+    postgresql-client \
+    python3-dev \
     websockify \
     x11-utils \
     x11vnc \
@@ -56,16 +59,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xvfb \
     && rm -rf /var/lib/apt/lists/*
 
-COPY sqs_desktop/pyproject.toml ./pyproject.toml
-COPY sqs_desktop/README.md ./README.md
-COPY sqs_desktop/src ./src
-COPY shared ./shared
+# Copy application files
+COPY desktop/requirements-docker.txt ./requirements.txt
+COPY desktop/__init__.py ./__init__.py
+COPY desktop/main.py ./main.py
+COPY desktop/src ./src
+COPY server /app/server
 
+# Install Python dependencies
 RUN python -m pip install --upgrade pip setuptools wheel && \
-    python -m pip install ".[ui,brokers,ml]" "psycopg[binary]>=3.2" PyJWT keyring
+    pip install -r ./requirements.txt
 
-RUN sed -i 's/\r$//' /app/src/scripts/start_http_ui.sh 2>/dev/null || true && \
-    chmod +x /app/src/scripts/start_http_ui.sh 2>/dev/null || true && \
-    mkdir -p /app/data /app/logs /app/output
+# Setup startup scripts
+RUN mkdir -p /app/data /app/logs /app/output && \
+    chmod +x /app/src/scripts/start_http_ui.sh 2>/dev/null || true
 
-CMD ["sopotek_quant_system"]
+EXPOSE 5900 6080
+
+CMD ["python", "/app/main.py"]
+

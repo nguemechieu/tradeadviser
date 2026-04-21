@@ -1,4 +1,4 @@
-"""Desktop entrypoint for the SQS (Sopotek Quant System) application."""
+"""Desktop entrypoint for the TradeAdviser application."""
 
 # cspell:words qasync sopotek timerid getpid gaierror clientconnectordnserror
 
@@ -28,7 +28,6 @@ if sys.platform == "win32":
         except (AttributeError, ValueError):
             pass
 
-from PySide6 import QtCore, QtGui, QtWidgets
 
 _FAULTHANDLER_STATE: dict[str, TextIO | None] = {"stream": None}
 _TRUE_ENV_VALUES = {"1", "true", "yes", "on"}
@@ -51,16 +50,54 @@ def _ensure_src_on_path() -> None:
 
     This enables importing of local modules from the src directory.
     """
-    src_root = _src_root()
-    src_value = str(src_root)
-    if src_value not in sys.path:
-        sys.path.insert(0, src_value)
+    import os as _os_module
     
-    # Also add project root so shared/ can be imported
-    project_root = src_root.parent.parent
-    project_root_value = str(project_root)
-    if project_root_value not in sys.path:
-        sys.path.insert(0, project_root_value)
+    src_root_str = _os_module.path.abspath(_os_module.path.dirname(__file__))
+    project_root_str = _os_module.path.dirname(_os_module.path.dirname(src_root_str))
+    backend_str = _os_module.path.join(project_root_str, "server", "app", "backend")
+    
+    # Normalize paths for comparison
+    src_root_str = _os_module.path.normpath(src_root_str)
+    project_root_str = _os_module.path.normpath(project_root_str)
+    backend_str = _os_module.path.normpath(backend_str)
+    
+    # Clear existing entries and add in correct order (backend, project, src)
+    sys.path = [p for p in sys.path if p not in (src_root_str, project_root_str, backend_str)]
+    
+    # Add in reverse priority order so src is first
+    sys.path.insert(0, backend_str)
+    sys.path.insert(0, project_root_str)
+    sys.path.insert(0, src_root_str)
+
+
+# Ensure src is on path BEFORE importing any local modules
+_ensure_src_on_path()
+
+# Import backend package to register 'sopotek' namespace by modifying sys.modules
+# This is needed for imports like "from sopotek.shared.contracts import ..."
+_backend_path = os.path.normpath(os.path.join(
+    os.path.dirname(os.path.dirname(__file__)),
+    '..',
+    'server', 'app', 'backend'
+))
+if _backend_path in sys.path:
+    # Load the backend __init__.py to set up sopotek namespace
+    import importlib.util
+    _spec = importlib.util.spec_from_file_location("__backend_init__", os.path.join(_backend_path, '__init__.py'))
+    if _spec and _spec.loader:
+        _backend_init = importlib.util.module_from_spec(_spec)
+        sys.modules['__backend_init__'] = _backend_init
+        try:
+            _spec.loader.exec_module(_backend_init)
+        except Exception:
+            pass  # If backend init fails, continue with fallback imports
+
+# Delayed import of PySide6 to avoid interfering with local module imports  
+try:
+    from PySide6 import QtCore, QtGui, QtWidgets
+except ImportError:
+    # If PySide6 not available, we'll error later anyway
+    QtCore = QtGui = QtWidgets = None
 
 
 def _load_qeventloop() -> type[Any]:
@@ -113,7 +150,6 @@ def _load_app_controller() -> type[Any]:
     type[Any]
         The AppController class.
     """
-    _ensure_src_on_path()
     from ui.components.app_controller import AppController
     return AppController
 
@@ -398,6 +434,7 @@ def _is_qt_windows_noise(message: str | None) -> bool:
     bool
         True if the message is known harmless noise, False otherwise.
     """
+    text:str=""
     if text := str(message or "").strip():
         return any(
             token in text
@@ -462,12 +499,20 @@ def main(argv: list[str] | None = None) -> int:
     window = app_controller_cls()
     _install_asyncio_exception_filter(loop, logger=getattr(window, "logger", None))
     window.setIconSize(QtCore.QSize(48, 48))
+    # Load window icon with fallback support for Windows compatibility
     icon_path = _src_root() / "assets" / "logo.ico"
+    if not icon_path.exists():
+        icon_path = _src_root() / "assets" / "logo.png"
     if icon_path.exists():
-        window.setWindowIcon(QtGui.QIcon(str(icon_path)))
+        try:
+            icon = QtGui.QIcon(str(icon_path))
+            if not icon.isNull():
+                window.setWindowIcon(icon)
+        except Exception:
+            pass  # Silently continue if icon loading fails
 
-    window.setWindowIconText("SQS")
-    window.setWindowTitle("SQS - Sopotek Quant System")
+    window.setWindowIconText("TradeAdviser")
+    window.setWindowTitle("TradeAdviser")
     quit_signal = getattr(app, "aboutToQuit", None)
     connect = getattr(quit_signal, "connect", None)
     if connect is not None:

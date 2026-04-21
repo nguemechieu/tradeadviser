@@ -3,9 +3,9 @@ requires = ["setuptools>=74.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "sopotek_quant_system"
+name = "tradeadviser_desktop"
 version = "1.0.0"
-description = "Enterprise-grade quantitative trading platform."
+description = "TradeAdviser Desktop - Professional standalone trading application for institutional traders"
 readme = "README.md"
 requires-python = ">=3.10"
 
@@ -32,13 +32,13 @@ dependencies = [
 ]
 
 [project.scripts]
-sopotek_quant_system = "main.main:main"
+tradeadviser-desktop = "src.main:main"
 
 [project.urls]
-Homepage = "https://github.com/nguemechieu/sopotek_quant_system"
-Repository = "https://github.com/nguemechieu/sopotek_quant_system"
+Homepage = "https://github.com/nguemechieu/tradeadviser"
+Repository = "https://github.com/nguemechieu/tradeadviser"
 
-# =========================
+# =========================docker-compose logs backend
 # OPTIONAL DEPENDENCIES
 # =========================
 

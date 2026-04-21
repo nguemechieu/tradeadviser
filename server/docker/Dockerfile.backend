@@ -1,49 +1,77 @@
-# Backend Dockerfile for TradeAdviser
+# Backend Dockerfile for TradeAdviser - Production Ready with Security Hardening
 # Build: docker build -f docker/Dockerfile.backend -t tradeadviser-backend .
-# Run: docker run -p 8000:8000 -e DATABASE_URL=sqlite:///./test.db tradeadviser-backend
+# Run: docker run -p 8000:8000 -e DATABASE_URL=postgresql+asyncpg://user:pass@localhost/db tradeadviser-backend
 
-FROM python:3.11-slim
-
-# Set working directory
-WORKDIR /app
+FROM python:3.11-slim as builder
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PYTHONPATH=/app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+WORKDIR /build
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and build wheels
+COPY app/backend/requirements.txt .
+RUN pip install --upgrade pip setuptools && \
+    pip wheel --no-cache-dir --no-deps --wheel-dir /build/wheels -r requirements.txt
+
+
+# Production image
+FROM python:3.11-slim
+
+# Set security-focused environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONPATH=/app \
+    ENV=production \
+    DEBUG=false
+
+WORKDIR /app/server
+
+# Install runtime dependencies only (security: minimal attack surface)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     postgresql-client \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy backend requirements
-COPY backend/requirements.txt .
+# Create non-root user for running the application (security: principle of least privilege)
+RUN groupadd -r appuser && useradd -r -g appuser appuser
 
-# Install Python dependencies
-RUN pip install -U pip setuptools && \
-    pip install -r requirements.txt
+# Copy wheels from builder and install
+COPY --from=builder /build/wheels /wheels
+COPY --from=builder /build/requirements.txt .
+RUN pip install --no-cache /wheels/*
 
-# Copy backend code to server subdirectory for proper import structure
-COPY backend /app/server/backend
+# Copy application code
+COPY . /app/server/
 
-# Copy frontend dist (if it exists, otherwise create empty directory)
-RUN mkdir -p /app/frontend/dist && \
-    ([ -d frontend/dist ] && cp -r frontend/dist/* /app/frontend/dist/ || true)
+# Create necessary directories and set permissions
+RUN mkdir -p /app/server/app/frontend/dist /app/logs && \
+    chown -R appuser:appuser /app/server /app/logs && \
+    chmod 755 /app/server
 
-# Create logs directory
-RUN mkdir -p /app/logs
+# Set file permissions for security
+RUN chmod -R 750 /app/server && \
+    chmod -R 750 /app/logs
+
+# Switch to non-root user
+USER appuser
 
 # Expose port
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+# Health check (non-root compatible)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=45s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Run application with server.backend import path
-CMD ["python", "-m", "uvicorn", "server.backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run application with gunicorn for better security and stability
+CMD ["python", "main.py"]

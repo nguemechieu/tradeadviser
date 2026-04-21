@@ -86,11 +86,11 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            artifact_name: tradeadviser-backend-linux
+            artifact_name: tradeadviser_server-backend-linux
           - os: macos-latest
-            artifact_name: tradeadviser-backend-macos
+            artifact_name: tradeadviser_server-backend-macos
           - os: windows-latest
-            artifact_name: tradeadviser-backend-windows.exe
+            artifact_name: tradeadviser_server-backend-windows.exe
     
     steps:
     - uses: actions/checkout@v4
@@ -105,13 +105,13 @@ jobs:
       run: |
         pip install -r requirements.txt
         pip install pyinstaller
-        pyinstaller --onefile main.py --name tradeadviser-backend
+        pyinstaller --onefile main.py --name tradeadviser_server-backend
     
     - name: Upload artifacts
       uses: actions/upload-artifact@v3
       with:
         name: ${{ matrix.artifact_name }}
-        path: backend/dist/tradeadviser-backend*
+        path: backend/dist/tradeadviser_server-backend*
 
   publish-docker:
     runs-on: ubuntu-latest
@@ -148,8 +148,8 @@ jobs:
     - name: Build and push frontend
       uses: docker/build-push-action@v4
       with:
-        context: ./server
-        file: ./server/Dockerfile
+        context: ./server/app/frontend
+        file: ./server/app/frontend/Dockerfile
         push: true
         tags: |
           ${{ secrets.DOCKER_USERNAME }}/tradeadviser-frontend:${{ steps.version.outputs.version }}
@@ -204,7 +204,7 @@ jobs:
     - name: Notify Slack
       uses: slackapi/slack-github-action@v1
       with:
-        webhook-url: ${{ secrets.SLACK_WEBHOOK }}
+        webhook-url: " ${{ secrets.SLACK_WEBHOOK }}"
         payload: |
           {
             "text": "🚀 TradeAdviser Release Published",

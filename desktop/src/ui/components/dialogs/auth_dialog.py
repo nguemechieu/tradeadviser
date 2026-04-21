@@ -46,7 +46,7 @@ class AuthDialog(QDialog):
         self.credentials_file = Path.home() / ".tradeadviser" / "credentials.json"
         self.credentials_file.parent.mkdir(parents=True, exist_ok=True)
         
-        self.setWindowTitle("Sopotek Quant System - Authentication")
+        self.setWindowTitle("TradeAdviser - Authentication")
         self.setModal(True)
         self.setMinimumWidth(500)
         self.setMinimumHeight(400)
@@ -59,7 +59,7 @@ class AuthDialog(QDialog):
         layout = QVBoxLayout()
         
         # Header
-        header = QLabel("Sopotek Quant System")
+        header = QLabel("TradeAdviser")
         header_font = QFont()
         header_font.setPointSize(16)
         header_font.setBold(True)

@@ -2,7 +2,7 @@ name: Deploy to Production
 
 on:
   push:
-    branches: [ master, main ]
+    branches: [ master]
     tags:
       - 'v*'
 
@@ -52,8 +52,8 @@ jobs:
     - name: Build and push frontend
       uses: docker/build-push-action@v4
       with:
-        context: ./server
-        file: ./server/Dockerfile
+        context: ./server/app/frontend
+        file: ./server/app/frontend/Dockerfile
         push: true
         tags: ${{ secrets.DOCKER_USERNAME }}/tradeadviser-frontend:latest
         cache-from: type=gha
@@ -76,17 +76,11 @@ jobs:
         
         # Deploy
         kubectl set image deployment/tradeadviser-backend \
-          backend=${{ secrets.DOCKER_USERNAME }}/tradeadviser-backend:latest \
+          backend=${{ secrets.DOCKER_USERNAME }}/tradeadviser-backend:main \
           -n production
         
         kubectl rollout status deployment/tradeadviser-backend \
           -n production --timeout=5m
-    
-    - name: Deploy to Docker Compose (staging)
-      if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
-      run: |
-        echo "Deploying to staging environment..."
-        # Add your staging deployment commands here
         
     - name: Notify Slack
       if: always()

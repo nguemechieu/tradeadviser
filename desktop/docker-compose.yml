@@ -1,93 +1,117 @@
 x-desktop-env: &desktop-env
-  PYTHONPATH: /app:/app/src
+  PYTHONPATH: /app
   PYTHONUNBUFFERED: 1
-  SOPOTEK_DATABASE_MODE: remote
-  SOPOTEK_DATABASE_URL: ${SOPOTEK_DATABASE_URL:-postgresql+psycopg://sopotek:sopotek_local@postgres:5432/sopotek_trading}
-  SOPOTEK_API_URL: ${SOPOTEK_API_URL:-http://api:8000}
-  SOPOTEK_WS_URL: ${SOPOTEK_WS_URL:-ws://api:8000/ws/events}
-  SOPOTEK_ENABLE_HYBRID_DESKTOP: ${SOPOTEK_ENABLE_HYBRID_DESKTOP:-1}
+  DATABASE_MODE: remote
+  DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://tradeadviser:tradeadviser_dev_password@postgres:5432/tradeadviser}
+  API_URL: ${API_URL:-http://backend:8000}
+  WS_URL: ${WS_URL:-ws://backend:8000/ws}
+  ENABLE_HYBRID_DESKTOP: ${ENABLE_HYBRID_DESKTOP:-1}
   LOG_LEVEL: ${LOG_LEVEL:-info}
 
+networks:
+  tradeadviser_desktop-network:
+    name: tradeadviser_desktop-network
+    driver: bridge
+
 services:
+  # PostgreSQL Database
   postgres:
-    image: postgres:16-alpine
-    container_name: sopotek_quant_postgres
+    image: postgres:15-alpine
+    container_name: tradeadviser_desktop-db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-sopotek_trading}
-      POSTGRES_USER: ${POSTGRES_USER:-sopotek}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sopotek_local}
+      POSTGRES_DB: ${POSTGRES_DB:-tradeadviser}
+      POSTGRES_USER: ${POSTGRES_USER:-tradeadviser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tradeadviser_dev_password}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
     ports:
       - "${POSTGRES_PORT:-5433}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - tradeadviser_desktop-postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U tradeadviser"]
       interval: 10s
       timeout: 5s
-      retries: 12
+      retries: 5
       start_period: 20s
+    networks:
+      - tradeadviser_desktop-network
 
-  api:
+  # FastAPI Backend
+  backend:
     build:
       context: ..
-      dockerfile: ./sqs_server/docker/Dockerfile
-    container_name: sopotek_quant_api
+      dockerfile: ./server/docker/Dockerfile.backend
+    container_name: tradeadviser_desktop-api
     restart: unless-stopped
-    environment:
-      PYTHONUNBUFFERED: 1
-      PYTHONPATH: /app
-      DATABASE_URL: ${SOPOTEK_DATABASE_URL:-postgresql+asyncpg://sopotek:sopotek_local@postgres:5432/sopotek_trading}
-      SOPOTEK_DATABASE_URL: ${SOPOTEK_DATABASE_URL:-postgresql+asyncpg://sopotek:sopotek_local@postgres:5432/sopotek_trading}
-      LOG_LEVEL: ${LOG_LEVEL:-info}
     ports:
-      - "${API_PORT:-8000}:8000"
+      - "${API_PORT:-8001}:8000"
+    environment:
+      APP_NAME: TradeAdviser
+      APP_ENV: development
+      APP_DEBUG: "true"
+      DATABASE_URL: postgresql+asyncpg://tradeadviser:tradeadviser_dev_password@postgres:5432/tradeadviser
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-secret-key-change-in-production}
+      ALLOWED_ORIGINS: http://localhost:6080,http://localhost:5900,http://localhost:8001
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      PYTHONPATH: /app
     depends_on:
       postgres:
         condition: service_healthy
+    volumes:
+      - ../server:/app/server
+      - ../desktop/logs:/app/logs
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD-SHELL", "python -c \"import socket; socket.create_connection(('127.0.0.1', 8000), timeout=2)\""]
       interval: 10s
       timeout: 5s
-      retries: 10
-      start_period: 20s
+      retries: 5
+      start_period: 30s
+    networks:
+      - tradeadviser_desktop-network
+    working_dir: /app/server
+    command: python main.py
 
+  # Desktop Application (GUI)
   app:
     build:
       context: ..
-      dockerfile: ./sqs_desktop/Dockerfile
-    container_name: sopotek_quant_app
+      dockerfile: ./desktop/Dockerfile
+    container_name: tradeadviser_desktop-gui
     restart: unless-stopped
     environment:
       <<: *desktop-env
       QT_X11_NO_MITSHM: "1"
       DISPLAY: ${DISPLAY:-}
     depends_on:
-      api:
+      backend:
         condition: service_healthy
       postgres:
         condition: service_healthy
     volumes:
-      - ./credentials.json:/app/credentials.json
-      - ./data:/app/data
-      - ./logs:/app/logs
-      - ./output:/app/output
+      - ./desktop/credentials.json:/app/credentials.json
+      - ./desktop/data:/app/data
+      - ./desktop/logs:/app/logs
+      - ./desktop/output:/app/output
       - ./.env:/app/.env:ro
     stdin_open: true
     tty: true
-    command: sopotek_quant_system
+    networks:
+      - tradeadviser_desktop-network
+    command: python /app/main.py
 
+  # Desktop Application (HTTP/Web UI)
   app-http:
     build:
       context: ..
-      dockerfile: ./sqs_desktop/Dockerfile
-    container_name: sopotek_quant_http
+      dockerfile: ./desktop/Dockerfile
+    container_name: tradeadviser_desktop-web
     restart: unless-stopped
-    profiles: ["browser"]
+    profiles: ["web"]
     environment:
       <<: *desktop-env
-      SOPOTEK_HTTP_UI: "1"
-      SOPOTEK_DISABLE_WEBENGINE: "1"
+      HTTP_UI: "1"
+      DISABLE_WEBENGINE: "1"
       DISPLAY: :99
       QT_QPA_PLATFORM: xcb
       LIBGL_ALWAYS_SOFTWARE: "1"
@@ -108,19 +132,24 @@ services:
       NOVNC_TLS_HOSTNAME: ${NOVNC_TLS_HOSTNAME:-localhost}
       VNC_PORT: 5900
     depends_on:
-      api:
+      backend:
         condition: service_healthy
       postgres:
         condition: service_healthy
     ports:
       - "127.0.0.1:${APP_HTTP_PORT:-6080}:6080"
+      - "127.0.0.1:${VNC_PORT:-5900}:5900"
     volumes:
-      - ./credentials.json:/app/credentials.json
-      - ./data:/app/data
-      - ./logs:/app/logs
-      - ./output:/app/output
+      - ./desktop/credentials.json:/app/credentials.json
+      - ./desktop/data:/app/data
+      - ./desktop/logs:/app/logs
+      - ./desktop/output:/app/output
       - ./.env:/app/.env:ro
+    networks:
+      - tradeadviser_desktop-network
     command: /app/src/scripts/start_http_ui.sh
 
 volumes:
-  postgres_data:
+  tradeadviser_desktop-postgres-data:
+    name: tradeadviser_desktop_postgres_data
+

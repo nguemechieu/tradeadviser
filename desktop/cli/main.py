@@ -4,8 +4,10 @@ app = typer.Typer()
 
 @app.command()
 def run():
-    from src.core.engine import run_engine
-    run_engine()
+    from desktop.src.backtesting.backtest_engine import  BacktestEngine
+    backtest_engine = BacktestEngine()
+    backtest_engine.run()
+
 
 @app.command()
 def backtest():

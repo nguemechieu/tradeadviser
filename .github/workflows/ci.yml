@@ -158,13 +158,15 @@ jobs:
     
     - name: Run Semgrep
       uses: returntocorp/semgrep-action@v1
-      with:
-        generateSarif: true
+      env:
+        SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
     
-    - name: Upload SARIF file
+    - name: Upload Semgrep results to GitHub Security
+      if: always()
       uses: github/codeql-action/upload-sarif@v2
       with:
         sarif_file: 'semgrep.sarif'
+        category: 'semgrep'
 
   docker-build:
     runs-on: ubuntu-latest

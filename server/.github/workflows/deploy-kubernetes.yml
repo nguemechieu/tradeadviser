@@ -76,17 +76,17 @@ jobs:
 
     - name: Deploy backend
       run: |
-        kubectl set image deployment/tradeadviser-backend \
+        kubectl set image deployment/tradeadviser_server-backend \
           backend=${{ secrets.REGISTRY }}/backend:latest \
           -n tradeadviser || kubectl apply -f k8s/backend.yaml
-        kubectl rollout status deployment/tradeadviser-backend -n tradeadviser --timeout=300s
+        kubectl rollout status deployment/tradeadviser_server-backend -n tradeadviser --timeout=300s
 
     - name: Deploy frontend
       run: |
-        kubectl set image deployment/tradeadviser-frontend \
+        kubectl set image deployment/tradeadviser_server-frontend \
           frontend=${{ secrets.REGISTRY }}/frontend:latest \
           -n tradeadviser || kubectl apply -f k8s/frontend.yaml
-        kubectl rollout status deployment/tradeadviser-frontend -n tradeadviser --timeout=300s
+        kubectl rollout status deployment/tradeadviser_server-frontend -n tradeadviser --timeout=300s
 
     - name: Apply ingress
       run: |
@@ -100,9 +100,9 @@ jobs:
     - name: Get service endpoints
       run: |
         echo "Backend Service:"
-        kubectl get service tradeadviser-backend -n tradeadviser
+        kubectl get service tradeadviser_server-backend -n tradeadviser
         echo "Frontend Service:"
-        kubectl get service tradeadviser-frontend -n tradeadviser
+        kubectl get service tradeadviser_server-frontend -n tradeadviser
         echo "Ingress:"
         kubectl get ingress -n tradeadviser
 

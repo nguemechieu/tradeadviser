@@ -1,45 +1,57 @@
-# Sopotek Quant System
-[//]:#
+# TradeAdviser Desktop
+
+**Professional Standalone Trading Application**
+
+_Part of the TradeAdviser institutional trading platform ecosystem._
 <p align="center">
   <img
-    alt="Sopotek Quant System logo"
-    src="https://raw.githubusercontent.com/nguemechieu/sopotek_quant_system/master/src/assets/logo.png"
+    alt="TradeAdviser logo"
+    src="https://raw.githubusercontent.com/nguemechieu/tradeadviser/master/desktop/assets/logo.png"
     width="170"
     height="170"
   >
 </p>
 
 <p align="center">
-  <a href="https://github.com/nguemechieu/sopotek_quant_system/actions/workflows/python-package-conda.yml">
-    <img alt="CI" src="https://github.com/nguemechieu/sopotek_quant_system/actions/workflows/python-package-conda.yml/badge.svg?branch=master">
+  <a href="https://github.com/nguemechieu/tradeadviser/actions/workflows/python-package-conda.yml">
+    <img alt="CI" src="https://github.com/nguemechieu/tradeadviser/actions/workflows/python-package-conda.yml/badge.svg?branch=master">
   </a>
-  <a href="https://github.com/nguemechieu/sopotek_quant_system/actions/workflows/ci.yml">
-    <img alt="Code Quality" src="https://github.com/nguemechieu/sopotek_quant_system/actions/workflows/ci.yml/badge.svg?branch=master">
+  <a href="https://github.com/nguemechieu/tradeadviser/actions/workflows/ci.yml">
+    <img alt="Code Quality" src="https://github.com/nguemechieu/tradeadviser/actions/workflows/ci.yml/badge.svg?branch=master">
   </a>
-  <a href="https://pypi.org/project/sopotek-quant-system/">
-    <img alt="Python versions" src="https://img.shields.io/pypi/pyversions/sopotek-quant-system">
+  <a href="https://pypi.org/project/tradeadviser/">
+    <img alt="Python versions" src="https://img.shields.io/pypi/pyversions/tradeadviser">
   </a>
-  <a href="https://pypi.org/project/sopotek_quant_system/">
-    <img alt="PyPI version" src="https://img.shields.io/pypi/v/sopotek-quant-system">
+  <a href="https://pypi.org/project/tradeadviser/">
+    <img alt="PyPI version" src="https://img.shields.io/pypi/v/tradeadviser">
   </a>
-  <a href="https://pypi.org/project/sopotek-quant-system/">
-    <img alt="PyPI format" src="https://img.shields.io/pypi/format/sopotek-quant-system">
+  <a href="https://pypi.org/project/tradeadviser/">
+    <img alt="PyPI format" src="https://img.shields.io/pypi/format/tradeadviser">
   </a>
-  <a href="https://github.com/nguemechieu/sopotek_quant_system/issues">
+  <a href="https://github.com/nguemechieu/tradeadviser/issues">
     <img alt="Support" src="https://img.shields.io/badge/support-GitHub%20Issues-1f6feb">
   </a>
 </p>
 [//]:#
 Sopotek Quant System is a next-generation trading workstation engineered by Sopotek Corporation to bridge the gap between retail platforms and institutional trading systems.
 
-The platform combines real-time market connectivity, AI-driven decision support, execution infrastructure, and risk-aware automation into a single desktop environment.
+**TradeAdviser Desktop** (`tradeadviser_desktop`) is the standalone professional trading application component of the TradeAdviser platform. It provides a comprehensive desktop environment for institutional traders combining real-time market connectivity, AI-driven decision support, execution infrastructure, and risk-aware automation.
 
 With integrated backtesting, multi-asset support, broker-aware order routing, and intelligent workflow automation, Sopotek helps traders scale from discretionary execution to disciplined, AI-assisted operations.
 
+## Component Information
+
+**Package Name**: `tradeadviser_desktop`  
+**Folder**: `/desktop`  
+**Type**: Standalone desktop application  
+**Related Components**: [TradeAdviser Server](../server) (`tradeadviser_server`)  
+
+## Supported Platforms
+
 | Branch | Version | Status |
 | --- | --- | --- |
-| `master` | `1.0.0` | [CI](https://github.com/nguemechieu/sopotek_quant_system/actions/workflows/python-package-conda.yml) |
-| `dev` | rolling | [Code Quality](https://github.com/nguemechieu/sopotek_quant_system/actions/workflows/ci.yml) |
+| `master` | `1.0.0` | [CI](https://github.com/nguemechieu/tradeadviser/actions/workflows/python-package-conda.yml) |
+| `dev` | rolling | [Code Quality](https://github.com/nguemechieu/tradeadviser/actions/workflows/ci.yml) |
 
 | Platform | Python | Delivery |
 | --- | --- | --- |
@@ -48,8 +60,8 @@ With integrated backtesting, multi-asset support, broker-aware order routing, an
 | macOS | `3.10+` | Source-based install and development workflow |
 
 Docs: [Project documentation](docs/index.md)
-Website: [GitHub repository](https://github.com/nguemechieu/sopotek_quant_system)
-Support: [GitHub issues](https://github.com/nguemechieu/sopotek_quant_system/issues)
+Website: [GitHub repository](https://github.com/nguemechieu/tradeadviser)
+Support: [GitHub issues](https://github.com/nguemechieu/tradeadviser/issues)
 
 ## Version And Status
 
@@ -61,8 +73,8 @@ Support: [GitHub issues](https://github.com/nguemechieu/sopotek_quant_system/iss
 
 ## Preview
 
-![Sopotek Quant System dashboard preview](https://raw.githubusercontent.com/nguemechieu/sopotek_quant_system/master/Sopotek_Screenshot_20260414_163616.png)
-![Sopotek Quant System terminal preview](https://raw.githubusercontent.com/nguemechieu/sopotek_quant_system/master/Sopotek_Screenshot_20260414_164810.png)
+![TradeAdviser dashboard preview](https://raw.githubusercontent.com/nguemechieu/tradeadviser/master/desktop/Sopotek_Screenshot_20260414_163616.png)
+![TradeAdviser terminal preview](https://raw.githubusercontent.com/nguemechieu/tradeadviser/master/desktop/Sopotek_Screenshot_20260414_164810.png)
 ## What The App Includes
 
 - Dashboard for broker selection, mode, credentials, strategy choice, licensing, and launch control

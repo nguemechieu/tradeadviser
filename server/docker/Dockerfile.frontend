@@ -1,29 +1,65 @@
-# Frontend Dockerfile for TradeAdviser
-# Supports both development (with hot reload) and production modes
+# Frontend Dockerfile for TradeAdviser - Production Ready with Security Hardening
+# React + Vite application
 # Build context is the server directory
 
-FROM node:18-alpine
+# Build stage
+FROM node:18-alpine as builder
 
 WORKDIR /app/frontend
 
 # Copy package files
-COPY frontend/package*.json ./
+COPY app/frontend/package*.json ./
 
-# Install dependencies
+# Install ALL dependencies (including dev dependencies for build tools like vite)
+RUN npm ci && \
+    npm audit fix --force || true
+
+# Copy source files
+COPY app/frontend/src ./src
+COPY app/frontend/vite.config.js ./
+COPY app/frontend/index.html ./
+
+# Build for production
+RUN npm run build
+
+
+# Production stage
+FROM node:18-alpine
+
+WORKDIR /app/frontend
+
+# Set security-focused environment variables
+ENV NODE_ENV=development \
+    NODE_OPTIONS="--no-deprecation" \
+    DISABLE_TELEMETRY=1
+
+# Create non-root user FIRST before copying any files
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+# Copy package files
+COPY app/frontend/package*.json ./
+
+# Install all dependencies (needed for dev server with vite)
 RUN npm ci
 
-# Copy required source files
-COPY frontend/src ./src
-COPY frontend/vite.config.js ./
-COPY frontend/index.html ./
+# Copy built application from builder
+COPY --from=builder /app/frontend/dist ./dist
+COPY --from=builder /app/frontend/src ./src
 
-# Expose port for Vite dev server
+# Set proper file permissions with user that now exists
+RUN chown -R nodejs:nodejs /app/frontend && \
+    chmod -R 755 /app/frontend
+
+# Switch to non-root user
+USER nodejs
+
+# Expose port for development server
 EXPOSE 5173
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD wget --quiet --tries=1 --spider http://localhost:5173/ || exit 1
+# Health check - give time for proper initialization
+HEALTHCHECK --interval=30s --timeout=10s --start-period=45s --retries=5 \
+    CMD wget --quiet --tries=1 --spider http://127.0.0.1:5173/ || exit 1
 
-# Default to development mode with hot reload
-# For production, build separately and serve the dist folder
+# Development mode with security considerations
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]

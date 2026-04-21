@@ -110,7 +110,7 @@ class BrokerConfigDialog(QDialog):
         self.current_mode: ConfigurationMode = ConfigurationMode.LOCAL
         self.configurations: Dict[str, Dict] = {}
         
-        self.setWindowTitle("Broker Configuration - Sopotek Quant System")
+        self.setWindowTitle("Broker Configuration - TradeAdviser")
         self.setModal(True)
         self.setMinimumWidth(700)
         self.setMinimumHeight(600)

@@ -13,16 +13,16 @@ SUPPORTED_LANGUAGES = {
 
 TRANSLATIONS = {
     "app.window_title": {
-        "en": "Sopotek Quant System",
-        "fr": "Sopotek Quant System",
-        "es": "Sopotek Quant System",
-        "pt": "Sopotek Quant System",
+        "en": "TradeAdviser",
+        "fr": "TradeAdviser",
+        "es": "TradeAdviser",
+        "pt": "TradeAdviser",
     },
     "dashboard.window_title": {
-        "en": "Sopotek Quant System",
-        "fr": "Sopotek Quant System",
-        "es": "Sopotek Quant System",
-        "pt": "Sopotek Quant System",
+        "en": "TradeAdviser",
+        "fr": "TradeAdviser",
+        "es": "TradeAdviser",
+        "pt": "TradeAdviser",
     },
     "dashboard.hero_eyebrow": {
         "en": "AI Trading Command Deck",
@@ -31,10 +31,10 @@ TRANSLATIONS = {
         "pt": "Central de Comando de Trading IA",
     },
     "dashboard.hero_title": {
-        "en": "Sopotek Quant System",
-        "fr": "Sopotek Quant System",
-        "es": "Sopotek Quant System",
-        "pt": "Sopotek Quant System",
+        "en": "TradeAdviser",
+        "fr": "TradeAdviser",
+        "es": "TradeAdviser",
+        "pt": "TradeAdviser",
     },
     "dashboard.hero_lead": {
         "en": "Configure broker access and risk profile before launching the trading terminal.",
@@ -331,10 +331,10 @@ TRANSLATIONS = {
         "pt": "O ID da conta e obrigatorio para sessoes Oanda.",
     },
     "terminal.window_title": {
-        "en": "SQS Terminal",
-        "fr": "Terminal SQS",
-        "es": "Terminal SQS",
-        "pt": "Terminal SQS",
+        "en": "TradeAdviser Terminal",
+        "fr": "Terminal TradeAdviser",
+        "es": "Terminal TradeAdviser",
+        "pt": "Terminal TradeAdviser",
     },
     "terminal.menu.file": {"en": "File", "fr": "Fichier", "es": "Archivo", "pt": "Arquivo"},
     "terminal.menu.trading": {"en": "Trading", "fr": "Trading", "es": "Trading", "pt": "Trading"},

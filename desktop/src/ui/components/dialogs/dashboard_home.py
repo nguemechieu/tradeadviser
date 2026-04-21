@@ -108,7 +108,7 @@ class DashboardHomeScreen(QWidget):
         header_layout = QHBoxLayout()
         
         # Logo and title
-        title_label = QLabel("Sopotek Quant System")
+        title_label = QLabel("TradeAdviser")
         title_font = QFont()
         title_font.setPointSize(18)
         title_font.setBold(True)

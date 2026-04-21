@@ -1,5 +1,5 @@
 """
-Server API Client for Desktop - Handles communication with SQS Server
+Server API Client for Desktop - Handles communication with TradeAdviser Server
 
 Provides:
 - Authentication API calls

@@ -12,11 +12,11 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
-class SQSClientError(RuntimeError):
-    """Raised when desktop-to-SQS communication fails."""
+class TradeAdviserClientError(RuntimeError):
+    """Raised when desktop-to-TradeAdviser communication fails."""
 
 
-class SQSClient:
+class TradeAdviserClient:
     def __init__(
         self,
         base_url: str,
@@ -66,7 +66,7 @@ class SQSClient:
         identifier = str(email if email is not None else self.email).strip()
         secret = str(password if password is not None else self.password).strip()
         if not identifier or not secret:
-            raise SQSClientError("SQS login requires both an email and password.")
+            raise TradeAdviserClientError("TradeAdviser login requires both an email and password.")
 
         response = await self._request_json(
             "POST",
@@ -76,7 +76,7 @@ class SQSClient:
         )
         token = str(response.get("access_token") or "").strip()
         if not token:
-            raise SQSClientError("SQS login did not return an access token.")
+            raise TradeAdviserClientError("TradeAdviser login did not return an access token.")
 
         self.email = identifier
         self.password = secret
@@ -117,11 +117,11 @@ class SQSClient:
         headers = {
             "Accept": "application/json",
             "Content-Type": "application/json",
-            "User-Agent": "SopotekDesktop/SQSClient",
+            "User-Agent": "SopotekDesktop/TradeAdviserClient",
         }
         if authenticated:
             if not self.token:
-                raise SQSClientError("SQS access token is missing.")
+                raise TradeAdviserClientError("TradeAdviser access token is missing.")
             headers["Authorization"] = f"Bearer {self.token}"
 
         url = f"{self.base_url}{path}"
@@ -154,10 +154,10 @@ class SQSClient:
                             data = {}
                     if response.status >= 400:
                         detail = str(data.get("detail") or text or response.reason or "Request failed").strip()
-                        raise SQSClientError(f"{response.status}: {detail}")
+                        raise TradeAdviserClientError(f"{response.status}: {detail}")
                     return data
         except aiohttp.ClientError as exc:
-            raise SQSClientError(f"Unable to reach SQS Server: {exc}") from exc
+            raise TradeAdviserClientError(f"Unable to reach TradeAdviser Server: {exc}") from exc
 
     @staticmethod
     def _normalize_base_url(value: Any) -> str:

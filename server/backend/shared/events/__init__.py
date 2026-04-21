@@ -1,2 +1,0 @@
-"""Shared event-envelope package."""
-

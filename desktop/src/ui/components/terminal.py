@@ -586,7 +586,7 @@ class Terminal(QMainWindow):
         self._runtime_timers_started = False
         self._workspace_interaction_notice_at = 0.0
 
-        self.settings = QSettings("Sopotek", "TradingPlatform")
+        self.settings = QSettings("TradeAdviser", "TradingPlatform")
 
         self.symbols_table = QTableWidget()
         self.system_console: Any = None
@@ -969,8 +969,8 @@ class Terminal(QMainWindow):
         session_id = str(getattr(self, "bound_session_id", "") or "").strip()
         suffix = label or session_id
         if suffix:
-            return f"SQS Terminal - {suffix}"
-        return "SQS Terminal"
+            return f"TradeAdviser Terminal - {suffix}"
+        return "TradeAdviser Terminal"
 
     def _fit_window_to_available_screen(self, requested_width=None, requested_height=None):
         screen = self.screen()
@@ -8507,10 +8507,10 @@ class Terminal(QMainWindow):
         version_text = html.escape(self._app_version_text())
         self._open_text_window(
             "about_window",
-            "About Sopotek Quant System",
+            "About TradeAdviser",
             f"""
-            <h2>Sopotek Quant System</h2>
-            <p><b>Built by:</b> Sopotek Corporation</p>
+            <h2>TradeAdviser</h2>
+            <p><b>Built by:</b> TradeAdviser Team</p>
             <p><b>Version:</b> {version_text}</p>
             <p><b>Workspace:</b> Open access desktop runtime</p>
             <p><b>Purpose:</b> AI-assisted multi-broker trading workstation for live trading, paper trading, analytics, and historical testing.</p>

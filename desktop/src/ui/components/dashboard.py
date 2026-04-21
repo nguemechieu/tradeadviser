@@ -304,9 +304,9 @@ class Dashboard(QWidget):
         self._ibkr_last_connection_mode = None
         self._ibkr_mode_field_memory = {"webapi": {}, "tws": {}}
         self._platform_sync_status_tone = "idle"
-        self.settings = getattr(controller, "settings", None) or QSettings("Sopotek", "TradingPlatform")
+        self.settings = getattr(controller, "settings", None) or QSettings("TradeAdviser", "TradingPlatform")
 
-        self.setWindowTitle("Sopotek Quant System")
+        self.setWindowTitle("TradeAdviser")
         self.resize(1320, 880)
 
         self._apply_styles()
@@ -1362,7 +1362,7 @@ class Dashboard(QWidget):
         self.eyebrow_label.setObjectName("eyebrow")
         headline_col.addWidget(self.eyebrow_label)
 
-        self.hero_title_label = QLabel("Sopotek Quant System")
+        self.hero_title_label = QLabel("TradeAdviser")
         self.hero_title_label.setObjectName("heroTitle")
         self.hero_title_label.setWordWrap(True)
         headline_col.addWidget(self.hero_title_label)

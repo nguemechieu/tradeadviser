@@ -31,7 +31,7 @@ class EnhancedMainWindow(QMainWindow):
         self.current_user = None
         
         # Initialize UI
-        self.setWindowTitle("Sopotek Quant System")
+        self.setWindowTitle("TradeAdviser")
         self.setGeometry(100, 100, 1200, 800)
         
         # Create stacked widget for screen management
@@ -196,10 +196,10 @@ class EnhancedMainWindow(QMainWindow):
         """Show about dialog."""
         QMessageBox.about(
             self,
-            "About Sopotek Quant System",
-            "Sopotek Quant System v2.0.0\n\n"
+            "About TradeAdviser",
+            "TradeAdviser v2.0.0\n\n"
             "Professional quantitative trading platform\n\n"
-            "© 2024 Sopotek, Inc."
+            "© 2024 TradeAdviser, Inc."
         )
     
     def closeEvent(self, event):
@@ -208,7 +208,7 @@ class EnhancedMainWindow(QMainWindow):
             reply = QMessageBox.question(
                 self,
                 "Exit",
-                "Exit Sopotek Quant System?",
+                "Exit TradeAdviser?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
             if reply != QMessageBox.StandardButton.Yes:

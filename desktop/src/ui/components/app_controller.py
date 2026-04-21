@@ -60,7 +60,7 @@ from broker.market_venues import SPOT_ONLY_EXCHANGES, normalize_market_venue, su
 from broker.paper_broker import PaperBroker
 from broker.rate_limiter import RateLimiter
 from core.account_identity import resolve_account_label
-from core.server_client import SQSClient, SQSClientError
+from core.server_client import TradeAdviserClient, TradeAdviserClientError
 from core.trading_core import TradingCore
 from event_bus.event_bus import EventBus
 from event_bus.event_types import EventType
@@ -92,59 +92,105 @@ from storage.trade_audit_repository import TradeAuditRepository
 from storage.trade_repository import TradeRepository, derive_trade_outcome
 from strategy.strategy import Strategy
 from ui.components.services.trade_safety import age_seconds, format_age_label, timeframe_seconds
-from sessions import SessionManager
+from sessions.session_manager import SessionManager
 
 # Hybrid server connection imports (for future server-connected mode)
-# TODO: These imports are for hybrid mode when connecting to sqs_server
-# Uncomment and complete when server client libraries are available
-# from sopotek.apps.desktop.src.client.api_client import ApiClient as HybridApiClient
-# from sopotek.apps.desktop.src.client.ws_client import WsClient as HybridWsClient
-# from sopotek.apps.desktop.src.controllers.session_controller import SessionController as HybridSessionController
 
-# For now, use local shared contracts
-from shared.contracts import (
-    SessionStatus,
-    ExecutionStatus,
-    SessionContext,
-    ApiResponseEnvelope,
-    ExecutionRequest,
-    ExecutionResult,
-    MarketDataSubscription,
-    ServerEvent,
-    BrokerKind,
-    OrderSide,
-    OrderType,
-    BrokerIdentifier,
-    SymbolIdentifier,
-    UserContext,
-    CorrelationIds,
-    CancelOrderCommand,
-    ClosePositionCommand,
-    ConnectBrokerCommand,
-    PlaceOrderCommand,
-    RequestMarketDataSubscriptionCommand,
-    TriggerKillSwitchCommand,
-)
-from shared.events import EventType, ServerEventEnvelope, ServerEventType
-from shared.hybrid_client import (
-    BrokerIdentifier as HybridBrokerIdentifier,
-    CancelOrderCommand as HybridCancelOrderCommand,
-    ClosePositionCommand as HybridClosePositionCommand,
-    ConnectBrokerCommand as HybridConnectBrokerCommand,
-    CorrelationIds as HybridCorrelationIds,
-    ExecutionRequest as HybridExecutionRequest,
-    HybridApiClient,
-    HybridSessionController,
-    PlaceOrderCommand as HybridPlaceOrderCommand,
-    RequestMarketDataSubscriptionCommand as HybridRequestMarketDataSubscriptionCommand,
-    SessionContext as HybridSessionContext,
-    SymbolIdentifier as HybridSymbolIdentifier,
-    TriggerKillSwitchCommand as HybridTriggerKillSwitchCommand,
-    UserContext as HybridUserContext,
-    HybridWsClient,
-)
+# Use shared contracts from backend
+try:
+    from shared.contracts import (
+        SessionContext,
+        ApiResponseEnvelope,
+        BrokerIdentifier,
+        SymbolIdentifier,
+        UserContext,
+        CorrelationIds,
+    )
+    from sopotek.shared.enums import (
+        SessionStatus,
+        ExecutionStatus,
+        BrokerKind,
+        OrderSide,
+        OrderType,
+    )
+    from sopotek.shared.commands import (
+        CancelOrderCommand,
+        ClosePositionCommand,
+        ConnectBrokerCommand,
+        PlaceOrderCommand,
+        RequestMarketDataSubscriptionCommand,
+        TriggerKillSwitchCommand,
+    )
+    from sopotek.shared.events import (
+        ServerEventEnvelope,
+    )
+except ImportError:
+    # Fallback for local development if sopotek package not available
+    from shared.contracts import (
+        SessionContext,
+        ApiResponseEnvelope,
+        BrokerIdentifier,
+        SymbolIdentifier,
+        UserContext,
+        CorrelationIds,
+    )
+    from shared.enums import (
+        SessionStatus,
+        ExecutionStatus,
+        BrokerKind,
+        OrderSide,
+        OrderType,
+    )
+    from shared.commands import (
+        CancelOrderCommand,
+        ClosePositionCommand,
+        ConnectBrokerCommand,
+        PlaceOrderCommand,
+        RequestMarketDataSubscriptionCommand,
+        TriggerKillSwitchCommand,
+    )
+    from shared.events import (
+        ServerEventEnvelope,
+    )
 
-# Aliases for Hybrid* naming convention (for backward compatibility with existing code)
+# Hybrid client classes (placeholder for future server connection mode)
+class HybridApiClient:
+    """Placeholder for hybrid API client."""
+    def __init__(self, base_url):
+        self.base_url = base_url
+
+class HybridWsClient:
+    """Placeholder for hybrid WebSocket client."""
+    def __init__(self, ws_url):
+        self.ws_url = ws_url
+
+class HybridSessionController:
+    """Placeholder for hybrid session controller."""
+    def __init__(self, api_client=None, ws_client=None):
+        self.api_client = api_client
+        self.ws_client = ws_client
+        self.event_callback = None
+
+# Define event types if not imported
+try:
+    from sopotek.shared.events.base import EventType, ServerEventType
+except ImportError:
+    EventType = str
+    ServerEventType = str
+
+# Aliases for Hybrid* naming convention (for backward compatibility)
+HybridBrokerIdentifier = BrokerIdentifier
+HybridCancelOrderCommand = CancelOrderCommand
+HybridClosePositionCommand = ClosePositionCommand
+HybridConnectBrokerCommand = ConnectBrokerCommand
+HybridCorrelationIds = CorrelationIds
+# HybridExecutionRequest not available in contracts module - removed
+HybridPlaceOrderCommand = PlaceOrderCommand
+HybridRequestMarketDataSubscriptionCommand = RequestMarketDataSubscriptionCommand
+HybridSessionContext = SessionContext
+HybridSymbolIdentifier = SymbolIdentifier
+HybridTriggerKillSwitchCommand = TriggerKillSwitchCommand
+HybridUserContext = UserContext
 HybridBrokerKind = BrokerKind
 HybridOrderSide = OrderSide
 HybridOrderType = OrderType
@@ -409,7 +455,7 @@ class AppController(QMainWindow):
     }
     
     # === Feature Gating ===
-    SQS_FEATURE_ALIASES = {
+    TRADEADVISER_FEATURE_ALIASES = {
         "live_trading": "trading",
         "trading": "trading",
         "auto_trading": "auto_trading",
@@ -417,7 +463,7 @@ class AppController(QMainWindow):
         "multi_exchange": "multi_exchange",
         "agent_network": "agent_network",
     }
-    SQS_RESTRICTED_FEATURES = {"trading", "auto_trading", "ml_signals", "multi_exchange", "agent_network"}
+    TRADEADVISER_RESTRICTED_FEATURES = {"trading", "auto_trading", "ml_signals", "multi_exchange", "agent_network"}
 
     def __init__(self, *args, **kwargs):
         """
@@ -452,7 +498,7 @@ class AppController(QMainWindow):
         self.ws_manager = None
         
         # === Application Settings and Localization ===
-        self.settings = QSettings("Sopotek Quant System", "TradingPlatform")
+        self.settings = QSettings("TradeAdviser", "TradingPlatform")
         self.language_code = normalize_language_code(
             self.settings.value("ui/language", DEFAULT_LANGUAGE)
         )
@@ -485,7 +531,7 @@ class AppController(QMainWindow):
             "allowed_features": [],
         }
         self.platform_sync_service = PlatformSyncService()
-        self.server = SQSClient(base_url="")
+        self.server = TradeAdviserClient(base_url="")
         self.hybrid_api_client = None
         self.hybrid_ws_client = None
         self.hybrid_session_controller = None
@@ -497,7 +543,7 @@ class AppController(QMainWindow):
         self.hybrid_server_ws_url = ""
         self.hybrid_authoritative_runtime = {}
         self._reset_hybrid_authoritative_runtime()
-        self.allowed_features = set(self.SQS_RESTRICTED_FEATURES)
+        self.allowed_features = set(self.TRADEADVISER_RESTRICTED_FEATURES)
         self.server_feature_gate_enabled = False
         self.server_performance_snapshot = {}
         self.server_strategy_feedback = {}
@@ -833,19 +879,19 @@ class AppController(QMainWindow):
         return bool(self.is_feature_enabled(feature))
 
     def is_feature_enabled(self, feature):
-        normalized_feature = self._normalized_sqs_feature_name(feature)
-        if normalized_feature not in self.SQS_RESTRICTED_FEATURES:
+        normalized_feature = self._normalized_tradeadviser_feature_name(feature)
+        if normalized_feature not in self.TRADEADVISER_RESTRICTED_FEATURES:
             return True
         return normalized_feature in set(getattr(self, "allowed_features", set()) or set())
 
     def feature_message(self, feature):
-        normalized_feature = self._normalized_sqs_feature_name(feature)
+        normalized_feature = self._normalized_tradeadviser_feature_name(feature)
         return f"{normalized_feature.replace('_', ' ').title()} is available."
 
-    def _normalized_sqs_feature_name(self, feature):
-        """Normalize feature name to SQS server standard."""
+    def _normalized_tradeadviser_feature_name(self, feature):
+        """Normalize feature name to TradeAdviser server standard."""
         normalized = str(feature or "").strip().lower()
-        return self.SQS_FEATURE_ALIASES.get(normalized, normalized)
+        return self.TRADEADVISER_FEATURE_ALIASES.get(normalized, normalized)
 
     # === Server Configuration Methods ===
     
@@ -867,15 +913,15 @@ class AppController(QMainWindow):
         )
 
     def _is_server_feature_gate_active(self):
-        """Check if SQS server integration is configured."""
+        """Check if TradeAdviser server integration is configured."""
         return self._is_server_profile_configured()
 
     def _configure_server_client(self, profile=None):
-        """Initialize and configure SQS server client."""
+        """Initialize and configure TradeAdviser server client."""
         active_profile = dict(profile or self._server_sync_profile() or {})
         server = getattr(self, "server", None)
         if server is None:
-            server = SQSClient(base_url=str(active_profile.get("base_url") or "").strip())
+            server = TradeAdviserClient(base_url=str(active_profile.get("base_url") or "").strip())
             self.server = server
         server.configure(
             base_url=str(active_profile.get("base_url") or "").strip(),
@@ -894,7 +940,7 @@ class AppController(QMainWindow):
             "badge": "OPEN",
             "summary": "Open workspace access",
             "description": (
-                f"SQS Server integration is configured via {str((self._server_sync_profile() or {}).get('base_url') or '').strip()}."
+                f"TradeAdviser Server integration is configured via {str((self._server_sync_profile() or {}).get('base_url') or '').strip()}."
                 if self._is_server_feature_gate_active()
                 else "Desktop features are available without license checks."
             ).strip(),
@@ -911,7 +957,7 @@ class AppController(QMainWindow):
     async def initialize_license(self, force_login=False):
         server, profile = self._configure_server_client()
         self.server_feature_gate_enabled = self._is_server_profile_configured(profile)
-        self.allowed_features = set(self.SQS_RESTRICTED_FEATURES)
+        self.allowed_features = set(self.TRADEADVISER_RESTRICTED_FEATURES)
         if not self.server_feature_gate_enabled:
             self.server_performance_snapshot = {}
             self.server_strategy_feedback = {}
@@ -922,10 +968,10 @@ class AppController(QMainWindow):
                 await server.login()
             return self.refresh_license_status()
         except Exception as exc:
-            self.allowed_features = set(self.SQS_RESTRICTED_FEATURES)
+            self.allowed_features = set(self.TRADEADVISER_RESTRICTED_FEATURES)
             self.server_performance_snapshot = {}
             self.server_strategy_feedback = {}
-            self.logger.warning("SQS workspace initialization failed: %s", exc)
+            self.logger.warning("TradeAdviser workspace initialization failed: %s", exc)
             return self.refresh_license_status()
 
     def _server_feedback_multiplier(self, strategy_name):
@@ -949,7 +995,7 @@ class AppController(QMainWindow):
         try:
             performance = await server.get_performance()
         except Exception as exc:
-            self.logger.debug("Unable to fetch SQS performance feedback: %s", exc)
+            self.logger.debug("Unable to fetch TradeAdviser performance feedback: %s", exc)
             return {}
 
         strategy_feedback = {}
@@ -980,7 +1026,7 @@ class AppController(QMainWindow):
             try:
                 refresher()
             except Exception:
-                self.logger.debug("Unable to refresh strategy preferences from SQS feedback", exc_info=True)
+                self.logger.debug("Unable to refresh strategy preferences from TradeAdviser feedback", exc_info=True)
         return dict(performance or {})
 
     def _server_trade_payload(self, trade):
@@ -1073,7 +1119,7 @@ class AppController(QMainWindow):
             await self.refresh_server_performance_feedback()
             return result
         except Exception as exc:
-            self.logger.debug("Unable to sync trade to SQS Server: %s", exc)
+            self.logger.debug("Unable to sync trade to TradeAdviser Server: %s", exc)
             return None
 
     async def _sync_signal_to_server(self, event_type, data):
@@ -1085,7 +1131,7 @@ class AppController(QMainWindow):
         try:
             return await self.server.send_signal(payload)
         except Exception as exc:
-            self.logger.debug("Unable to sync signal to SQS Server: %s", exc)
+            self.logger.debug("Unable to sync signal to TradeAdviser Server: %s", exc)
             return None
 
     def _friendly_initialization_error(self, exc):
@@ -1978,7 +2024,7 @@ class AppController(QMainWindow):
         self._append_live_agent_decision_event(payload)
         self._emit_agent_runtime_signal(payload)
         if event_type == EventType.SIGNAL:
-            self._create_task(self._sync_signal_to_server(event_type, data), "sqs_signal_sync")
+            self._create_task(self._sync_signal_to_server(event_type, data), "tradeadviser_signal_sync")
 
     def _bind_trading_runtime_streams(self):
         trading_system = getattr(self, "trading_system", None)
@@ -2265,7 +2311,7 @@ class AppController(QMainWindow):
         return self.database_connection_url
 
     def _setup_ui(self, controller):
-        self.setWindowTitle("Sopotek Quant System")
+        self.setWindowTitle("TradeAdviser")
         self.resize(1600, 900)
         self.setMinimumSize(960, 640)
         self._fit_window_to_available_screen(requested_width=1600, requested_height=900)
@@ -4847,6 +4893,7 @@ class AppController(QMainWindow):
             try:
                 return await existing_task
             except Exception:
+                
                 return []
 
         async def runner():
@@ -12204,7 +12251,7 @@ class AppController(QMainWindow):
         if telegram_service is not None and not is_trade_close_event(trade):
             self._create_task(telegram_service.notify_trade(trade), "telegram_trade_notify")
         if should_record and trade_matches_active_session:
-            self._create_task(self._sync_trade_to_server(trade), "sqs_trade_sync")
+            self._create_task(self._sync_trade_to_server(trade), "tradeadviser_trade_sync")
 
     def _extract_balance_equity_value(self, balances):
         if not isinstance(balances, dict):

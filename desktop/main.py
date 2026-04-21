@@ -1,7 +1,7 @@
-"""Bootstrap wrapper for the TradeAdviser desktop workspace.
+"""Bootstrap wrapper for the SQS (Sopotek Quant System) desktop workspace.
 
 
-This entrypoint lives inside ``desktop/`` so the desktop product has its
+This entrypoint lives inside ``desktop_app/`` so the desktop product has its
 own dedicated folder, while still delegating execution to the canonical source
 tree at ``../src/main.py``.
 """
@@ -30,6 +30,6 @@ if __name__ == "__main__":
     if venv_python.exists() and current_python != venv_python.resolve():
         os.execv(str(venv_python), [str(venv_python), str(__file__), *sys.argv[1:]])
     
-    # Import and run the main module from the main package (sqs_desktop/src/main/main.py)
-    from tradeadviser_desktop.src.main.main import main
+    # Import and run the main module from the main package (desktop/src/main/main.py)
+    from src.main.main import main
     sys.exit(main())

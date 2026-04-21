@@ -16,23 +16,25 @@ TradeAdviser is a full-stack trading ecosystem designed for institutional trader
 
 ## 🏗️ System Architecture
 
-TradeAdviser consists of three main components:
+TradeAdviser is built with two independent software components:
 
-### Backend Server (`/backend`)
-- **Framework**: FastAPI (Python 3.11+)
+### TradeAdviser Server (`tradeadviser_server` / `/server`)
+Full-stack backend and web console serving institutional trading infrastructure.
+
+- **Backend API**: FastAPI (Python 3.11+)
 - **Database**: PostgreSQL 15
 - **Messaging**: Kafka for event streaming
+- **Web Console**: React 18 with Vite
 - **Deployment**: Docker containerized
+- **Services**: Includes Nginx, Redis, Zookeeper, and PgAdmin
 
-### Web Console (`/server/frontend`)
-- **Framework**: React 18 with Vite
-- **Features**: Admin dashboard, trading interface, performance analytics
-- **UI**: Professional dark theme with responsive design
+### TradeAdviser Desktop (`tradeadviser_desktop` / `/desktop`)
+Standalone professional trading application for institutional traders.
 
-### Desktop Application (`/desktop`)
 - **Framework**: PySide6 (Qt Python bindings)
-- **Features**: Advanced trading tools, local strategy execution
+- **Features**: Advanced trading tools, local strategy execution, portfolio monitoring
 - **Platform**: Windows, macOS, Linux
+- **Distribution**: Standalone executable or Python package
 
 ## 🚀 Quick Start
 
@@ -56,20 +58,22 @@ docker-compose up -d --build
 
 ### Local Development
 
+**TradeAdviser Server** (`tradeadviser_server`)
 ```bash
-# Backend setup
-cd backend
+cd server
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-uvicorn main:app --reload
 
-# Frontend setup
-cd server/frontend
-npm install
-npm run dev
+# Run backend
+cd backend && uvicorn main:app --reload
 
-# Desktop app setup
+# In another terminal, run frontend
+cd server/frontend && npm install && npm run dev
+```
+
+**TradeAdviser Desktop** (`tradeadviser_desktop`)
+```bash
 cd desktop
 python -m venv venv
 source venv/bin/activate
@@ -141,33 +145,43 @@ Core API structure:
 
 See [API_REFERENCE.md](./API_REFERENCE.md) for complete endpoint documentation.
 
-## 🌐 System Integration
+## 🌐 Component Integration
 
-### Desktop ↔ Server Communication
-- **Connection**: WebSocket for real-time events
-- **Default URL**: http://localhost:8000
+### TradeAdviser Desktop ↔ TradeAdviser Server Communication
+- **Protocol**: HTTP/WebSocket
+- **Default Server URL**: http://localhost:8000
 - **Authentication**: Bearer token in Authorization header
+- **Real-time Events**: WebSocket connections for live data
 
-### Frontend ↔ Backend Communication
+### Web Console ↔ Backend API Communication
 - **API Protocol**: REST/HTTP
 - **Data Format**: JSON
 - **CORS**: Configured for localhost and production domains
+- **Base URL**: http://localhost:8000/api/v1
 
-### Database Integration
+### Backend Data Persistence
 - **ORM**: SQLAlchemy
 - **Migrations**: Alembic
 - **Connection Pool**: Async connection management
+- **Database**: PostgreSQL 15+ with async support
 
 ## 🐳 Docker Deployment
 
 ### Services
 
-**Backend Service**
+**TradeAdviser Server Backend Service**
 ```yaml
-- Image: tradeadviser-backend:latest
+- Image: tradeadviser_server-backend:latest
 - Port: 8000
 - Database: PostgreSQL 15
 - Assets: Mounts frontend dist folder
+```
+
+**TradeAdviser Server Frontend Service**
+```yaml
+- Image: tradeadviser_server-frontend:latest
+- Port: 3000
+- Build: React Vite dev/prod server
 ```
 
 **Database Service**
@@ -177,6 +191,13 @@ See [API_REFERENCE.md](./API_REFERENCE.md) for complete endpoint documentation.
 - Volume: Persistent data storage
 - Initialization: SQL schema setup
 ```
+
+### Supporting Services
+- **Redis**: In-memory data cache (port 6379)
+- **Kafka**: Event streaming (port 9092)
+- **Zookeeper**: Kafka coordination (port 2181)
+- **Nginx**: Reverse proxy (port 80/443)
+- **PgAdmin**: Database management UI (port 5050)
 
 ### Environment Variables
 
