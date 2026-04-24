@@ -3,60 +3,38 @@
 from __future__ import annotations
 
 import logging
-import os
 import sys
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from starlette.middleware.base import BaseHTTPMiddleware
 
 # Add project root to path for shared imports
-project_root = Path(__file__).resolve().parents[3]
+project_root = Path(__file__).resolve().parents[1]
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 logger = logging.getLogger(__name__)
 
-<<<<<<< HEAD:server/app/backend/main.py
-from app.backend.api.routes.auth import router as auth_router
-from app.backend.api.routes.admin import router as admin_router
-from app.backend.api.routes.agents import router as agents_router
-from app.backend.api.routes.operations import router as operations_router
-from app.backend.api.routes.performance import router as performance_router
-from app.backend.api.routes.performance_audit import router as performance_audit_router
-from app.backend.api.routes.portfolio import router as portfolio_router
-from app.backend.api.routes.risk import router as risk_router
-from app.backend.api.routes.session import router as session_router
-from app.backend.api.routes.signals import router as signals_router
-from app.backend.api.routes.trades import router as trades_router
-from app.backend.api.routes.trading import router as trading_router
-from app.backend.api.routes.users import router as users_router
-from app.backend.api.routes.users_licenses import router as users_licenses_router
-from app.backend.api.routes.workspace import router as workspace_router
-from app.backend.dependencies import get_services
-=======
-from backend.api.routes.auth import router as auth_router
-from backend.api.routes.admin import router as admin_router
-from backend.api.routes.agents import router as agents_router
-from backend.api.routes.docs import router as docs_router
-from backend.api.routes.operations import router as operations_router
-from backend.api.routes.performance import router as performance_router
-from backend.api.routes.performance_audit import router as performance_audit_router
-from backend.api.routes.portfolio import router as portfolio_router
-from backend.api.routes.risk import router as risk_router
-from backend.api.routes.session import router as session_router
-from backend.api.routes.signals import router as signals_router
-from backend.api.routes.trades import router as trades_router
-from backend.api.routes.trading import router as trading_router
-from backend.api.routes.users_licenses import router as users_licenses_router
-from backend.api.routes.workspace import router as workspace_router
-from backend.dependencies import get_services
->>>>>>> 4bef926f634c72a86f231ee2b5ab2e56b52111ef:server/backend/main.py
+from server.app.backend.api.routes.auth import router as auth_router
+from server.app.backend.api.routes.admin import router as admin_router
+from server.app.backend.api.routes.agents import router as agents_router
+from server.app.backend.api.routes.docs import router as docs_router
+from server.app.backend.api.routes.operations import router as operations_router
+from server.app.backend.api.routes.performance import router as performance_router
+from server.app.backend.api.routes.performance_audit import router as performance_audit_router
+from server.app.backend.api.routes.portfolio import router as portfolio_router
+from server.app.backend.api.routes.risk import router as risk_router
+from server.app.backend.api.routes.session import router as session_router
+from server.app.backend.api.routes.signals import router as signals_router
+from server.app.backend.api.routes.trades import router as trades_router
+from server.app.backend.api.routes.trading import router as trading_router
+from server.app.backend.api.routes.users_licenses import router as users_licenses_router
+from server.app.backend.api.routes.workspace import router as workspace_router
+from server.app.backend.dependencies import get_services
 
 
 FRONTEND_DIST = Path(__file__).resolve().parents[1] / "frontend" / "dist"
@@ -78,78 +56,26 @@ RESERVED_FRONTEND_PREFIXES = {
 }
 
 # Create FastAPI app
-# Enable docs in development or if explicitly requested
-show_docs = os.getenv("ENV") != "production" or os.getenv("SHOW_DOCS", "false").lower() == "true"
 app = FastAPI(
     title="Sopotek Quant System Server",
     description="Server backend for the Sopotek Quant System desktop and web applications",
     version="1.0.0",
-    openapi_url="/openapi.json" if show_docs else None,
-    docs_url="/docs" if show_docs else None,
-    redoc_url="/redoc" if show_docs else None,
 )
 
-
-# Security Headers Middleware
-class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    """Add security headers to all responses."""
-    
-    async def dispatch(self, request, call_next):
-        response = await call_next(request)
-        # Prevent clickjacking attacks
-        response.headers["X-Frame-Options"] = "DENY"
-        # Enable browser XSS protection
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-XSS-Protection"] = "1; mode=block"
-        # Referrer policy for privacy
-        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        # Prevent MIME sniffing
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline'; "
-            "style-src 'self' 'unsafe-inline'; "
-            "img-src 'self' data:; "
-            "font-src 'self'; "
-            "connect-src 'self' http://localhost:5173 http://127.0.0.1:5173"
-        )
-        # HSTS for HTTPS enforcement (only in production)
-        if os.getenv("ENV") == "production":
-            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-        return response
-
-
-# Add security middleware
-app.add_middleware(SecurityHeadersMiddleware)
-
-# Add trusted host middleware
-app.add_middleware(
-    TrustedHostMiddleware,
-    allowed_hosts=os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
-)
-
-# Configure CORS based on environment
-cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
+# Add CORS middleware to allow cross-origin requests
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins,
+    allow_origins=["*"],  # Allow all origins for development
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
-    max_age=600,
 )
 
-<<<<<<< HEAD:server/app/backend/main.py
-# Register all routers under /api prefix
-app.include_router(auth_router, prefix="/api")
-app.include_router(admin_router, prefix="/api")
-app.include_router(agents_router, prefix="/api")
-=======
 # Register all routers with /api prefix
 app.include_router(auth_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
 app.include_router(agents_router, prefix="/api")
 app.include_router(docs_router, prefix="/api")
->>>>>>> 4bef926f634c72a86f231ee2b5ab2e56b52111ef:server/backend/main.py
 app.include_router(operations_router, prefix="/api")
 app.include_router(performance_router, prefix="/api")
 app.include_router(performance_audit_router, prefix="/api")
@@ -159,10 +85,6 @@ app.include_router(session_router, prefix="/api")
 app.include_router(signals_router, prefix="/api")
 app.include_router(trades_router, prefix="/api")
 app.include_router(trading_router, prefix="/api")
-<<<<<<< HEAD:server/app/backend/main.py
-app.include_router(users_router, prefix="/api")
-=======
->>>>>>> 4bef926f634c72a86f231ee2b5ab2e56b52111ef:server/backend/main.py
 app.include_router(users_licenses_router, prefix="/api")
 app.include_router(workspace_router, prefix="/api")
 

@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 #!/bin/bash
-=======
-﻿#!/bin/bash
->>>>>>> 4bef926f634c72a86f231ee2b5ab2e56b52111ef
 # Security Audit Script for TradeAdviser
 # Scans for common vulnerabilities and security issues
 

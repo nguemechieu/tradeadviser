@@ -4,7 +4,6 @@
  */
 
 import { useState, useEffect } from "react";
-import { operationsDashboardService } from "../api/services";
 import { Card, MetricBox, StatusIndicator, DataTable, Alert, LoadingSpinner } from "./shared";
 
 export function OperationsDashboard({ token, onError }) {
@@ -25,11 +24,25 @@ export function OperationsDashboard({ token, onError }) {
       setLoading(true);
       setError("");
 
-      const [healthData, brokerData, statsData] = await Promise.all([
-        operationsDashboardService.getHealth(token),
-        operationsDashboardService.getBrokerStatus(token),
-        operationsDashboardService.getTradeStats(token, "1h"),
+      const [healthRes, brokerRes, statsRes] = await Promise.all([
+        fetch("/admin/operations/health", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch("/admin/operations/broker-status", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch("/admin/operations/trade-stats?period=1h", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
       ]);
+
+      if (!healthRes.ok) throw new Error("Failed to load health data");
+      if (!brokerRes.ok) throw new Error("Failed to load broker status");
+      if (!statsRes.ok) throw new Error("Failed to load statistics");
+
+      const healthData = await healthRes.json();
+      const brokerData = await brokerRes.json();
+      const statsData = await statsRes.json();
 
       setHealth(healthData);
       setBrokerStatus(brokerData);

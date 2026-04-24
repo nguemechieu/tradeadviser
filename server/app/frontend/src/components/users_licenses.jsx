@@ -4,7 +4,6 @@
  */
 
 import { useState, useEffect } from "react";
-import { usersLicensesDashboardService } from "../api/services";
 import { Card, MetricBox, DataTable, Alert, Badge, Button } from "./shared";
 
 export function UsersLicensesDashboard({ token, onError }) {
@@ -23,10 +22,20 @@ export function UsersLicensesDashboard({ token, onError }) {
       setLoading(true);
       setError("");
 
-      const [usersData, licensesData] = await Promise.all([
-        usersLicensesDashboardService.getUsers(token),
-        usersLicensesDashboardService.getLicenses(token),
+      const [usersRes, licensesRes] = await Promise.all([
+        fetch("/admin/users-licenses/users", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch("/admin/users-licenses/licenses", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
       ]);
+
+      if (!usersRes.ok) throw new Error("Failed to load users");
+      if (!licensesRes.ok) throw new Error("Failed to load licenses");
+
+      const usersData = await usersRes.json();
+      const licensesData = await licensesRes.json();
 
       setUsers(usersData.users || []);
       setLicenses(licensesData.licenses || []);

@@ -4,7 +4,6 @@
  */
 
 import { useState, useEffect } from "react";
-import { riskDashboardService } from "../api/services";
 import { Card, MetricBox, StatusIndicator, DataTable, Alert, Badge } from "./shared";
 
 export function RiskDashboard({ token, onError }) {
@@ -24,13 +23,20 @@ export function RiskDashboard({ token, onError }) {
       setLoading(true);
       setError("");
 
-      const [overviewData, breachesData] = await Promise.all([
-        riskDashboardService.getOverview(token),
-        riskDashboardService.getBreaches(token),
+      const [overviewRes, breachesRes] = await Promise.all([
+        fetch("/admin/risk/overview", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch("/admin/risk/breaches", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
       ]);
 
-      setOverview(overviewData);
-      setBreaches(breachesData || []);
+      if (!overviewRes.ok) throw new Error("Failed to load risk overview");
+      if (!breachesRes.ok) throw new Error("Failed to load breaches");
+
+      const overviewData = await overviewRes.json();
+      const breachesData = await breachesRes.json();
 
       setOverview(overviewData);
       setBreaches(breachesData.breaches || []);

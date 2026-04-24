@@ -1,4 +1,4 @@
-from app.models.trade import Trade
+from backend.models.trade import Trade
 
 
 class FeedbackAgent:

@@ -1,0 +1,2 @@
+"""REST route registration package."""
+

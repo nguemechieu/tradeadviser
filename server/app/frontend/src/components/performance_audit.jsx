@@ -4,7 +4,6 @@
  */
 
 import { useState, useEffect } from "react";
-import { performanceAuditDashboardService } from "../api/services";
 import { Card, MetricBox, DataTable, Alert, Badge, Button } from "./shared";
 
 export function PerformanceAuditDashboard({ token, onError }) {
@@ -24,15 +23,25 @@ export function PerformanceAuditDashboard({ token, onError }) {
       setLoading(true);
       setError("");
 
-      const [metricsData, auditData, complianceData] = await Promise.all([
-        performanceAuditDashboardService.getSystemMetrics(token),
-        performanceAuditDashboardService.getAuditLog(token, filterDays),
-        performanceAuditDashboardService.getComplianceReport(token),
+      const [metricsRes, auditRes, complianceRes] = await Promise.all([
+        fetch("/admin/performance-audit/system-metrics", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`/admin/performance-audit/audit-log?days=${filterDays}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch("/admin/performance-audit/compliance-report", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
       ]);
 
-      setMetrics(metricsData);
-      setAuditLog(auditData.logs || []);
-      setCompliance(complianceData);
+      if (!metricsRes.ok) throw new Error("Failed to load metrics");
+      if (!auditRes.ok) throw new Error("Failed to load audit log");
+      if (!complianceRes.ok) throw new Error("Failed to load compliance report");
+
+      const metricsData = await metricsRes.json();
+      const auditData = await auditRes.json();
+      const complianceData = await complianceRes.json();
 
       setMetrics(metricsData);
       setAuditLog(auditData.logs || []);

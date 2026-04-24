@@ -45,14 +45,6 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
         "multi_exchange",
         "portfolio_view",
     ],
-    "editor": [
-        "trading",
-        "auto_trading",
-        "ml_signals",
-        "multi_exchange",
-        "portfolio_view",
-        "edit_data",
-    ],
     "admin": [
         "trading",
         "auto_trading",
@@ -63,21 +55,6 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
         "user_management",
         "agent_network",
         "server_control",
-    ],
-    "super_admin": [
-        "trading",
-        "auto_trading",
-        "ml_signals",
-        "multi_exchange",
-        "portfolio_view",
-        "admin",
-        "user_management",
-        "agent_network",
-        "server_control",
-        "super_admin",
-        "create_admin",
-        "create_super_admin",
-        "system_control",
     ],
 }
 
@@ -160,48 +137,12 @@ class PasswordResetRecord:
 
 
 @dataclass(slots=True)
-class AuditLog:
-    """Audit log entry for tracking admin actions."""
-    action: str  # e.g., 'role_change', 'user_create', 'user_deactivate'
-    admin_id: str
-    admin_email: str
-    target_user_id: str
-    target_user_email: str
-    old_value: str | None = None
-    new_value: str = ""
-    details: dict = field(default_factory=dict)
-    timestamp: datetime = field(default_factory=_utcnow)
-
-    def as_dict(self) -> dict[str, Any]:
-        return {
-            "action": self.action,
-            "admin": {"id": self.admin_id, "email": self.admin_email},
-            "target": {"id": self.target_user_id, "email": self.target_user_email},
-            "old_value": self.old_value,
-            "new_value": self.new_value,
-            "details": self.details,
-            "timestamp": self.timestamp.isoformat(),
-        }
-
-
-# Valid role hierarchy
-VALID_ROLES = {"trader", "editor", "admin", "super_admin"}
-ROLE_HIERARCHY = {
-    "trader": 0,
-    "editor": 1,
-    "admin": 2,
-    "super_admin": 3,
-}
-
-
-@dataclass(slots=True)
 class ServerServiceContainer:
     users: dict[str, ServerUser] = field(default_factory=dict)
     users_by_id: dict[str, ServerUser] = field(default_factory=dict)
     tokens: dict[str, TokenRecord] = field(default_factory=dict)
     refresh_tokens: dict[str, TokenRecord] = field(default_factory=dict)
     password_reset_tokens: dict[str, PasswordResetRecord] = field(default_factory=dict)
-    audit_logs: list[AuditLog] = field(default_factory=list)
     sessions: dict[str, ServerSession] = field(default_factory=dict)
     market_data_subscriptions: dict[str, dict[str, object]] = field(default_factory=dict)
     workspace_settings: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -886,255 +827,21 @@ class ServerServiceContainer:
         return target.as_public_dict()
 
     def admin_update_user_role(self, admin_user: ServerUser, user_id: str, role: str) -> dict[str, Any]:
-        """Update user role with validation and audit logging.
-        
-        Validates:
-        - Admin must have higher role than target user
-        - Role must be valid
-        - Admin can only change to roles below them; super_admin can create admins
-        
-        Creates audit log entry for tracking.
-        """
         self._require_admin(admin_user)
-        
-        target_id = str(user_id or "").strip()
-        target = self.users_by_id.get(target_id)
+        target = self.users_by_id.get(str(user_id or "").strip())
         if target is None:
             raise ValueError("User not found.")
-        
-        # Validate role
         normalized_role = str(role or "").strip().lower()
-        if normalized_role not in VALID_ROLES:
-            raise ValueError(f"Invalid role. Must be one of: {', '.join(sorted(VALID_ROLES))}")
-        
-        # Role hierarchy validation
-        admin_level = ROLE_HIERARCHY.get(admin_user.role, 0)
-        target_level = ROLE_HIERARCHY.get(normalized_role, 0)
-        
-        # Super admin can create admins; regular admins can only create traders/editors
-        if admin_user.role == "admin":
-            # Regular admin: can only promote to editor or trader
-            if target_level > ROLE_HIERARCHY["editor"]:
-                raise ValueError(f"Cannot promote user to {normalized_role}. Insufficient permissions.")
-        elif admin_user.role == "super_admin":
-            # Super admin: can promote to anything
-            pass
-        else:
-            raise ValueError("Administrator access is required.")
-        
-        old_role = target.role
-        
-        # Update role and permissions
+        if normalized_role not in ROLE_PERMISSIONS:
+            raise ValueError("Unsupported role.")
         target.role = normalized_role
-        
-        # Create audit log
-        audit = AuditLog(
-            action="role_change",
-            admin_id=admin_user.user_id,
-            admin_email=admin_user.email,
-            target_user_id=target.user_id,
-            target_user_email=target.email,
-            old_value=old_role,
-            new_value=normalized_role,
-            details={"reason": "admin_update", "by_role": admin_user.role}
-        )
-        self.audit_logs.append(audit)
-        
-        logger.info(f"Role changed by {admin_user.email}: {target.email} {old_role}→{normalized_role}")
-        
-        return {
-            "success": True,
-            "user": target.as_public_dict(),
-            "audit": audit.as_dict()
-        }
-    
-    def super_admin_create_admin(self, super_admin_user: ServerUser, email: str, username: str, display_name: str) -> dict[str, Any]:
-        """Super admin creates a new admin user.
-        
-        Only super_admin can call this method. Creates a new user with admin role.
-        """
-        self._require_super_admin(super_admin_user)
-        
-        # Validate inputs
-        email = _normalize_email(email)
-        username = _normalize_username(username or email.split("@", 1)[0])
-        display_name = str(display_name or username).strip()
-        
-        if not email or "@" not in email:
-            raise ValueError("Valid email is required.")
-        if email in self.users:
-            raise ValueError("User with this email already exists.")
-        
-        # Create admin user with temporary password
-        temp_password = token_hex(8)
-        admin_user = self._create_user_record(
-            email=email,
-            password=temp_password,
-            username=username,
-            display_name=display_name,
-            role="admin",
-            starting_balance=250_000.0,
-        )
-        self._seed_workspace(admin_user)
-        
-        # Create audit log
-        audit = AuditLog(
-            action="admin_created",
-            admin_id=super_admin_user.user_id,
-            admin_email=super_admin_user.email,
-            target_user_id=admin_user.user_id,
-            target_user_email=admin_user.email,
-            old_value=None,
-            new_value="admin",
-            details={"username": username, "temp_password": temp_password}
-        )
-        self.audit_logs.append(audit)
-        
-        logger.info(f"Admin created by {super_admin_user.email}: {admin_user.email}")
-        
-        return {
-            "success": True,
-            "user": admin_user.as_public_dict(),
-            "temp_password": temp_password,
-            "audit": audit.as_dict(),
-            "message": f"Admin user created. Temporary password: {temp_password}"
-        }
-    
-    def super_admin_create_super_admin(self, super_admin_user: ServerUser, email: str, username: str, display_name: str) -> dict[str, Any]:
-        """Super admin creates another super admin user.
-        
-        Only super_admin can call this method. Creates a new user with super_admin role.
-        """
-        self._require_super_admin(super_admin_user)
-        
-        # Validate inputs
-        email = _normalize_email(email)
-        username = _normalize_username(username or email.split("@", 1)[0])
-        display_name = str(display_name or username).strip()
-        
-        if not email or "@" not in email:
-            raise ValueError("Valid email is required.")
-        if email in self.users:
-            raise ValueError("User with this email already exists.")
-        
-        # Create super admin user with temporary password
-        temp_password = token_hex(8)
-        new_super_admin = self._create_user_record(
-            email=email,
-            password=temp_password,
-            username=username,
-            display_name=display_name,
-            role="super_admin",
-            starting_balance=500_000.0,
-        )
-        self._seed_workspace(new_super_admin)
-        
-        # Create audit log
-        audit = AuditLog(
-            action="super_admin_created",
-            admin_id=super_admin_user.user_id,
-            admin_email=super_admin_user.email,
-            target_user_id=new_super_admin.user_id,
-            target_user_email=new_super_admin.email,
-            old_value=None,
-            new_value="super_admin",
-            details={"username": username, "temp_password": temp_password}
-        )
-        self.audit_logs.append(audit)
-        
-        logger.info(f"Super admin created by {super_admin_user.email}: {new_super_admin.email}")
-        
-        return {
-            "success": True,
-            "user": new_super_admin.as_public_dict(),
-            "temp_password": temp_password,
-            "audit": audit.as_dict(),
-            "message": f"Super admin user created. Temporary password: {temp_password}"
-        }
-
-    def admin_bulk_update_roles(self, admin_user: ServerUser, updates: list[dict[str, str]]) -> dict[str, Any]:
-        """Bulk update roles for multiple users.
-        
-        Args:
-            admin_user: Admin performing the update
-            updates: List of {"user_id": "...", "role": "..."} dicts
-            
-        Returns:
-            Dict with success count, failed updates, and audit logs
-        """
-        self._require_admin(admin_user)
-        
-        results = {
-            "success": 0,
-            "failed": [],
-            "audit_logs": []
-        }
-        
-        for update in updates:
-            user_id = update.get("user_id", "").strip()
-            role = update.get("role", "").strip().lower()
-            
-            try:
-                result = self.admin_update_user_role(admin_user, user_id, role)
-                results["success"] += 1
-                results["audit_logs"].append(result.get("audit"))
-            except ValueError as e:
-                results["failed"].append({
-                    "user_id": user_id,
-                    "role": role,
-                    "error": str(e)
-                })
-        
-        logger.info(f"Bulk role update by {admin_user.email}: {results['success']} success, {len(results['failed'])} failed")
-        return results
-
-    def admin_get_audit_logs(self, admin_user: ServerUser, limit: int = 100, offset: int = 0) -> dict[str, Any]:
-        """Get audit logs with pagination.
-        
-        Only admins can view audit logs. Logs are returned in reverse chronological order.
-        """
-        self._require_admin(admin_user)
-        
-        # Sort by timestamp descending (most recent first)
-        sorted_logs = sorted(self.audit_logs, key=lambda x: x.timestamp, reverse=True)
-        
-        # Apply pagination
-        total = len(sorted_logs)
-        paginated = sorted_logs[offset:offset + limit]
-        
-        return {
-            "total": total,
-            "offset": offset,
-            "limit": limit,
-            "logs": [log.as_dict() for log in paginated]
-        }
-
-    def admin_get_user_audit_logs(self, admin_user: ServerUser, user_id: str) -> dict[str, Any]:
-        """Get all audit logs related to a specific user (as target or admin).
-        
-        Shows both actions performed BY this user and actions performed ON this user.
-        """
-        self._require_admin(admin_user)
-        
-        user_id = str(user_id or "").strip()
-        related_logs = [
-            log for log in self.audit_logs
-            if log.target_user_id == user_id or log.admin_id == user_id
-        ]
-        
-        # Sort by timestamp descending
-        related_logs = sorted(related_logs, key=lambda x: x.timestamp, reverse=True)
-        
-        return {
-            "user_id": user_id,
-            "total": len(related_logs),
-            "logs": [log.as_dict() for log in related_logs]
-        }
+        target.permissions = list(ROLE_PERMISSIONS[normalized_role])
+        return target.as_public_dict()
 
     def health_snapshot(self) -> dict[str, Any]:
         return {
             "status": "ok",
-            "service": "SQS Server",
+            "service": "TradeAdviser",
             "users": len(self.users_by_id),
             "sessions": len(self.sessions),
             "tokens": len(self.tokens),
@@ -1147,14 +854,6 @@ class ServerServiceContainer:
 
     def _seed_demo_state(self) -> None:
         seeded_users = [
-            self._create_user_record(
-                email="superadmin@sopotek.local",
-                password="super123",
-                username="superadmin",
-                display_name="Sopotek Super Administrator",
-                role="super_admin",
-                starting_balance=500_000.0,
-            ),
             self._create_user_record(
                 email="operator@sopotek.local",
                 password="changeme",
@@ -1458,108 +1157,8 @@ class ServerServiceContainer:
         return user
 
     def _require_admin(self, user: ServerUser) -> None:
-        """Check if user is admin or super_admin."""
-        if user.role not in {"admin", "super_admin"}:
+        if user.role != "admin":
             raise ValueError("Administrator access is required.")
-    
-    def _require_super_admin(self, user: ServerUser) -> None:
-        """Check if user is super_admin."""
-        if user.role != "super_admin":
-            raise ValueError("Super administrator access is required.")
-
-    async def update_user_profile(
-        self,
-        user: ServerUser,
-        payload: dict[str, Any],
-    ) -> ServerUser:
-        """Update user profile fields."""
-        user.first_name = str(payload.get("first_name") or user.first_name or "").strip()
-        user.last_name = str(payload.get("last_name") or user.last_name or "").strip()
-        user.display_name = str(payload.get("display_name") or user.display_name or "").strip()
-        # Email update would require more validation in a real app
-        return user
-
-    async def save_broker_config(
-        self,
-        user: ServerUser,
-        payload: dict[str, Any],
-    ) -> dict[str, Any]:
-        """Save broker configuration for user."""
-        config_name = str(payload.get("name") or "").strip()
-        if not config_name:
-            raise ValueError("Configuration name is required.")
-        
-        # Store in user's workspace settings
-        if "broker_configs" not in self.workspace_settings:
-            self.workspace_settings["broker_configs"] = {}
-        
-        self.workspace_settings["broker_configs"][f"{user.user_id}_{config_name}"] = {
-            "name": config_name,
-            "broker": str(payload.get("broker") or "").strip(),
-            "config": dict(payload.get("config") or {}),
-            "description": str(payload.get("description") or "").strip(),
-        }
-        
-        return {
-            "profile_id": user.user_id,
-            "message": f"Configuration '{config_name}' saved successfully"
-        }
-
-    async def get_broker_config(
-        self,
-        user: ServerUser,
-        name: str,
-    ) -> dict[str, Any]:
-        """Retrieve broker configuration by name."""
-        config_key = f"{user.user_id}_{name}"
-        if "broker_configs" not in self.workspace_settings or config_key not in self.workspace_settings["broker_configs"]:
-            raise ValueError(f"Configuration '{name}' not found.")
-        
-        return self.workspace_settings["broker_configs"][config_key]
-
-    async def list_broker_configs(
-        self,
-        user: ServerUser,
-    ) -> list[dict[str, Any]]:
-        """List all broker configurations for user."""
-        if "broker_configs" not in self.workspace_settings:
-            return []
-        
-        configs = []
-        prefix = f"{user.user_id}_"
-        for key, config in self.workspace_settings["broker_configs"].items():
-            if key.startswith(prefix):
-                configs.append(config)
-        
-        return configs
-
-    async def delete_broker_config(
-        self,
-        user: ServerUser,
-        name: str,
-    ) -> None:
-        """Delete broker configuration."""
-        config_key = f"{user.user_id}_{name}"
-        if "broker_configs" not in self.workspace_settings or config_key not in self.workspace_settings["broker_configs"]:
-            raise ValueError(f"Configuration '{name}' not found.")
-        
-        self.workspace_settings["broker_configs"].pop(config_key, None)
-
-    async def test_broker_connection(
-        self,
-        user: ServerUser,
-        payload: dict[str, Any],
-    ) -> dict[str, Any]:
-        """Test broker connection (mock implementation)."""
-        broker = str(payload.get("broker") or "").strip()
-        if not broker:
-            raise ValueError("Broker name is required.")
-        
-        # In a real implementation, this would test actual connection
-        return {
-            "success": True,
-            "message": f"Connected to {broker} successfully"
-        }
 
     def _next_sequence(self, session_id: str) -> int:
         current = int(self.event_sequences.get(session_id, 0) or 0) + 1
@@ -1590,8 +1189,8 @@ def get_services() -> ServerServiceContainer:
 
 # ==================== FastAPI Database & Auth Dependencies ====================
 
-from app.backend.db.session import get_db_session
-from app.backend.schemas import UserSchema
+from backend.db.session import get_db_session
+from backend.schemas import UserSchema
 from fastapi import Header, HTTPException, status, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Annotated
@@ -1664,7 +1263,7 @@ async def get_current_user(
 
 # ==================== Database Dependencies ====================
 
-from app.backend.db.session import get_db_session
+from backend.db.session import get_db_session
 from fastapi import Header, HTTPException, status
 from sqlalchemy.orm import Session as SyncSession
 from sqlalchemy.ext.asyncio import AsyncSession

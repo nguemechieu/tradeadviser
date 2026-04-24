@@ -4,7 +4,6 @@
  */
 
 import { useState, useEffect } from "react";
-import { agentsDashboardService } from "../api/services";
 import { Card, MetricBox, DataTable, StatusIndicator, Badge, Button } from "./shared";
 
 export function AgentsDashboard({ token, onError }) {
@@ -25,10 +24,20 @@ export function AgentsDashboard({ token, onError }) {
       setLoading(true);
       setError("");
 
-      const [overviewData, agentsData] = await Promise.all([
-        agentsDashboardService.getOverview(token),
-        agentsDashboardService.listAgents(token),
+      const [overviewRes, agentsRes] = await Promise.all([
+        fetch("/admin/agents/overview", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch("/admin/agents/", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
       ]);
+
+      if (!overviewRes.ok) throw new Error("Failed to load agents overview");
+      if (!agentsRes.ok) throw new Error("Failed to load agents");
+
+      const overviewData = await overviewRes.json();
+      const agentsData = await agentsRes.json();
 
       setOverview(overviewData);
       setAgents(agentsData.agents || []);

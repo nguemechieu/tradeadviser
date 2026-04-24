@@ -1,27 +1,62 @@
-import { useEffect, useContext, useState } from 'react';
+import { useEffect, useState } from 'react';
+import useAuth from '../hooks/useAuth';
 import { Outlet } from 'react-router-dom';
-import AuthContext from '../context/AuthProvider';
 
-const PersistLogin = () => {
-    const { auth, setAuth } = useContext(AuthContext);
+const PersistLogin = ({ children }) => {
+    const { setAuth } = useAuth();
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        // The AuthProvider now handles persistence, but we can verify the token is valid
-        if (auth?.token) {
-            // Token exists, component can proceed
-            setIsLoading(false);
-        } else {
-            // No auth, proceed anyway - login page will handle redirect
-            setIsLoading(false);
+        const persistedAuth = localStorage.getItem('user');
+        const accessToken = localStorage.getItem('accessToken');
+        const refreshToken = localStorage.getItem('refreshToken');
+
+        if (persistedAuth && accessToken) {
+            try {
+                const user = JSON.parse(persistedAuth);
+                
+                // Restore auth state from localStorage
+                setAuth({
+                    user: user.username,
+                    email: user.email,
+                    id: user.id,
+                    display_name: user.display_name,
+                    firstname: user.firstname,
+                    lastname: user.lastname,
+                    role: user.role,
+                    accessToken: accessToken,
+                    refreshToken: refreshToken,
+                    tokenType: 'Bearer',
+                    isLoggedIn: true
+                });
+            } catch (error) {
+                console.error('Failed to restore auth state:', error);
+                // Clear corrupted data
+                localStorage.removeItem('user');
+                localStorage.removeItem('accessToken');
+                localStorage.removeItem('refreshToken');
+            }
         }
-    }, [auth]);
+
+        setIsLoading(false);
+    }, [setAuth]);
 
     if (isLoading) {
-        return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#0a0e27', color: '#fff' }}>Loading...</div>;
+        return (
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '100vh',
+                background: '#0a0e27',
+                color: '#fff'
+            }}>
+                <div>Loading...</div>
+            </div>
+        );
     }
 
-    return <Outlet />;
-};
+    return children || <Outlet />;
+}
 
 export default PersistLogin;

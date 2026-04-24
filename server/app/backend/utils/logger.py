@@ -19,7 +19,7 @@ def get_logger(name: str) -> logging.Logger:
 
 class LoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
-        logger = get_logger("sqs.request")
+        logger = get_logger("tradeadviser.request")
         start = time.perf_counter()
         response = await call_next(request)
         duration_ms = (time.perf_counter() - start) * 1000

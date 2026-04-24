@@ -1,22 +1,45 @@
 {
-  "name": "tradeadviser-frontend",
+  "name": "tradeadviser",
+  "description": "Intelligent Trading Advisory Platform by Sopotek Inc",
   "private": true,
-  "version": "0.0.1",
+  "version": "1.0.0",
   "type": "module",
+  "homepage": "https://tradeadviser.org",
+  "author": {
+    "name": "Sopotek Inc",
+    "email": "info@sopotek.com",
+    "url": "https://sopotek.com"
+  },
+  "license": "MIT",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host 0.0.0.0 --port 5173",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview --host 0.0.0.0 --port 4173",
+    "lint": "eslint src --ext .js,.jsx,.ts,.tsx",
+    "test": "vitest",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-router-dom": "^6.20.0",
-    "axios": "^1.4.0",
-    "@fortawesome/fontawesome-free": "^6.4.0"
+    "@fortawesome/fontawesome-svg-core": "^6.4.0",
+    "@fortawesome/free-solid-svg-icons": "^6.4.0",
+    "@fortawesome/react-fontawesome": "^0.2.0",
+    "axios": "^1.6.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.30.1"
   },
   "devDependencies": {
-    "vite": "^4.4.0",
-    "@vitejs/plugin-react": "^4.2.0"
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^8.57.1",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "typescript": "^5.6.3",
+    "vite": "^7.0.0",
+    "vitest": "^1.0.0"
   }
 }

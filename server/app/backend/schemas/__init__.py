@@ -1,6 +1,6 @@
 """Schema package."""
 
-from app.backend.schemas.user import UserSchema, UserCreateSchema, UserUpdateSchema, UserResponseSchema
+from backend.schemas.user import UserSchema, UserCreateSchema, UserUpdateSchema, UserResponseSchema
 
 __all__ = [
     "UserSchema",

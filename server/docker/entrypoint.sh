@@ -1,8 +1,6 @@
-<<<<<<< HEAD
+
 #!/bin/sh
-=======
-﻿#!/bin/sh
->>>>>>> 4bef926f634c72a86f231ee2b5ab2e56b52111ef
+
 set -e
 
 echo "[Startup] Starting SQS Server..."

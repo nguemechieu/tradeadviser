@@ -1,8 +1,8 @@
-<<<<<<< HEAD
+
+
+
 #!/bin/sh
-=======
-﻿#!/bin/sh
->>>>>>> 4bef926f634c72a86f231ee2b5ab2e56b52111ef
+
 set -e
 
 # Remove default nginx config that conflicts with our custom configuration

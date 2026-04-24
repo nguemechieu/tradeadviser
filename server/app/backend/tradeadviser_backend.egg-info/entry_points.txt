@@ -1,0 +1,2 @@
+[console_scripts]
+tradeadviser-backend = main:main

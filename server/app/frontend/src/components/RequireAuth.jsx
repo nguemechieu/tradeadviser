@@ -1,55 +1,29 @@
 import { useLocation, Navigate, Outlet } from "react-router-dom";
-import { useContext, useEffect, useState } from "react";
-import AuthContext from "../context/AuthProvider";
+import useAuth from "../hooks/useAuth";
 
 const RequireAuth = ({ allowedRoles }) => {
-    const context = useContext(AuthContext);
-    const { auth } = context || {};
+    const { auth } = useAuth();
     const location = useLocation();
-    const [isInitialized, setIsInitialized] = useState(false);
 
-    useEffect(() => {
-        // Give the context time to initialize from localStorage if needed
-        setIsInitialized(true);
-    }, []);
+    // Check if user is logged in
+    const isLoggedIn = auth?.isLoggedIn || auth?.accessToken;
+    
+    // Check if user has one of the allowed roles
+    const userRole = auth?.user?.role || auth?.role;
+    const hasRequiredRole = !allowedRoles || allowedRoles.length === 0 || allowedRoles.includes(userRole);
 
-    if (!isInitialized) {
-        return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#0a0e27', color: '#fff' }}>Loading...</div>;
+    if (!isLoggedIn) {
+        // User not logged in - redirect to login
+        return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
-    // Check if user has a role
-    let userRole = auth?.role;
-    
-    // Fallback: extract role from localStorage if needed
-    if (!userRole) {
-        try {
-            const savedUser = localStorage.getItem('tradeadviser-user');
-            if (savedUser) {
-                const parsed = JSON.parse(savedUser);
-                userRole = parsed?.role || 'trader';
-            }
-        } catch (e) {
-            console.error('Failed to parse user from localStorage:', e);
-        }
+    if (!hasRequiredRole) {
+        // User logged in but doesn't have required role - redirect to access denied
+        return <Navigate to="/access-denied" state={{ from: location }} replace />;
     }
-    
-    // Default role to 'trader' if still not found
-    userRole = userRole || 'trader';
-    
-    const hasAccess = userRole && (allowedRoles === undefined || allowedRoles.includes(userRole));
 
-    // Also check token as fallback
-    const hasToken = auth?.token || localStorage.getItem('tradeadviser-token');
-    
-    console.debug('RequireAuth check:', { userRole, allowedRoles, hasAccess, hasToken });
-
-    return (
-        hasAccess || (hasToken && userRole)
-            ? <Outlet />
-            : auth?.user
-                ? <Navigate to="/access-denied" state={{ from: location }} replace />
-                : <Navigate to="/login" state={{ from: location }} replace />
-    );
+    // User is logged in and has required role
+    return <Outlet />;
 }
 
 export default RequireAuth;
