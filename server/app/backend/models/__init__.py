@@ -1,16 +1,4 @@
-from backend.db import Base
-from backend.models.signal import Signal
-from backend.models.trade import Trade, TradeSide
-from backend.models.user import User, UserRole
-from backend.models.license import License, LicenseType, LicenseStatus, LicenseAudit
-from backend.models.agent import Agent, AgentStatus, AgentAudit
-from backend.models.audit import AuditLog, AuditAction, RiskLimit, RiskBreach
-from backend.models.operations import (
-    SystemHealth,
-    TradeStats,
-    PerformanceSnapshot,
-    ServiceStatus,
-)
+
 
 __all__ = [
     "Base",
@@ -35,3 +23,13 @@ __all__ = [
     "PerformanceSnapshot",
     "ServiceStatus",
 ]
+
+
+from server.app.backend.db import Base
+from server.app.backend.models.agent import Agent, AgentStatus, AgentAudit
+from server.app.backend.models.audit import AuditLog, AuditAction, RiskLimit, RiskBreach
+from server.app.backend.models.license import License, LicenseType, LicenseStatus, LicenseAudit
+from server.app.backend.models.operations import SystemHealth, TradeStats, PerformanceSnapshot, ServiceStatus
+from server.app.backend.models.signal import Signal
+from server.app.backend.models.trade import TradeSide, Trade
+from server.app.backend.models.user import User, UserRole

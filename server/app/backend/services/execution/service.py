@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import Protocol
 from uuid import uuid4
 
-from sopotek.shared.contracts.trading import ExecutionRequest, ExecutionResult, RiskDecision
-from sopotek.shared.enums.common import ExecutionStatus
+from shared.contracts.trading import ExecutionRequest, ExecutionResult, RiskDecision
+from shared.enums.common import ExecutionStatus
 
 
 class ExecutionService(Protocol):

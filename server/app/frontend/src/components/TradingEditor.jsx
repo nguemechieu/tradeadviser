@@ -1,11 +1,11 @@
 import { Link } from "react-router-dom"
 
-const Editor = () => {
+const TradingEditor = () => {
     return (
         <section>
-            <h1>Editors Page</h1>
+            <h1>Trading Editor</h1>
             <br />
-            <p>You must have been assigned an Editor role.</p>
+            <p>Advanced trading tools and strategy editor.</p>
             <div className="flexGrow">
                 <Link to="/">Home</Link>
             </div>
@@ -13,4 +13,4 @@ const Editor = () => {
     )
 }
 
-export default Editor
+export default TradingEditor

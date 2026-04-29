@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -22,7 +22,9 @@ logger = logging.getLogger(__name__)
 from server.app.backend.api.routes.auth import router as auth_router
 from server.app.backend.api.routes.admin import router as admin_router
 from server.app.backend.api.routes.agents import router as agents_router
+from server.app.backend.api.routes.control_tower import router as control_tower_router
 from server.app.backend.api.routes.docs import router as docs_router
+from server.app.backend.api.routes.licenses import router as licenses_router
 from server.app.backend.api.routes.operations import router as operations_router
 from server.app.backend.api.routes.performance import router as performance_router
 from server.app.backend.api.routes.performance_audit import router as performance_audit_router
@@ -43,8 +45,10 @@ RESERVED_FRONTEND_PREFIXES = {
     "admin",
     "api",
     "auth",
+    "control-tower",
     "docs",
     "health",
+    "licenses",
     "openapi.json",
     "performance",
     "portfolio",
@@ -71,22 +75,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register all routers with /api prefix
-app.include_router(auth_router, prefix="/api")
-app.include_router(admin_router, prefix="/api")
-app.include_router(agents_router, prefix="/api")
-app.include_router(docs_router, prefix="/api")
-app.include_router(operations_router, prefix="/api")
-app.include_router(performance_router, prefix="/api")
-app.include_router(performance_audit_router, prefix="/api")
-app.include_router(portfolio_router, prefix="/api")
-app.include_router(risk_router, prefix="/api")
-app.include_router(session_router, prefix="/api")
-app.include_router(signals_router, prefix="/api")
-app.include_router(trades_router, prefix="/api")
-app.include_router(trading_router, prefix="/api")
-app.include_router(users_licenses_router, prefix="/api")
-app.include_router(workspace_router, prefix="/api")
+# Register all routers (they define their own /api or /admin prefixes)
+app.include_router(auth_router)
+app.include_router(admin_router)
+app.include_router(agents_router)
+app.include_router(control_tower_router)
+app.include_router(docs_router)
+app.include_router(licenses_router)
+app.include_router(operations_router)
+app.include_router(performance_router)
+app.include_router(performance_audit_router)
+app.include_router(portfolio_router)
+app.include_router(risk_router)
+app.include_router(session_router)
+app.include_router(signals_router)
+app.include_router(trades_router)
+app.include_router(trading_router)
+app.include_router(users_licenses_router)
+app.include_router(workspace_router)
 
 # Mount frontend assets if they exist
 frontend_assets = FRONTEND_DIST / "assets"
@@ -95,7 +101,7 @@ if frontend_assets.exists():
 
 
 # Startup and shutdown events
-@app.on_event("startup")
+@app.get("startup")
 async def startup_event() -> None:
     """Initialize server resources on startup."""
     logger.info("Server startup event")
@@ -106,7 +112,7 @@ async def startup_event() -> None:
         logger.error(f"Error during startup: {e}", exc_info=True)
 
 
-@app.on_event("shutdown")
+@app.get("shutdown")
 async def shutdown_event() -> None:
     """Clean up server resources on shutdown."""
     logger.info("Server shutdown event")
@@ -150,7 +156,7 @@ async def events_socket(websocket: WebSocket) -> None:
     """Desktop event stream endpoint.
 
     The reconnect contract uses ``session_id`` and ``last_sequence`` query
-    parameters so the server can later rehydrate authoritative state.
+    parameters so the server can be later rehydrate authoritative state.
     
     Args:
         websocket: WebSocket connection from the client

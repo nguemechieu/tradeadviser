@@ -3,9 +3,10 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 
-from derivatives.core.event_bus import EventBus
+
+from derivatives.core.live_market_cache import LiveMarketCache
 from derivatives.core.models import ExecutionUpdate, PortfolioState, PositionState
-from derivatives.data.live_cache.cache.live_market_cache import LiveMarketCache
+from events.event_bus.event_bus import EventBus
 
 
 class PortfolioEngine:
@@ -14,7 +15,7 @@ class PortfolioEngine:
         event_bus: EventBus,
         cache: LiveMarketCache,
         *,
-        starting_equity: float = 100000.0,
+        starting_equity: float = 500.0,
         base_currency: str = "USD",
         logger: logging.Logger | None = None,
     ) -> None:

@@ -31,7 +31,7 @@ class LicenseManager:
 
         expiry = data.get("expires_at")
         if expiry:
-            if datetime.utcnow() > datetime.fromisoformat(expiry):
+            if datetime.now() > datetime.fromisoformat(expiry):
                 return False, "License expired"
 
         return True, "Valid license"

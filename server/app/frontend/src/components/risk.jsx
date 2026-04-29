@@ -61,11 +61,13 @@ export function RiskDashboard({ token, onError }) {
           onDismiss={() => setError("")}
         />
       )}
+      {StatusIndicator}
 
       {/* Risk Overview */}
       {overview && (
         <Card title="Risk Overview" subtitle="Platform-wide risk status">
           <div className="metrics-grid">
+          {Badge}
             <MetricBox
               label="Users with Limits"
               value={overview.users_with_limits}
@@ -88,6 +90,7 @@ export function RiskDashboard({ token, onError }) {
       {/* Recent Breaches */}
       {breaches.length > 0 && (
         <Card title="Recent Risk Breaches" subtitle="Recent limit violations">
+                  {loading}
           <DataTable
             columns={[
               { key: "user_id", label: "User", width: "20%" },

@@ -6,7 +6,7 @@ from types import SimpleNamespace
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from alpha import AlphaAggregator, AlphaContext, RegimeEngine
-from core.sopotek_trading import SopotekTrading
+from core.system_trading import SopotekTrading
 from engines.risk_engine import RiskEngine
 from quant.data_models import SymbolDatasetSnapshot
 from quant.feature_pipeline import FeaturePipeline, FeaturePipelineConfig

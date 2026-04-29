@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import logging
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any
-
-from sopotek.core.event_bus import AsyncEventBus
-from sopotek.core.event_types import EventType
-from sopotek.core.models import PortfolioSnapshot
+from contracts.portfolio import PortfolioSnapshot
+from events.event_bus import AsyncEventBus
+from events.event_bus.event_types import EventType
 
 from risk.exposure_manager import ExposureManager
 
@@ -46,6 +45,8 @@ class PortfolioMonitor:
         starting_equity: float = 100000.0,
         logger: logging.Logger | None = None,
     ) -> None:
+        self.snapshot_id  =uuid.uuid4()
+        self.account_id =uuid.uuid4()
         self.bus = event_bus
         self.exposure_manager = exposure_manager
         self.max_daily_loss_pct = max(0.0, float(max_daily_loss_pct))
@@ -54,6 +55,9 @@ class PortfolioMonitor:
         self.latest_snapshot = PortfolioSnapshot(
             cash=float(starting_equity),
             equity=float(starting_equity),
+            snapshot_id=self.snapshot_id.__str__(),
+            account_id=self.account_id.__str__(),
+            base_currency="USD"
         )
         self.state = PortfolioRiskState(
             equity=float(starting_equity),
@@ -107,7 +111,7 @@ class PortfolioMonitor:
         daily_realized_pnl = float(snapshot.realized_pnl or 0.0) - float(self.state.day_start_realized_pnl or 0.0)
         daily_loss_amount = max(0.0, -daily_realized_pnl)
         daily_loss_limit = max(0.0, float(self.state.day_start_equity or snapshot.equity or 0.0)) * self.max_daily_loss_pct
-        trading_halted = daily_loss_limit > 0.0 and daily_loss_amount >= daily_loss_limit
+        trading_halted = 0.0 < daily_loss_limit <= daily_loss_amount
         halt_reason = None
         if trading_halted:
             halt_reason = f"Max daily loss breached: {daily_loss_amount:.2f} >= {daily_loss_limit:.2f}"
@@ -148,7 +152,7 @@ class PortfolioMonitor:
             )
 
     @staticmethod
-    def _coerce_timestamp(value: Any) -> datetime:
+    def _coerce_timestamp(value) -> datetime:
         if isinstance(value, datetime):
             if value.tzinfo is None:
                 return value.replace(tzinfo=timezone.utc)

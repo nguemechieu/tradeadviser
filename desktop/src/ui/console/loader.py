@@ -54,7 +54,12 @@ class LoadingTask:
 
 
 class LoadingWorker(QObject):
-    """Worker thread for async operations."""
+    """Worker thread for async operations.
+    
+    IMPORTANT: Do NOT create a new event loop here. The main application
+    uses qasync which manages a single event loop. Creating a separate loop
+    causes "not the running loop" RuntimeErrors.
+    """
     
     finished = Signal()
     error = Signal(str)
@@ -68,19 +73,42 @@ class LoadingWorker(QObject):
         self.loop = None
     
     def run(self):
-        """Run the async task in a new event loop."""
+        """Run the async task.
+        
+        This runs on a worker thread but should NOT create a new event loop.
+        Instead, get the main loop and use run_coroutine_threadsafe.
+        """
         try:
-            self.loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(self.loop)
-            result = self.loop.run_until_complete(self.coroutine)
-            self.result.emit(result)
+            import asyncio
+            # Get the main event loop (set up by qasync in main thread)
+            try:
+                self.loop = asyncio.get_running_loop()
+            except RuntimeError:
+                # Not in main thread, get the event loop that was set
+                try:
+                    self.loop = asyncio.get_event_loop()
+                except RuntimeError:
+                    self.error.emit("No event loop available")
+                    self.finished.emit()
+                    return
+            
+            # If we can get a running loop via asyncio.all_tasks, use run_coroutine_threadsafe
+            # Otherwise, just run it directly with a new loop (fallback)
+            try:
+                # Try to use the main loop
+                future = asyncio.run_coroutine_threadsafe(self.coroutine, self.loop)
+                result = future.result(timeout=300)  # 5 minute timeout
+                self.result.emit(result)
+            except RuntimeError:
+                # Fallback: if we can't reach the main loop, don't create a new one
+                # Just report the error
+                self.error.emit("Could not execute coroutine: event loop not accessible")
+            
             self.finished.emit()
         except Exception as e:
-            self.error.emit(str(e))
+            import traceback
+            self.error.emit(f"{type(e).__name__}: {str(e)}\n{traceback.format_exc()}")
             self.finished.emit()
-        finally:
-            if self.loop:
-                self.loop.close()
 
 
 class LoadingManager(QObject):

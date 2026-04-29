@@ -54,6 +54,10 @@ class TradeLifecycleState:
     last_update_time: datetime = field(default_factory=utc_now)
     metadata: dict[str, Any] = field(default_factory=dict)
     alerts_emitted: set[str] = field(default_factory=set)
+    stop_loss: float | None = None
+    take_profit: float | None = None
+    risk_percent: float = 2.0
+    reward_risk_ratio: float = 1.5
 
     def __post_init__(self) -> None:
         self.trade_id = str(self.trade_id or "").strip()
@@ -72,6 +76,11 @@ class TradeLifecycleState:
         self.status = str(self.status or "open").strip().lower()
         self.exit_time = None if self.exit_time is None else coerce_datetime(self.exit_time)
         self.last_update_time = coerce_datetime(self.last_update_time)
+        self.risk_percent = max(0.1, min(10.0, float(self.risk_percent or 2.0)))
+        self.reward_risk_ratio = max(0.5, float(self.reward_risk_ratio or 1.5))
+        # Initialize SL/TP if not provided
+        if self.stop_loss is None or self.take_profit is None:
+            self._calculate_sl_tp()
 
     @property
     def duration(self) -> timedelta:
@@ -99,6 +108,102 @@ class TradeLifecycleState:
     def time_remaining_seconds(self, max_duration: timedelta) -> float:
         return self.time_remaining(max_duration).total_seconds()
 
+    def _calculate_sl_tp(self) -> None:
+        """Calculate SL/TP based on risk management rules."""
+        if self.entry_price <= 0:
+            return
+
+        is_long = self.quantity >= 0
+        stop_distance = self.entry_price * (self.risk_percent / 100.0)
+
+        if is_long:
+            # For long: SL below entry, TP above entry
+            self.stop_loss = self.entry_price - stop_distance
+            reward_distance = stop_distance * self.reward_risk_ratio
+            self.take_profit = self.entry_price + reward_distance
+        else:
+            # For short: SL above entry, TP below entry
+            self.stop_loss = self.entry_price + stop_distance
+            reward_distance = stop_distance * self.reward_risk_ratio
+            self.take_profit = self.entry_price - reward_distance
+
+    def update_sl_tp(self, stop_loss: float | None = None, take_profit: float | None = None) -> None:
+        """Update stop loss and take profit levels."""
+        if stop_loss is not None and stop_loss > 0:
+            self.stop_loss = float(stop_loss)
+        if take_profit is not None and take_profit > 0:
+            self.take_profit = float(take_profit)
+
+    def adjust_sl_tp_for_breakeven(self) -> None:
+        """Move SL to breakeven once profitable."""
+        if self.entry_price <= 0:
+            return
+
+        is_long = self.quantity >= 0
+        if is_long:
+            if self.current_price > self.entry_price and self.stop_loss is not None:
+                self.stop_loss = max(self.stop_loss, self.entry_price)
+        else:
+            if self.current_price < self.entry_price and self.stop_loss is not None:
+                self.stop_loss = min(self.stop_loss, self.entry_price)
+
+    def adjust_sl_tp_by_volatility(self, volatility: float) -> None:
+        """Adjust SL/TP based on current volatility levels."""
+        if self.entry_price <= 0 or volatility <= 0:
+            return
+
+        volatility_multiplier = volatility / max(self.volatility_at_entry, 0.01)
+        is_long = self.quantity >= 0
+
+        if is_long:
+            if self.stop_loss is not None:
+                sl_distance = self.entry_price - self.stop_loss
+                adjusted_distance = sl_distance * volatility_multiplier
+                self.stop_loss = self.entry_price - adjusted_distance
+            if self.take_profit is not None:
+                tp_distance = self.take_profit - self.entry_price
+                adjusted_distance = tp_distance * volatility_multiplier
+                self.take_profit = self.entry_price + adjusted_distance
+        else:
+            if self.stop_loss is not None:
+                sl_distance = self.stop_loss - self.entry_price
+                adjusted_distance = sl_distance * volatility_multiplier
+                self.stop_loss = self.entry_price + adjusted_distance
+            if self.take_profit is not None:
+                tp_distance = self.entry_price - self.take_profit
+                adjusted_distance = tp_distance * volatility_multiplier
+                self.take_profit = self.entry_price - adjusted_distance
+
+    def should_close_for_tp(self) -> bool:
+        """Check if position should close at take profit."""
+        if self.take_profit is None or self.entry_price <= 0:
+            return False
+        is_long = self.quantity >= 0
+        return (is_long and self.current_price >= self.take_profit) or (not is_long and self.current_price <= self.take_profit)
+
+    def should_close_for_sl(self) -> bool:
+        """Check if position should close at stop loss."""
+        if self.stop_loss is None or self.entry_price <= 0:
+            return False
+        is_long = self.quantity >= 0
+        return (is_long and self.current_price <= self.stop_loss) or (not is_long and self.current_price >= self.stop_loss)
+
+    def max_favorable_excursion(self) -> float:
+        """Calculate maximum favorable price reached."""
+        is_long = self.quantity >= 0
+        if is_long:
+            return max(self.entry_price, self.current_price)
+        else:
+            return min(self.entry_price, self.current_price)
+
+    def max_adverse_excursion(self) -> float:
+        """Calculate maximum adverse price reached."""
+        is_long = self.quantity >= 0
+        if is_long:
+            return min(self.entry_price, self.current_price)
+        else:
+            return max(self.entry_price, self.current_price)
+
     def to_ui_payload(self, *, max_duration: timedelta | None = None, aging_score: float | None = None) -> dict[str, Any]:
         payload = {
             "trade_id": self.trade_id,
@@ -108,6 +213,10 @@ class TradeLifecycleState:
             "entry_time": self.entry_time.isoformat(),
             "entry_price": self.entry_price,
             "current_price": self.current_price,
+            "stop_loss": self.stop_loss,
+            "take_profit": self.take_profit,
+            "risk_percent": self.risk_percent,
+            "reward_risk_ratio": self.reward_risk_ratio,
             "pnl": self.pnl,
             "pnl_pct": self.pnl_pct,
             "duration_seconds": self.duration.total_seconds(),
@@ -118,6 +227,8 @@ class TradeLifecycleState:
             "signal_strength": self.signal_strength,
             "regime": self.regime,
             "status": self.status,
+            "should_close_tp": self.should_close_for_tp(),
+            "should_close_sl": self.should_close_for_sl(),
             "time_remaining_seconds": None,
             "aging_score": aging_score,
             "metadata": dict(self.metadata),

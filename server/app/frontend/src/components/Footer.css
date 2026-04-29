@@ -1,0 +1,57 @@
+/* General Styles for the Footer */
+
+.text {
+  background-color: #c5fdd6;
+  color: #26ac4e; /* Text color */
+}
+.text-center {
+  text-align: center;
+  margin-bottom: 20px;
+}
+.footer {
+  background-color: rgb(29, 112, 204); /* Primary blue color */
+  background-image: url("../../public/favicon.ico");
+  color: #26ac4e; /* Text color */
+  padding: 20px 0; /* Vertical padding */
+  text-align: center; /* Center align text */
+  border-top: 1px solid #6bd0e3; /* Optional border at the top */
+  box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1); /* Subtle shadow for separation */
+}
+
+/* Footer Content */
+.footer-content {
+  max-width: 1200px; /* Limit the width */
+  margin: 0 auto; /* Center the footer content */
+  padding: 0 20px; /* Add padding for smaller screens */
+  background-color: #ffffff; /* Optional background color */
+}
+
+/* Footer Links */
+.footer-links {
+  display: flex;
+  justify-content: center; /* Center the links */
+  gap: 15px; /* Space between links */
+  margin-top: 10px; /* Space above links */
+  font-weight: bold; /* Bold font weight for links */
+  font-size: 14px; /* Font size for links */
+}
+
+.footer-links a {
+  color: #a7b115; /* Link color */
+  text-decoration: none; /* Remove underline */
+  font-size: 14px; /* Font size for links */
+  transition: color 0.3s ease-in-out; /* Smooth transition */
+}
+
+.footer-links a:hover {
+  color: #0a3463; /* Lighter color on hover */
+  text-decoration: underline; /* Add underline on hover */
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .footer-links {
+    flex-direction: column; /* Stack links vertically */
+    gap: 10px; /* Adjust spacing */
+  }
+}

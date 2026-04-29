@@ -1,6 +1,15 @@
 import pandas as pd
 
 
+def _init_feature_state(feature_frame):
+    """Initialize feature processing state."""
+    return {
+        "cursor": 0,
+        "count": len(feature_frame) if feature_frame is not None else 0,
+        "indices": list(feature_frame.index) if feature_frame is not None else []
+    }
+
+
 class BacktestEngine:
     REQUIRED_COLUMNS = ["timestamp", "open", "high", "low", "close", "volume"]
 
@@ -95,7 +104,7 @@ class BacktestEngine:
             warmup = 1
         
         feature_frame, generate_from_features = self._precompute_feature_frame(df, strategy_name=strategy_name)
-        feature_state = self._init_feature_state(feature_frame)
+        feature_state = _init_feature_state(feature_frame)
         last_row = None
         stopped_early = False
 
@@ -117,15 +126,7 @@ class BacktestEngine:
         self._close_position(last_row, df, symbol, stopped_early, run_metadata)
         return pd.DataFrame(self.results)
 
-    def _init_feature_state(self, feature_frame):
-        """Initialize feature processing state."""
-        return {
-            "cursor": 0,
-            "count": len(feature_frame) if feature_frame is not None else 0,
-            "indices": list(feature_frame.index) if feature_frame is not None else []
-        }
-
-    def _compute_signal(self, window, raw_index, generate_from_features, 
+    def _compute_signal(self, window, raw_index, generate_from_features,
                        feature_frame, feature_state, warmup, strategy_name):
         """Compute trading signal for current candle."""
         if generate_from_features is not None and feature_state["count"]:

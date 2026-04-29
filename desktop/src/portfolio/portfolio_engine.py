@@ -6,10 +6,10 @@ from collections.abc import Mapping
 from dataclasses import asdict
 from typing import Any
 
-from core.event_bus import AsyncEventBus
+from events.event_bus import AsyncEventBus
+from models.signal import ExecutionReport, PortfolioSnapshot, Position, PositionUpdate, PerformanceMetrics
 from risk.exposure_manager import ExposureManager
-from core.event_bus.event_types import EventType
-from core.models import ExecutionReport, PerformanceMetrics, PortfolioSnapshot, Position, PositionUpdate
+from events.event_bus.event_types import EventType
 
 
 class PortfolioEngine:
@@ -75,8 +75,7 @@ class PortfolioEngine:
         return self.exposure_manager.total_exposure()
 
     def update_symbol_sector(self, symbol: str, sector: str) -> None:
-        key = str(symbol or "").strip().upper()
-        if key:
+        if key := str(symbol or "").strip().upper():
             self.symbol_sectors[key] = str(sector or "unknown")
 
     def allocate_capital(

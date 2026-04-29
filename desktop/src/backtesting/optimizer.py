@@ -1,7 +1,6 @@
+from concurrent.futures import ThreadPoolExecutor
 import copy
 import itertools
-import os
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pandas as pd
 from backtesting.backtest_engine import BacktestEngine

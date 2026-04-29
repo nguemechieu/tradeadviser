@@ -2,9 +2,9 @@ from datetime import UTC, datetime, timedelta
 
 import bcrypt
 import jwt
+from config.settings import Settings
 from jwt import InvalidTokenError
 
-from backend.config import Settings
 
 
 def utcnow() -> datetime:

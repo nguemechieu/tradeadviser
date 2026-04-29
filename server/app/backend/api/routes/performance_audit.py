@@ -7,14 +7,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 
-from backend.dependencies import get_db, get_current_user
-from backend.models import AuditLog, PerformanceSnapshot, TradeStats, User
-from backend.schemas import UserSchema
+from server.app.backend.dependencies import get_db, get_current_user
+from server.app.backend.models import AuditLog, PerformanceSnapshot, TradeStats, User
+from server.app.backend.schemas import UserSchema
 
-router = APIRouter(prefix="/admin/performance-audit", tags=["performance-audit"])
+router = APIRouter(prefix="/api/v3/admin/performance-audit", tags=["performance-audit"])
 
 
-@router.get("/audit-log")
+@router.get("/api/audit-log")
 async def get_audit_log(
     user_id: str | None = None,
     action: str | None = None,
@@ -34,7 +34,7 @@ async def get_audit_log(
         query = query.filter(AuditLog.action == action)
     
     # Filter by date range
-    since = datetime.utcnow() - timedelta(days=days)
+    since = datetime.now() - timedelta(days=days)
     query = query.filter(AuditLog.created_at >= since)
     
     logs = query.order_by(AuditLog.created_at.desc()).limit(500).all()
@@ -57,7 +57,7 @@ async def get_audit_log(
     }
 
 
-@router.get("/user-activity/{user_id}")
+@router.get("/api/user-activity/{user_id}")
 async def get_user_activity(
     user_id: str,
     days: int = 30,
@@ -73,7 +73,7 @@ async def get_user_activity(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    since = datetime.utcnow() - timedelta(days=days)
+    since = datetime.now() - timedelta(days=days)
     logs = db.query(AuditLog).filter(
         AuditLog.user_id == user_id,
         AuditLog.created_at >= since
@@ -101,7 +101,7 @@ async def get_user_activity(
     }
 
 
-@router.get("/performance-trending")
+@router.get("/api/performance-trending")
 async def get_performance_trending(
     period: str = "1d",
     days: int = 30,
@@ -131,12 +131,11 @@ async def get_performance_trending(
     }
 
 
-@router.get("/top-performers")
+@router.get("/api/top-performers")
 async def get_top_performers(
     metric: str = "return",
     days: int = 30,
-    db: Session = Depends(get_db),
-    current_user: UserSchema = Depends(get_current_user)
+        current_user: UserSchema = Depends(get_current_user)
 ):
     """Get top performing traders and agents."""
     if current_user.role not in ["admin", "super_admin"]:
@@ -153,7 +152,7 @@ async def get_top_performers(
     }
 
 
-@router.get("/compliance-report")
+@router.get("/api/compliance-report")
 async def get_compliance_report(
     start_date: str | None = None,
     end_date: str | None = None,
@@ -166,9 +165,9 @@ async def get_compliance_report(
     
     # Parse dates if provided
     if not start_date:
-        start_date = (datetime.utcnow() - timedelta(days=30)).date()
+        start_date = (datetime.now() - timedelta(days=30)).date()
     if not end_date:
-        end_date = datetime.utcnow().date()
+        end_date = datetime.now().date()
     
     return {
         "report_type": "compliance",
@@ -189,9 +188,9 @@ async def get_compliance_report(
     }
 
 
-@router.get("/export-audit-trail")
+@router.get("/api/export-audit-trail")
 async def export_audit_trail(
-    format: str = "csv",
+    format_: str = "csv",
     days: int = 30,
     db: Session = Depends(get_db),
     current_user: UserSchema = Depends(get_current_user)
@@ -200,22 +199,22 @@ async def export_audit_trail(
     if current_user.role not in ["admin", "super_admin"]:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     
-    since = datetime.utcnow() - timedelta(days=days)
+    since = datetime.now() - timedelta(days=days)
     logs = db.query(AuditLog).filter(
         AuditLog.created_at >= since
     ).order_by(AuditLog.created_at.desc()).all()
     
     # In real implementation, would generate CSV/Excel/PDF
     return {
-        "format": format,
-        "filename": f"audit-trail-{datetime.utcnow().isoformat()}.{format}",
+        "format": format_,
+        "filename": f"audit-trail-{datetime.now().isoformat()}.{format_}",
         "record_count": len(logs),
         "period_days": days,
         "message": "Export generated successfully"
     }
 
 
-@router.get("/system-metrics")
+@router.get("/api/system-metrics")
 async def get_system_metrics(
     db: Session = Depends(get_db),
     current_user: UserSchema = Depends(get_current_user)
@@ -248,11 +247,10 @@ async def get_system_metrics(
     }
 
 
-@router.post("/generate-report")
+@router.post("/api/generate-report")
 async def generate_report(
     report_type: str,  # "compliance", "performance", "risk", "audit"
-    db: Session = Depends(get_db),
-    current_user: UserSchema = Depends(get_current_user)
+        current_user: UserSchema = Depends(get_current_user)
 ):
     """Generate a custom report."""
     if current_user.role not in ["admin", "super_admin"]:

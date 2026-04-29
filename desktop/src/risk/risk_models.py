@@ -2,6 +2,7 @@ import numpy as np
 
 
 class RiskModels:
+    """Risk calculation models including VaR, CVaR, and Kelly position sizing."""
 
     # =====================================
     # VALUE AT RISK

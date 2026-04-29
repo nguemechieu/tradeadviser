@@ -7,9 +7,9 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from core.sopotek_trading import SopotekTrading
+from core.system_trading import SopotekTrading
 from engines.risk_engine import RiskEngine
-from reasoning import HeuristicReasoningProvider, ReasoningEngine, ReasoningResult
+from core.reasoning import HeuristicReasoningProvider, ReasoningEngine, ReasoningResult
 
 
 class DummyBroker:

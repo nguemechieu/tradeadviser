@@ -4,14 +4,14 @@ Endpoints for portfolio risk monitoring, risk limits, and breach alerts.
 """
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
-from backend.dependencies import get_db, get_current_user
-from backend.models import RiskLimit, RiskBreach, User, UserRole
-from backend.schemas import UserSchema
+from server.app.backend.dependencies import get_db, get_current_user
+from server.app.backend.models import RiskLimit, RiskBreach, User
+from server.app.backend.schemas import UserSchema
 
-router = APIRouter(prefix="/admin/risk", tags=["risk"])
+router = APIRouter(prefix="/api/v3/admin/risk", tags=["risk"])
 
 
 class RiskLimitUpdate(BaseModel):
@@ -21,7 +21,7 @@ class RiskLimitUpdate(BaseModel):
     max_leverage: float | None = None
 
 
-@router.get("/overview")
+@router.get("/api/overview")
 async def get_risk_overview(
     db: Session = Depends(get_db),
     current_user: UserSchema = Depends(get_current_user)
@@ -47,7 +47,7 @@ async def get_risk_overview(
     }
 
 
-@router.get("/limits/{user_id}")
+@router.get("/api/limits/{user_id}")
 async def get_user_risk_limits(
     user_id: str,
     db: Session = Depends(get_db),
@@ -85,7 +85,7 @@ async def get_user_risk_limits(
     }
 
 
-@router.put("/limits/{user_id}")
+@router.put("/api/limits/{user_id}")
 async def update_user_risk_limits(
     user_id: str,
     update: RiskLimitUpdate,
@@ -115,7 +115,7 @@ async def update_user_risk_limits(
     return {"message": "Risk limits updated", "user_id": user_id}
 
 
-@router.get("/breaches")
+@router.get("/api/breaches")
 async def get_risk_breaches(
     user_id: str | None = None,
     limit_type: str | None = None,
@@ -150,10 +150,9 @@ async def get_risk_breaches(
     }
 
 
-@router.get("/portfolio-heat-map")
+@router.get("/api/portfolio-heat-map")
 async def get_portfolio_heat_map(
-    db: Session = Depends(get_db),
-    current_user: UserSchema = Depends(get_current_user)
+        current_user: UserSchema = Depends(get_current_user)
 ):
     """Get heat map of portfolio risk across all users."""
     if current_user.role not in ["risk_manager", "admin", "super_admin"]:
@@ -168,10 +167,9 @@ async def get_portfolio_heat_map(
     }
 
 
-@router.get("/exposure-by-symbol")
+@router.get("/api/exposure-by-symbol")
 async def get_exposure_by_symbol(
-    db: Session = Depends(get_db),
-    current_user: UserSchema = Depends(get_current_user)
+        current_user: UserSchema = Depends(get_current_user)
 ):
     """Get aggregate platform exposure by trading symbol."""
     if current_user.role not in ["risk_manager", "admin", "super_admin"]:

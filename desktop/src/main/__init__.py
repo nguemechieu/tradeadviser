@@ -1,7 +1,5 @@
 """Desktop entrypoint for the TradeAdviser application."""
 
-# cspell:words qasync sopotek timerid getpid gaierror clientconnectordnserror
-
 from __future__ import annotations
 
 import asyncio
@@ -51,21 +49,21 @@ def _ensure_src_on_path() -> None:
     This enables importing of local modules from the src directory.
     """
     import os as _os_module
-    
+
     src_root_str = _os_module.path.abspath(
         _os_module.path.dirname(_os_module.path.dirname(__file__))
     )
     project_root_str = _os_module.path.dirname(src_root_str)
     backend_str = _os_module.path.join(project_root_str, "server", "app", "backend")
-    
+
     # Normalize paths for comparison
     src_root_str = _os_module.path.normpath(src_root_str)
     project_root_str = _os_module.path.normpath(project_root_str)
     backend_str = _os_module.path.normpath(backend_str)
-    
+
     # Clear existing entries and add in correct order (backend, project, src)
     sys.path = [p for p in sys.path if p not in (src_root_str, project_root_str, backend_str)]
-    
+
     # Add in reverse priority order so src is first
     sys.path.insert(0, backend_str)
     sys.path.insert(0, project_root_str)
@@ -94,7 +92,7 @@ if _backend_path in sys.path:
         except Exception:
             pass  # If backend init fails, continue with fallback imports
 
-# Delayed import of PySide6 to avoid interfering with local module imports  
+# Delayed import of PySide6 to avoid interfering with local module imports
 try:
     from PySide6 import QtCore, QtGui, QtWidgets
 except ImportError:
@@ -227,7 +225,7 @@ def _configure_browser_qt_runtime() -> bool:
         "QSG_RHI_BACKEND": "software",
         "QT_XCB_GL_INTEGRATION": "none",
         "QTWEBENGINE_DISABLE_SANDBOX": "1",
-    }   
+    }
     for key, value in defaults.items():
         os.environ.setdefault(key, value)
 
@@ -391,11 +389,52 @@ def _is_dns_resolution_noise(context: dict[str, Any] | None) -> bool:
     )
 
 
-def _install_asyncio_exception_filter(loop: Any, logger: Any = None) -> None:
-    """Install a custom asyncio exception handler to filter DNS resolution noise.
+def _is_event_loop_closure_noise(context: dict[str, Any] | None) -> bool:
+    """Check if an exception is from callbacks running after event loop closure.
 
-    Suppresses transient DNS resolution errors while preserving meaningful
-    exceptions for proper logging and debugging.
+    When the event loop stops or closes, pending callbacks may try to execute
+    and fail with 'not the running loop' errors. These are benign during
+    shutdown/session cleanup, so we suppress them.
+
+    Parameters
+    ----------
+    context : dict[str, Any] | None
+        The asyncio exception handler context.
+
+    Returns
+    -------
+    bool
+        True if this is event loop closure noise, False otherwise.
+    """
+    payload = context or {}
+    message = str(payload.get("message") or "").lower()
+    exception = payload.get("exception")
+    exc_str = str(exception or "").lower()
+    
+    # Suppress "not the running loop" errors from callbacks
+    if "not the running loop" in message or "not the running loop" in exc_str:
+        return True
+    
+    # Suppress "Event loop is closed" errors
+    if "event loop is closed" in message or "event loop is closed" in exc_str:
+        return True
+    
+    # Suppress RuntimeErrors about loop being None or closed
+    if isinstance(exception, RuntimeError):
+        if any(token in exc_str for token in ("loop", "closed", "running")):
+            return True
+    
+    return False
+
+
+def _install_asyncio_exception_filter(loop: Any, logger: Any = None) -> None:
+    """Install a custom asyncio exception handler to filter transient noise.
+
+    Suppresses:
+    - Transient DNS resolution errors
+    - Event loop closure errors from callbacks during shutdown
+    
+    While preserving meaningful exceptions for proper logging and debugging.
 
     Parameters
     ----------
@@ -411,6 +450,14 @@ def _install_asyncio_exception_filter(loop: Any, logger: Any = None) -> None:
             if logger is not None:
                 logger.debug(
                     "Suppressed transient DNS resolver noise: %s",
+                    context.get("message") or context.get("exception"),
+                    )
+            return
+        
+        if _is_event_loop_closure_noise(context):
+            if logger is not None:
+                logger.debug(
+                    "Suppressed event loop closure error: %s",
                     context.get("message") or context.get("exception"),
                     )
             return
@@ -436,6 +483,7 @@ def _is_qt_windows_noise(message: str | None) -> bool:
     bool
         True if the message is known harmless noise, False otherwise.
     """
+    text:str=""
     if text := str(message or "").strip():
         return any(
             token in text

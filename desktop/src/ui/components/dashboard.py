@@ -1,4 +1,4 @@
-import re
+﻿import re
 from pathlib import Path
 from PySide6.QtCore import QSettings, Qt, Signal
 from PySide6.QtGui import QMovie, QPixmap
@@ -28,6 +28,18 @@ from broker.market_venues import MARKET_VENUE_CHOICES, supported_market_venues_f
 from ui.components.i18n import apply_runtime_translations, iter_supported_languages
 from ui.components.loading_overlay import LoadingOverlay
 
+# Import new broker classification system
+from broker import (
+    AssetClass,
+    MarketType,
+    BrokerProfile,
+    BROKER_PROFILES,
+    get_broker_profile,
+    select_brokers,
+    BrokerSelector,
+    BrokerValidator,
+)
+
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 ASSETS_DIR = ROOT_DIR / "assets"
@@ -35,6 +47,51 @@ ASSETS_DIR = ROOT_DIR / "assets"
 LOGO_PATH = ASSETS_DIR / "logo.png"
 SPINNER_PATH = ASSETS_DIR / "spinner.gif"
 
+# Asset class options matching new broker classification system
+ASSET_CLASS_OPTIONS = [
+    ("Forex", "forex"),
+    ("Crypto", "crypto"),
+    ("Stocks", "stocks"),  # User-facing label per requirements
+    ("Options", "options"),
+    ("Futures", "futures"),
+    ("Paper Trading", "paper"),
+]
+
+# Map old broker type names to new asset classes for backward compatibility
+ASSET_CLASS_MAP = {
+    "crypto": AssetClass.CRYPTO,
+    "forex": AssetClass.FOREX,
+    "stocks": AssetClass.STOCK,  # "Stocks" UI â†’ STOCK enum
+    "equity": AssetClass.EQUITY,
+    "options": AssetClass.OPTIONS,
+    "futures": AssetClass.FUTURES,
+    "derivatives": AssetClass.FUTURES,  # Treat derivatives as futures
+    "paper": None,
+}
+
+# Brokers by asset class (generated from BROKER_PROFILES)
+def _get_brokers_by_asset_class():
+    """Generate exchange options by asset class from broker profiles."""
+    by_class = {}
+    for asset_class in [AssetClass.FOREX, AssetClass.CRYPTO, AssetClass.STOCK, AssetClass.OPTIONS, AssetClass.FUTURES]:
+        profiles = select_brokers(asset_class=asset_class)
+        by_class[asset_class.value.lower()] = [p.broker_id for p in profiles]
+    return by_class
+
+EXCHANGE_MAP_NEW = _get_brokers_by_asset_class()
+
+# Fallback exchange map for backward compatibility
+EXCHANGE_MAP = {
+    "crypto": EXCHANGE_MAP_NEW.get("crypto", ["coinbase", "binance", "bybit"]),
+    "forex": EXCHANGE_MAP_NEW.get("forex", ["oanda_us"]),
+    "stocks": EXCHANGE_MAP_NEW.get("stocks", ["alpaca", "schwab", "ibkr"]),
+    "options": EXCHANGE_MAP_NEW.get("options", ["schwab", "ibkr"]),
+    "futures": EXCHANGE_MAP_NEW.get("futures", ["ibkr"]),
+    "derivatives": EXCHANGE_MAP_NEW.get("futures", ["ibkr"]),
+    "paper": ["paper"],
+}
+
+# Old crypto exchange map (kept for backward compatibility with Solana/Stellar special handling)
 CRYPTO_EXCHANGE_MAP = {
     "us": [
         "binanceus",
@@ -68,6 +125,7 @@ DERIVATIVE_EXCHANGE_MAP = {
     "derivatives": ["ibkr", "schwab", "amp", "tradovate"],
 }
 
+# Old options (kept for backward compatibility with UI)
 BROKER_TYPE_OPTIONS = [
     "crypto",
     "forex",
@@ -77,16 +135,6 @@ BROKER_TYPE_OPTIONS = [
     "derivatives",
     "paper",
 ]
-
-EXCHANGE_MAP = {
-    "crypto": [],
-    "forex": ["oanda"],
-    "stocks": ["alpaca"],
-    "options": DERIVATIVE_EXCHANGE_MAP["options"],
-    "futures": DERIVATIVE_EXCHANGE_MAP["futures"],
-    "derivatives": DERIVATIVE_EXCHANGE_MAP["derivatives"],
-    "paper": ["paper"],
-}
 
 CUSTOMER_REGION_OPTIONS = [
     ("US", "us"),
@@ -108,11 +156,51 @@ SCHWAB_ENVIRONMENT_OPTIONS = [
     ("Production", "production"),
 ]
 
+# Market type options generated from new broker classification system
+def _get_market_type_choices():
+    """Generate market type choices from broker classification system."""
+    choices = [("Auto", "auto")]
+    
+    # Group market types by category for better UI organization
+    market_types_by_category = {
+        "Forex": [
+            (MarketType.MARGIN_FX, "Leveraged FX (OANDA, IBKR)"),
+            (MarketType.SPOT_FX, "Spot FX"),
+            (MarketType.FX_CFD, "FX CFD"),
+        ],
+        "Crypto": [
+            (MarketType.SPOT_CRYPTO, "Spot Crypto"),
+            (MarketType.CRYPTO_PERPETUAL, "Crypto Perpetuals"),
+            (MarketType.CRYPTO_MARGIN, "Crypto Margin"),
+        ],
+        "Equities": [
+            (MarketType.CASH_STOCK, "Cash Stocks"),
+            (MarketType.STOCK_MARGIN, "Stock Margin"),
+            (MarketType.SHORT_STOCK, "Short Stocks"),
+            (MarketType.STOCK_OPTION, "Stock Options"),
+        ],
+        "Derivatives": [
+            (MarketType.LISTED_FUTURE, "Listed Futures"),
+            (MarketType.LISTED_OPTION, "Listed Options"),
+            (MarketType.STOCK_CFD, "Stock CFD"),
+            (MarketType.EQUITY_CFD, "Equity CFD"),
+        ],
+    }
+    
+    for category, types in market_types_by_category.items():
+        for market_type, label in types:
+            choices.append((f"{category}: {label}", market_type.value.lower()))
+    
+    return choices
+
+MARKET_TYPE_CHOICES_NEW = _get_market_type_choices()
+
+
 BROKER_COPY = {
-    "crypto": "Multi-venue crypto routing with stronger session clarity before execution starts.",
-    "forex": "Account-aware FX setup with the fields needed for a cleaner Oanda handoff.",
-    "stocks": "Equity sessions tuned for Alpaca with a simpler launch path and saved profiles.",
-    "options": "Contract-aware options sessions with a faster path into Greeks-aware execution workflows.",
+    "crypto": "Multi-venue crypto routing with support for spot, futures, and leverage trading.",
+    "forex": "Leveraged FX trading and OTC forex market access with risk management.",
+    "stocks": "Equities trading with support for cash, margin, options, and fractional shares.",
+    "options": "Contract-aware options sessions with Greeks-aware execution workflows.",
     "futures": "Futures routing built for margin-aware workflows, rollover context, and contract metadata.",
     "derivatives": "A broader derivatives setup that keeps option and futures-capable broker paths visible in one place.",
     "paper": "A zero-risk rehearsal mode that still feels like the real desk experience.",
@@ -198,7 +286,7 @@ EXCHANGE_CREDENTIAL_SCHEMAS = {
         "secret_label": "Client Secret",
         "secret_placeholder": "Optional Schwab client secret",
         "password_label": "Redirect URI",
-        "password_placeholder": "http://127.0.0.1:8182/callback",
+        "password_placeholder": "http://127.0.0.1:8000/api/callback",
         "password_echo": QLineEdit.Normal,
         "account_label": "Account Hash / Profile",
         "account_placeholder": "Optional Schwab account hash or profile label",
@@ -270,7 +358,7 @@ EXCHANGE_CREDENTIAL_SCHEMAS = {
     },
     "ibkr": {
         "api_label": "Base URL",
-        "api_placeholder": "https://127.0.0.1:5000/v1/api",
+        "api_placeholder": "https://127.0.0.1:8000/api/ibkr",
         "secret_label": "Session Token",
         "secret_placeholder": "Optional IBKR Web API session token",
         "password_label": "WebSocket URL",
@@ -289,6 +377,72 @@ EXCHANGE_CREDENTIAL_SCHEMAS = {
         },
     },
 }
+
+
+# ============================================================================
+# Helper Functions - Bridge old system with new broker classification system
+# ============================================================================
+
+def _get_broker_profile_for_selection(exchange_type, exchange):
+    """Get broker profile from legacy exchange type/exchange names."""
+    try:
+        # Map old exchange names to broker IDs
+        broker_id_map = {
+            # Forex
+            ("forex", "oanda"): "oanda_us",
+            # Crypto
+            ("crypto", "coinbase"): "coinbase",
+            ("crypto", "binance"): "binance_futures",
+            ("crypto", "bybit"): "bybit_futures",
+            # Stocks
+            ("stocks", "alpaca"): "alpaca",
+            # Options & Futures
+            ("options", "schwab"): "schwab",
+            ("futures", "ibkr"): "ibkr",
+            ("derivatives", "ibkr"): "ibkr",
+            # Paper
+            ("paper", "paper"): "paper",
+        }
+        
+        broker_id = broker_id_map.get((exchange_type, exchange))
+        if broker_id:
+            return get_broker_profile(broker_id)
+        
+        # Try direct lookup
+        return get_broker_profile(exchange)
+    except Exception:
+        return None
+
+
+def _get_supported_market_types_for_broker(broker_id):
+    """Get supported market types for a broker profile."""
+    try:
+        profile = get_broker_profile(broker_id)
+        if profile:
+            return profile.market_types
+    except Exception:
+        pass
+    return []
+
+
+def _validate_broker_market_type(exchange_type, exchange, market_type):
+    """Validate that a market type is supported by a broker."""
+    try:
+        profile = _get_broker_profile_for_selection(exchange_type, exchange)
+        if not profile:
+            return True  # Allow if profile not found (backward compat)
+        
+        if market_type == "auto":
+            return True  # Auto is always valid
+        
+        # Convert string market type to enum
+        for market in profile.market_types:
+            if market.value.lower() == str(market_type).lower():
+                return True
+        return False
+    except Exception:
+        return True  # Allow if validation fails
+
 
 """The dashboard is the launchpad for trading sessions, where customers configure broker access and review session readiness before"""
 class Dashboard(QWidget):
@@ -617,7 +771,7 @@ class Dashboard(QWidget):
             "sync_enabled": False,
             "remember_me": True,
             "last_sync_status": "idle",
-            "last_sync_message": "Ready to sync this desktop with Sopotek server.",
+            "last_sync_message": "Ready to sync this desktop with TradeAdviser server.",
         }
 
     def apply_platform_sync_profile(self, profile):
@@ -633,12 +787,12 @@ class Dashboard(QWidget):
         if hasattr(self, "sync_workspace_checkbox"):
             self.sync_workspace_checkbox.setChecked(bool(payload.get("sync_enabled")))
 
-        message = str(payload.get("last_sync_message") or "Ready to sync this desktop with Sopotek server.").strip()
+        message = str(payload.get("last_sync_message") or "Ready to sync this desktop with TradeAdviser server.").strip()
         tone = str(payload.get("last_sync_status") or "idle").strip().lower() or "idle"
         self.set_platform_sync_status(message, tone=tone)
 
     def set_platform_sync_status(self, message, *, tone="info"):
-        text = str(message or "Ready to sync this desktop with Sopotek server.").strip()
+        text = str(message or "Ready to sync this desktop with TradeAdviser server.").strip()
         normalized_tone = str(tone or "info").strip().lower() or "info"
         palette = {
             "busy": "#8ec5ff",
@@ -675,7 +829,7 @@ class Dashboard(QWidget):
             try:
                 profile = dict(controller.save_platform_sync_profile(profile) or profile)
             except Exception:
-                pass
+                raise
         return profile
 
     def _selected_profile_name(self):
@@ -1758,7 +1912,7 @@ class Dashboard(QWidget):
         risk_row.addWidget(remember_wrap, 1)
         panel_layout.addLayout(risk_row)
 
-        self.platform_sync_label = QLabel("Sopotek Server Sync")
+        self.platform_sync_label = QLabel("TradeAdviser Server Sync")
         self.platform_sync_label.setObjectName("sectionLabel")
         panel_layout.addWidget(self.platform_sync_label)
 
@@ -1774,7 +1928,7 @@ class Dashboard(QWidget):
         self.server_url_input.setPlaceholderText("http://127.0.0.1:8000")
         platform_sync_row.addWidget(self._wrap_field("Server URL", self.server_url_input), 1)
         self.server_email_input = QLineEdit()
-        self.server_email_input.setPlaceholderText("Your Sopotek account email")
+        self.server_email_input.setPlaceholderText("Your TradeAdviser account email or username")
         platform_sync_row.addWidget(self._wrap_field("Account Email", self.server_email_input), 1)
         platform_sync_layout.addLayout(platform_sync_row)
 
@@ -1782,9 +1936,9 @@ class Dashboard(QWidget):
         platform_sync_credentials_row.setSpacing(10)
         self.server_password_input = QLineEdit()
         self.server_password_input.setEchoMode(QLineEdit.Password)
-        self.server_password_input.setPlaceholderText("Sopotek account password")
+        self.server_password_input.setPlaceholderText("TradeAdviser account password")
         platform_sync_credentials_row.addWidget(self._wrap_field("Account Password", self.server_password_input), 1)
-        self.sync_workspace_checkbox = QCheckBox("Sync this workspace with Sopotek server on connect")
+        self.sync_workspace_checkbox = QCheckBox("Sync this workspace with TradeAdviser server on connect")
         sync_checkbox_wrap = QWidget()
         sync_checkbox_layout = QVBoxLayout(sync_checkbox_wrap)
         sync_checkbox_layout.setContentsMargins(0, 18, 0, 0)
@@ -1803,7 +1957,7 @@ class Dashboard(QWidget):
         platform_sync_actions_row.addStretch(1)
         platform_sync_layout.addLayout(platform_sync_actions_row)
 
-        self.platform_sync_status_label = QLabel("Ready to sync this desktop with Sopotek server.")
+        self.platform_sync_status_label = QLabel("Ready to sync this desktop with TradeAdviser server.")
         self.platform_sync_status_label.setObjectName("hintLabel")
         self.platform_sync_status_label.setWordWrap(True)
         platform_sync_layout.addWidget(self.platform_sync_status_label)
@@ -2319,18 +2473,42 @@ class Dashboard(QWidget):
     def _refresh_market_type_options(self):
         """Refresh the market-type options to only include supported venues for the selected profile."""
         current = str(self.market_type_box.currentData() or "auto").strip().lower() or "auto"
-        supported = supported_market_venues_for_profile(
-            self.exchange_type_box.currentText(),
-            self.exchange_box.currentText(),
-        )
-
+        
+        exchange_type = self.exchange_type_box.currentText()
+        exchange = self.exchange_box.currentText()
+        
+        # Get supported market types from broker profile
+        supported_market_types = []
+        try:
+            profile = _get_broker_profile_for_selection(exchange_type, exchange)
+            if profile:
+                supported_market_types = [mt.value.lower() for mt in profile.market_types]
+        except Exception:
+            pass
+        
+        # Fall back to old system if profile not found
+        if not supported_market_types:
+            try:
+                supported = supported_market_venues_for_profile(exchange_type, exchange)
+                supported_market_types = list(supported) if supported else ["auto"]
+            except Exception:
+                supported_market_types = ["auto"]
+        
         self.market_type_box.blockSignals(True)
         self.market_type_box.clear()
-        for label, value in MARKET_VENUE_CHOICES:
-            if value in supported:
+        
+        # Add auto option always
+        self.market_type_box.addItem("Auto", "auto")
+        
+        # Add supported market types
+        for label, value in MARKET_TYPE_CHOICES_NEW:
+            if value == "auto":
+                continue  # Already added
+            if not supported_market_types or value in supported_market_types or value == current:
                 self.market_type_box.addItem(label, value)
-
-        target = current if current in supported else ("auto" if "auto" in supported else supported[0])
+        
+        # Set current value
+        target = current if current in [d for _, d in [(self.market_type_box.itemData(i), self.market_type_box.itemData(i)) for i in range(self.market_type_box.count())]] else "auto"
         index = self.market_type_box.findData(target)
         self.market_type_box.setCurrentIndex(index if index >= 0 else 0)
         self.market_type_box.blockSignals(False)
@@ -2864,7 +3042,6 @@ class Dashboard(QWidget):
         controller = getattr(self, "controller", None)
         if controller is None or not hasattr(controller, "list_trading_sessions"):
             return
-
         try:
             sessions = list(controller.list_trading_sessions() or [])
         except Exception:
@@ -2952,13 +3129,13 @@ class Dashboard(QWidget):
     def show_loading(self):
         """Show loading status while connecting to the trading terminal."""
         self.connect_button.setEnabled(False)
-        self.connect_button.setText("Connecting Session...")
+        self.connect_button.setText("Connecting TradeAdviser Session...")
         self.spinner.setVisible(True)
         if self.spinner_movie is not None:
             self.spinner_movie.start()
         if hasattr(self, "loading_overlay"):
             self.loading_overlay.set_loading(
-                "Preparing your trading session...",
+                "Preparing your TradeAdviser trading session...",
                 "Authenticating the broker, loading account context, and opening the terminal.",
             )
 
@@ -2971,3 +3148,4 @@ class Dashboard(QWidget):
             self.loading_overlay.clear_loading()
         self.connect_button.setEnabled(True)
         self._update_session_preview()
+

@@ -1,4 +1,4 @@
-import logging
+
 from datetime import datetime
 
 from PySide6.QtWidgets import (
@@ -8,10 +8,12 @@ from PySide6.QtWidgets import (
     QPushButton,
     QHBoxLayout,
     QProgressBar,
-    QLabel
+    QLabel,
+    QTabWidget,
+    QSplitter
 )
 
-from PySide6.QtCore import Signal, Qt, QTimer
+from PySide6.QtCore import Signal, Qt
 
 
 class SystemConsole(QWidget):
@@ -25,6 +27,8 @@ class SystemConsole(QWidget):
         self.setWindowTitle("System Console")
 
         self.layout = QVBoxLayout()
+        self.layout.setContentsMargins(0, 0, 0, 0)
+        self.layout.setSpacing(0)
         
         # Loading status bar
         self.status_layout = QHBoxLayout()
@@ -36,20 +40,35 @@ class SystemConsole(QWidget):
         self.status_layout.addWidget(self.progress_bar)
         self.layout.addLayout(self.status_layout)
 
+        # Main tab widget with tabs at bottom
+        self.main_tabs = QTabWidget()
+        self.main_tabs.setTabPosition(QTabWidget.TabPosition.South)
+        self.main_tabs.setDocumentMode(True)
+        self.main_tabs.setUsesScrollButtons(True)
+        
+        # Console page
+        console_page = QWidget()
+        console_layout = QVBoxLayout(console_page)
+        console_layout.setContentsMargins(0, 0, 0, 0)
+        console_layout.setSpacing(0)
+        
         # Console output
         self.console = QTextEdit()
         self.console.setReadOnly(True)
         self.console.setStyleSheet("""
-            background-color: black;
+            background-color: #0a0e14;
             color: #00ff90;
             font-family: Consolas;
             font-size: 11pt;
+            border: none;
         """)
 
-        self.layout.addWidget(self.console)
+        console_layout.addWidget(self.console)
 
-        # Buttons
+        # Buttons for console
         btn_layout = QHBoxLayout()
+        btn_layout.setContentsMargins(4, 4, 4, 4)
+        btn_layout.setSpacing(4)
 
         self.clear_button = QPushButton("Clear")
         self.save_button = QPushButton("Save Logs")
@@ -58,9 +77,21 @@ class SystemConsole(QWidget):
         btn_layout.addWidget(self.clear_button)
         btn_layout.addWidget(self.save_button)
         btn_layout.addWidget(self.screenshot_button)
+        btn_layout.addStretch()
 
-        self.layout.addLayout(btn_layout)
+        console_layout.addLayout(btn_layout)
+        
+        self.main_tabs.addTab(console_page, "System Console")
+        
+        # Orderbook tabs placeholder
+        self.orderbook_container = QWidget()
+        self.orderbook_layout = QVBoxLayout(self.orderbook_container)
+        self.orderbook_layout.setContentsMargins(0, 0, 0, 0)
+        self.orderbook_layout.setSpacing(0)
+        
+        self.main_tabs.addTab(self.orderbook_container, "Order Book")
 
+        self.layout.addWidget(self.main_tabs)
         self.setLayout(self.layout)
 
         # Signals
@@ -150,4 +181,28 @@ class SystemConsole(QWidget):
     def clear_loading(self) -> None:
         """Clear loading state."""
         self.set_loading(False, "")
+
+    def get_orderbook_container(self):
+        """Get the container widget for orderbook/execution tabs."""
+        return self.orderbook_container
+    
+    def get_orderbook_layout(self):
+        """Get the layout for orderbook/execution tabs."""
+        return self.orderbook_layout
+    
+    def set_orderbook_widget(self, widget):
+        """Set the orderbook tab widget in the system console.
+        
+        Args:
+            widget: The orderbook/execution tabs widget
+        """
+        # Clear existing
+        while self.orderbook_layout.count():
+            item = self.orderbook_layout.takeAt(0)
+            if item.widget():
+                item.widget().setParent(None)
+        
+        # Add new widget
+        if widget:
+            self.orderbook_layout.addWidget(widget)
 

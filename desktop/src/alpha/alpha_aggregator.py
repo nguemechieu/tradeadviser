@@ -10,7 +10,7 @@ from alpha.momentum_alpha import MomentumAlpha
 from alpha.regime_engine import RegimeEngine
 from alpha.stat_arb_alpha import StatisticalArbitrageAlpha
 from alpha.trend_alpha import TrendAlpha
-from core.config import AlphaAggregationConfig, TradingSystemConfig
+from core.regime_engine_config import AlphaAggregationConfig, TradingSystemConfig
 
 
 @dataclass(slots=True)

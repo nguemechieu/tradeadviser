@@ -9,9 +9,9 @@ from typing import Any
 import pandas as pd
 
 from derivatives.core.config import BrokerConfig, DerivativesSystemConfig
-from derivatives.core.event_bus import EventBus
+from derivatives.core.live_market_cache import LiveMarketCache
 from derivatives.core.symbols import SymbolRegistry
-from derivatives.data.live_cache.cache import LiveMarketCache
+
 from derivatives.engine.backtest_engine import BacktestEngine
 from derivatives.engine.execution_engine import ExecutionEngine
 from derivatives.engine.market_data_engine import MarketDataEngine
@@ -55,6 +55,9 @@ class DerivativesOrchestrator:
     }
 
     def __init__(self, config: DerivativesSystemConfig | dict[str, Any] | None = None, *, logger: logging.Logger | None = None) -> None:
+        # Lazy import to break circular dependency with events.event_bus
+        from events.event_bus import EventBus
+        
         self.logger = logger or logging.getLogger("DerivativesOrchestrator")
         self.config = config if isinstance(config, DerivativesSystemConfig) else DerivativesSystemConfig.model_validate(config or {})
         self.bus = EventBus(logger=logging.getLogger("DerivativesEventBus"))

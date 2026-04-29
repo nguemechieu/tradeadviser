@@ -23,10 +23,10 @@ export function UsersLicensesDashboard({ token, onError }) {
       setError("");
 
       const [usersRes, licensesRes] = await Promise.all([
-        fetch("/admin/users-licenses/users", {
+        fetch("/api/v3/admin/users-licenses/users", {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        fetch("/admin/users-licenses/licenses", {
+        fetch("/api/v3/admin/users-licenses/licenses", {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);

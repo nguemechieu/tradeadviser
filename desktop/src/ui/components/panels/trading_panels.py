@@ -239,6 +239,8 @@ def create_positions_panel(terminal):
     tabs.setObjectName("positions_orders_tabs")
     tabs.setDocumentMode(True)
     tabs.setUsesScrollButtons(True)
+    # Set tab position to bottom (South) for better viewing like MT4
+    tabs.setTabPosition(QTabWidget.TabPosition.South)
     apply_tab_chrome = getattr(terminal, "_apply_workspace_tab_chrome", None)
     if callable(apply_tab_chrome):
         apply_tab_chrome(tabs)
@@ -258,6 +260,20 @@ def create_positions_panel(terminal):
 
     terminal.positions_orders_tabs = tabs
     terminal.execution_tabs = tabs
+    
+    # Move the orderbook tabs to system console if available
+    system_console = getattr(terminal, "system_console", None)
+    if system_console:
+        try:
+            # Remove from dock and add to system console
+            if dock and not dock.isFloating():
+                parent = dock.parent()
+                if parent:
+                    terminal.removeDockWidget(dock)
+            system_console.set_orderbook_widget(tabs)
+        except Exception:
+            pass  # Fall back to normal dock display
+    
     return dock
 
 

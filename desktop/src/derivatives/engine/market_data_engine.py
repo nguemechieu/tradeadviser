@@ -7,10 +7,11 @@ from datetime import datetime, timezone
 from typing import Any
 
 from derivatives.core.config import EngineConfig
-from derivatives.core.event_bus import EventBus
+
+from derivatives.core.live_market_cache import LiveMarketCache
 from derivatives.core.models import MarketTicker, OrderBookSnapshot
 from derivatives.core.symbols import SymbolRegistry, normalize_symbol
-from derivatives.data.live_cache.cache.live_market_cache import LiveMarketCache
+from events.event_bus.event_bus import EventBus
 
 
 def _utcnow() -> datetime:

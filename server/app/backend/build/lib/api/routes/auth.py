@@ -58,11 +58,8 @@ async def login(
     services: ServerServiceContainer = Depends(get_services),
 ) -> dict:
     try:
-        return await services.authenticate_access(
-            payload.identifier,
-            payload.password,
-            remember_me=bool(payload.remember_me),
-        )
+        return await services.authenticate_access(payload.identifier, payload.password,
+                                                  remember_me=bool(payload.remember_me))
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
 

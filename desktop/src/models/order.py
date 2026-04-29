@@ -5,15 +5,16 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Mapping, Optional
 
-from models.instrument import Instrument
+from .instrument import Instrument
 
 
 class OrderSide(str, Enum):
     BUY = "buy"
     SELL = "sell"
-
+    
 
 class OrderType(str, Enum):
+    """Enumeration of supported order types."""
     MARKET = "market"
     LIMIT = "limit"
     STOP = "stop"
@@ -23,6 +24,7 @@ class OrderType(str, Enum):
 
 @dataclass(slots=True)
 class OrderLeg:
+    """Represents a single leg of an order with instrument, side, quantity, and metadata."""
     instrument: Instrument
     side: OrderSide
     quantity: float

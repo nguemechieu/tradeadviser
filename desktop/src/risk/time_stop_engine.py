@@ -4,19 +4,25 @@ import logging
 from datetime import datetime, timedelta
 from typing import Any
 
-from core.config import RiskConfig, TimeStopConfig
+from contracts.portfolio import PortfolioSnapshot
+from core.regime_engine_config import RiskConfig, TimeStopConfig
+
+from ..event_bus.async_event_bus import AsyncEventBus
+from ..event_bus.event_types import EventType
 from portfolio.position_manager import PositionManager
-from portfolio.trade_lifecycle import TradeLifecycleDecision, TradeLifecycleState, clamp, coerce_datetime
-from sopotek.core.event_bus import AsyncEventBus
-from sopotek.core.event_types import EventType
-from sopotek.core.models import AlertEvent, ClosePositionRequest, ExecutionReport, PortfolioSnapshot, PositionUpdate, RegimeSnapshot
+from portfolio.trade_lifecycle import (
+    TradeLifecycleDecision,
+    TradeLifecycleState,
+    clamp,
+    coerce_datetime,
+)
 
 
 def _safe_float(value: Any, default: float = 0.0) -> float:
     try:
         return float(value)
     except Exception:
-        return float(default)
+        return default
 
 
 def _close_side(quantity: float) -> str:
@@ -67,6 +73,20 @@ class TimeStopEngine:
         self.bus.subscribe(EventType.EXECUTION_REPORT, self._on_execution_report)
 
     def get_state(self, symbol: str) -> TradeLifecycleState | None:
+        """Return the current lifecycle state for an open trade in the given symbol. Wraps the
+        underlying position manager so callers can query whether a position is being tracked.
+
+        The method simply delegates to the PositionManager and returns whatever state is stored
+        for the symbol, or None if no open trade exists. It does not modify any state or trigger
+        additional evaluation.
+
+        Args:
+            symbol: The instrument symbol whose open trade state should be retrieved.
+
+        Returns:
+            TradeLifecycleState | None: The lifecycle state object for the symbol, or None if
+                there is no open trade being tracked.
+        """
         return self.position_manager.get_open_trade(symbol)
 
     def ui_rows(self) -> list[dict[str, Any]]:

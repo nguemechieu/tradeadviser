@@ -1,10 +1,11 @@
 import { useRef, useState, useEffect, FormEvent, ChangeEvent, FC } from 'react';
 import useAuth from '../hooks/useAuth';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import axiosInstance from '../api/axios';
-import './Auth.css';
 
-const LOGIN_URL = '/api/auth/login';
+import './Login.css';
+
+
+const LOGIN_URL = '/api/v3/auth/login';
 
 interface LoginRequest {
   identifier: string;
@@ -77,7 +78,7 @@ const Login: FC = () => {
         remember_me: rememberMe
       };
 
-      const response = await axiosInstance.post<LoginResponse>(LOGIN_URL, payload);
+      const response = await axiosPublic.post<LoginResponse>(LOGIN_URL, payload);
 
       const { access_token, refresh_token, user } = response.data;
 
@@ -167,12 +168,12 @@ const Login: FC = () => {
           <form onSubmit={handleSubmit} className="auth-form">
             {/* Username/Email Field */}
             <div className="form-group">
-              <label htmlFor="identifier">Username or Email</label>
+              <label htmlFor="username">Username or Email</label>
               <div className="input-wrapper">
                 <span className="input-icon">👤</span>
                 <input
                   type="text"
-                  id="identifier"
+                  id="username"
                   ref={userRef}
                   autoComplete="off"
                   onChange={(e: ChangeEvent<HTMLInputElement>) =>

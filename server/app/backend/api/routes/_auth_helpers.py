@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import Header, HTTPException, status
+from fastapi import HTTPException, status
 
-from backend.dependencies import ServerServiceContainer, ServerUser
+from server.app.backend.dependencies import ServerServiceContainer
+from server.app.backend.models import User
 
 logger = logging.getLogger(__name__)
 
@@ -12,12 +13,10 @@ logger = logging.getLogger(__name__)
 def resolve_bearer_user(
     authorization: str | None,
     services: ServerServiceContainer,
-) -> ServerUser:
+) -> User:
     """Extract and validate bearer token from Authorization header.
-    
-    Expected format: Authorization: Bearer <48_char_hex_token>
-    
-    Raises HTTPException with 401 if:
+    Expected to format: Authorization: Bearer <48_char_hex_token>
+    Raises HTTP Exception with 401 if:
     - Header is missing or empty
     - Format is not "Bearer <token>"
     - Token is invalid or expired
@@ -48,7 +47,7 @@ def resolve_bearer_user(
             detail="Invalid or expired access token.",
         )
     
-    # Resolve token to user
+    # Resolve to token to user
     user = services.resolve_token(token)
     
     if user is None:
@@ -72,7 +71,7 @@ def resolve_bearer_user(
 def resolve_optional_bearer_user(
     authorization: str | None,
     services: ServerServiceContainer,
-) -> ServerUser | None:
+) -> User | None:
     """Optionally extract bearer token if provided.
     
     Returns None if header is empty, but raises 401 if header is present but invalid.
@@ -122,10 +121,10 @@ def resolve_optional_bearer_user(
 def resolve_admin_user(
     authorization: str | None,
     services: ServerServiceContainer,
-) -> ServerUser:
+) -> User:
     """Extract bearer token and validate admin role.
     
-    Raises HTTPException with:
+    Raises HTTP Exception with:
     - 401 if token is invalid/missing
     - 403 if user role is not "admin"
     """

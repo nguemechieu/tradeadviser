@@ -58,7 +58,7 @@ from ui.components.chart.indicator_utils import (
 )
 
 
-TIMEFRAME_OPTIONS = ["1m", "5m", "15m", "30m", "1h", "2h","4h", "1d", "1w", "1mn"]
+TIMEFRAME_OPTIONS = ["1m", "5m", "15m", "30m", "1h","4h", "1d", "1w", "1mn"]
 
 
 class TradingDateAxisItem(DateAxisItem):
@@ -356,26 +356,26 @@ class ChartWidget(QWidget):
 
         self.candlestick_page = QWidget()
         candlestick_layout = QVBoxLayout(self.candlestick_page)
-        candlestick_layout.setContentsMargins(12, 8, 12, 12)
-        candlestick_layout.setSpacing(8)
+        candlestick_layout.setContentsMargins(8, 4, 8, 8)
+        candlestick_layout.setSpacing(4)
 
         self.candlestick_shell = QFrame()
         candlestick_shell_layout = QVBoxLayout(self.candlestick_shell)
-        candlestick_shell_layout.setContentsMargins(10, 10, 10, 10)
+        candlestick_shell_layout.setContentsMargins(2, 2, 2, 2)
         candlestick_shell_layout.setSpacing(0)
 
         self.splitter = QSplitter(QtCore.Qt.Orientation.Vertical)
         self.splitter.setChildrenCollapsible(False)
-        self.splitter.setHandleWidth(8)
+        self.splitter.setHandleWidth(6)
         self.splitter.setStyleSheet(
             """
             QSplitter::handle {
-                background-color: #101827;
-                border-top: 1px solid #243142;
-                border-bottom: 1px solid #243142;
+                background-color: #0f1419;
+                border-top: 1px solid #1a2231;
+                border-bottom: 1px solid #1a2231;
             }
             QSplitter::handle:hover {
-                background-color: #1d2b40;
+                background-color: #192636;
             }
             """
         )
@@ -389,7 +389,7 @@ class ChartWidget(QWidget):
         self.price_plot.hideAxis("left")
         self.price_plot.showAxis("right")
         self.price_plot.hideAxis("bottom")
-        self.price_plot.setMinimumHeight(460)
+        self.price_plot.setMinimumHeight(400)
         self.splitter.addWidget(self.price_plot)
 
         self.candle_item = CandlestickItem(
@@ -415,8 +415,8 @@ class ChartWidget(QWidget):
         self.volume_plot.setLabel("left", "Volume")
         self.volume_plot.hideAxis("right")
         self.volume_plot.hideAxis("bottom")
-        self.volume_plot.setMinimumHeight(88)
-        self.volume_plot.setMaximumHeight(150)
+        self.volume_plot.setMinimumHeight(70)
+        self.volume_plot.setMaximumHeight(120)
         self.splitter.addWidget(self.volume_plot)
 
         self.volume_bars = pg.BarGraphItem(x=[], height=[], width=60.0, brush="#5c6bc0")
@@ -427,8 +427,8 @@ class ChartWidget(QWidget):
         self.heatmap_plot.setXLink(self.price_plot)
         self.heatmap_plot.setLabel("left", "Orderbook")
         self.heatmap_plot.setLabel("bottom", "Date / Time (UTC)")
-        self.heatmap_plot.setMinimumHeight(80)
-        self.heatmap_plot.setMaximumHeight(135)
+        self.heatmap_plot.setMinimumHeight(50)
+        self.heatmap_plot.setMaximumHeight(100)
         self.heatmap_plot.hide()
 
         self.heatmap_image = pg.ImageItem()
@@ -515,6 +515,30 @@ class ChartWidget(QWidget):
         )
         info_tab_layout.addWidget(self.market_info_details, 1)
         self.market_tabs.addTab(self.market_info_page, "Market Info")
+        
+        # Tick Chart tab - displays individual trades/ticks
+        self.tick_page = QWidget()
+        tick_layout = QVBoxLayout(self.tick_page)
+        tick_layout.setContentsMargins(10, 10, 10, 10)
+        tick_layout.setSpacing(8)
+        
+        self.tick_summary_label = QLabel("Tick chart displays individual trade executions and market ticks.")
+        self.tick_summary_label.setStyleSheet("color: #8e9bab; font-size: 12px;")
+        tick_layout.addWidget(self.tick_summary_label)
+        
+        date_axis_tick = TradingDateAxisItem(orientation="bottom")
+        self.tick_plot = PlotWidget(axisItems={"bottom": date_axis_tick})
+        self.tick_plot.setLabel("left", "Price")
+        self.tick_plot.setLabel("bottom", "Time (UTC)")
+        self.tick_plot.setMinimumHeight(300)
+        self._style_plot(self.tick_plot, left_label="Price", bottom_label="Time (UTC)", show_bottom=True)
+        
+        self.tick_scatter = ScatterPlotItem()
+        self.tick_plot.addItem(self.tick_scatter)
+        
+        tick_layout.addWidget(self.tick_plot, 1)
+        self.market_tabs.addTab(self.tick_page, "Ticks")
+        
         self._sync_chart_controls_visibility()
 
         self._style_plot(self.price_plot, right_label="Price", show_bottom=False)
@@ -658,12 +682,12 @@ class ChartWidget(QWidget):
 
     def _style_plot(self, plot, left_label=None, right_label=None, bottom_label=None, show_bottom=False):
         plot.setBackground(self._normalized_color(self.chart_background, "#11161f"))
-        plot.showGrid(x=True, y=True, alpha=0.11)
+        plot.showGrid(x=True, y=True, alpha=0.09)
         plot.setMenuEnabled(False)
         plot.hideButtons()
 
         item = plot.getPlotItem()
-        item.layout.setContentsMargins(4, 4, 8, 4)
+        item.layout.setContentsMargins(2, 2, 4, 2)
 
         if left_label:
             plot.setLabel("left", left_label)
@@ -677,10 +701,10 @@ class ChartWidget(QWidget):
             axis = item.getAxis(axis_name)
             axis.setTextPen(pg.mkColor(self._normalized_color(self.axis_color, "#9aa4b2")))
             axis.setPen(pg.mkPen(self._normalized_color(self.axis_color, "#9aa4b2"), width=1))
-            axis.setTickPen(pg.mkPen(self._normalized_color(self.grid_color, "#8290a0"), width=1))
-            axis.setStyle(tickLength=-6, autoExpandTextSpace=False)
+            axis.setTickPen(pg.mkPen(self._normalized_color(self.grid_color, "#8290a0"), width=0.8))
+            axis.setStyle(tickLength=-5, autoExpandTextSpace=False)
             try:
-                axis.setGrid(54)
+                axis.setGrid(48)
             except Exception:
                 pass
 
@@ -1322,14 +1346,34 @@ class ChartWidget(QWidget):
 
         if self._chart_status_mode == "loading" and self._chart_status_message:
             if not self._chart_loading_timer.isActive():
-                self._chart_loading_timer.start()
+                # Safely start timer - use singleShot if not on main thread
+                try:
+                    import threading
+                    from PySide6.QtCore import QTimer as QT
+                    if threading.current_thread() is threading.main_thread():
+                        self._chart_loading_timer.start()
+                    else:
+                        # From background thread, use singleShot which is thread-safe
+                        QT.singleShot(100, lambda: self._chart_loading_timer.start() if not self._chart_loading_timer.isActive() else None)
+                except Exception:
+                    pass
         else:
             self._chart_loading_timer.stop()
 
         self._refresh_status_overlay()
 
         if auto_clear_ms > 0 and self._chart_status_mode not in {"idle", "loading", "error"} and self._chart_status_message:
-            self._chart_status_clear_timer.start(int(auto_clear_ms))
+            # Safely start timer - use singleShot if not on main thread
+            try:
+                import threading
+                from PySide6.QtCore import QTimer as QT
+                if threading.current_thread() is threading.main_thread():
+                    self._chart_status_clear_timer.start(int(auto_clear_ms))
+                else:
+                    # From background thread, use singleShot which is thread-safe
+                    QT.singleShot(auto_clear_ms, lambda: self._chart_status_clear_timer.start(int(auto_clear_ms)) if not self._chart_status_clear_timer.isActive() else None)
+            except Exception:
+                pass
 
     def _tick_loading_status(self):
         if self._chart_status_mode != "loading":
@@ -4497,6 +4541,57 @@ class ChartWidget(QWidget):
             self.last_line.setVisible(True)
         self._update_chart_header()
         self._refresh_market_panels()
+
+    def update_ticks(self, trades):
+        """Update tick/trade chart with individual trade data.
+        
+        Args:
+            trades: List of trade data dictionaries with keys: timestamp, price, size, side
+        """
+        if not trades or not hasattr(self, 'tick_scatter'):
+            return
+        
+        try:
+            times = []
+            prices = []
+            colors = []
+            sizes = []
+            
+            for trade in (trades or []):
+                try:
+                    timestamp = float(trade.get('timestamp') or trade.get('time') or 0)
+                    price = float(trade.get('price') or 0)
+                    size = float(trade.get('size') or trade.get('amount') or 0)
+                    side = str(trade.get('side') or 'unknown').lower()
+                    
+                    if timestamp > 0 and price > 0 and size > 0:
+                        times.append(timestamp)
+                        prices.append(price)
+                        sizes.append(max(0.1, min(size * 5, 100)))  # Scale sizes for visibility
+                        
+                        # Color based on side
+                        if side == 'buy':
+                            colors.append('#26a69a')  # Green for buy
+                        elif side == 'sell':
+                            colors.append('#ef5350')  # Red for sell
+                        else:
+                            colors.append('#8ea4d1')  # Blue for unknown
+                except Exception:
+                    continue
+            
+            if times and prices:
+                # Update scatter plot
+                self.tick_scatter.setData(x=times, y=prices, size=sizes, brush=colors, pen=None)
+                
+                # Update label
+                self.tick_summary_label.setText(
+                    f"Showing {len(times)} recent ticks - size scaled by trade volume"
+                )
+            else:
+                self.tick_scatter.clear()
+                self.tick_summary_label.setText("No tick data available for this symbol.")
+        except Exception as e:
+            self.tick_summary_label.setText(f"Error loading tick data: {str(e)}")
 
     def set_bid_ask_lines_visible(self, visible: bool):
         self.show_bid_ask_lines = bool(visible)

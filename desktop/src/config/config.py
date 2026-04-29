@@ -1,3 +1,5 @@
+"""Configuration module for trading advisor application."""
+
 from typing import Optional
 
 try:

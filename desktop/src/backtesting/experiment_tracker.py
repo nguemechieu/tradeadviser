@@ -6,10 +6,10 @@ convenience method to convert stored experiments into a pandas DataFrame for
 analysis or reporting.
 """
 
+import pandas as pd
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
-import pandas as pd
 
 
 @dataclass

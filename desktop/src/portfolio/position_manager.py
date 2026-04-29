@@ -107,6 +107,10 @@ class PositionManager:
         asset_class: str = "unknown",
         regime: str | None = None,
         metadata: dict | None = None,
+        stop_loss: float | None = None,
+        take_profit: float | None = None,
+        risk_percent: float = 2.0,
+        reward_risk_ratio: float = 1.5,
     ) -> TradeLifecycleState:
         key = str(symbol or "").strip().upper()
         observed_at = coerce_datetime(entry_time)
@@ -131,6 +135,10 @@ class PositionManager:
             regime=str(regime or self.latest_regimes.get(key) or "UNKNOWN"),
             last_update_time=observed_at,
             metadata=dict(metadata or {}),
+            stop_loss=float(stop_loss) if stop_loss and stop_loss > 0 else None,
+            take_profit=float(take_profit) if take_profit and take_profit > 0 else None,
+            risk_percent=float(risk_percent or 2.0),
+            reward_risk_ratio=float(reward_risk_ratio or 1.5),
         )
         self.open_trades[key] = state
         return state
@@ -356,3 +364,41 @@ class PositionManager:
                 "asset_class": position.asset_class,
             },
         )
+
+    def check_and_close_sl_tp(self) -> list[tuple[str, TradeLifecycleState, str]]:
+        """Check if any positions should close due to SL/TP, return list of (symbol, trade, reason)."""
+        closed_trades: list[tuple[str, TradeLifecycleState, str]] = []
+        for symbol in list(self.open_trades.keys()):
+            trade = self.open_trades[symbol]
+            if trade.should_close_for_tp():
+                self.close_trade(symbol, reason="take_profit_hit", exit_price=trade.take_profit)
+                closed_trades.append((symbol, trade, "take_profit"))
+            elif trade.should_close_for_sl():
+                self.close_trade(symbol, reason="stop_loss_hit", exit_price=trade.stop_loss)
+                closed_trades.append((symbol, trade, "stop_loss"))
+        return closed_trades
+
+    def adjust_sl_tp_for_breakeven(self, symbol: str) -> bool:
+        """Move SL to breakeven once profitable. Returns True if adjusted."""
+        trade = self.open_trades.get(str(symbol or "").strip().upper())
+        if trade is None:
+            return False
+        trade.adjust_sl_tp_for_breakeven()
+        return True
+
+    def adjust_sl_tp_by_volatility(self, symbol: str, current_volatility: float) -> bool:
+        """Adjust SL/TP based on current volatility. Returns True if adjusted."""
+        trade = self.open_trades.get(str(symbol or "").strip().upper())
+        if trade is None:
+            return False
+        trade.adjust_sl_tp_by_volatility(current_volatility)
+        return True
+
+    def update_sl_tp(self, symbol: str, *, stop_loss: float | None = None, take_profit: float | None = None) -> bool:
+        """Update SL/TP for a position. Returns True if updated."""
+        trade = self.open_trades.get(str(symbol or "").strip().upper())
+        if trade is None:
+            return False
+        trade.update_sl_tp(stop_loss, take_profit)
+        return True
+

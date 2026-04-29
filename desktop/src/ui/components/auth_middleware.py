@@ -9,10 +9,11 @@ Provides:
 """
 
 import logging
-from typing import Optional, Callable
+from typing import Optional
 
+from PySide6.QtCore import pyqtSignal
+from PySide6.QtCore import QObject
 from PySide6.QtWidgets import QMessageBox
-from PySide6.QtCore import pyqtSignal, QObject
 
 from session_manager import get_session_manager, UserSession
 from ui.components.dialogs.auth_dialog import AuthDialog

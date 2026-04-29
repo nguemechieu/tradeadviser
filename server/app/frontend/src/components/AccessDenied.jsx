@@ -1,13 +1,13 @@
 import { useNavigate } from "react-router-dom"
 
-const Unauthorized = () => {
+const AccessDenied = () => {
     const navigate = useNavigate();
 
     const goBack = () => navigate(-1);
 
     return (
         <section>
-            <h1>Unauthorized</h1>
+            <h1>Access Denied</h1>
             <br />
             <p>You do not have access to the requested page.</p>
             <div className="flexGrow">
@@ -17,4 +17,4 @@ const Unauthorized = () => {
     )
 }
 
-export default Unauthorized
+export default AccessDenied

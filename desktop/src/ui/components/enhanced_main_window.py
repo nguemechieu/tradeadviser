@@ -1,9 +1,10 @@
 """Enhanced main window with authentication flow and dashboard."""
 
-from PySide6.QtWidgets import QMainWindow, QAction, QStackedWidget, QWidget, QMessageBox
-from PySide6.QtCore import Qt, Signal, QTimer
-from PySide6.QtGui import QIcon
 import logging
+
+from PySide6.QtCore import Signal, QTimer
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QMainWindow, QStackedWidget, QMessageBox
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,7 @@ class EnhancedMainWindow(QMainWindow):
         self.current_user = None
         
         # Initialize UI
-        self.setWindowTitle("TradeAdviser")
+        self.setWindowTitle("TradeAdviser-Desktop")
         self.setGeometry(100, 100, 1200, 800)
         
         # Create stacked widget for screen management

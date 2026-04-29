@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Header
 
-from backend.api.routes._auth_helpers import resolve_bearer_user
-from backend.dependencies import ServerServiceContainer, get_services
+from server.app.backend.api.routes._auth_helpers import resolve_bearer_user
+from server.app.backend.dependencies import ServerServiceContainer, get_services
 
 
-router = APIRouter(prefix="/portfolio", tags=["Portfolio"])
+router = APIRouter(prefix="/api/v3/portfolio", tags=["Portfolio"])
 
 
-@router.get("/dashboard")
+@router.get("/api/dashboard")
 async def get_dashboard(
     authorization: str | None = Header(default=None),
     services: ServerServiceContainer = Depends(get_services),
@@ -18,7 +18,7 @@ async def get_dashboard(
     return services.get_portfolio_dashboard(user)
 
 
-@router.get("/positions")
+@router.get("/api/positions")
 async def get_positions(
     authorization: str | None = Header(default=None),
     services: ServerServiceContainer = Depends(get_services),
@@ -27,7 +27,7 @@ async def get_positions(
     return services.list_positions(user)
 
 
-@router.get("/orders")
+@router.get("/api/orders")
 async def get_orders(
     authorization: str | None = Header(default=None),
     services: ServerServiceContainer = Depends(get_services),

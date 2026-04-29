@@ -163,6 +163,8 @@ def normalize_position_entry(terminal, raw):
         position_id = raw.get("position_id", raw.get("id", raw.get("trade_id")))
         position_key = raw.get("position_key", raw.get("key", position_id))
         position_side = raw.get("position_side", side)
+        stop_loss = raw.get("stop_loss")
+        take_profit = raw.get("take_profit")
     else:
         symbol = getattr(raw, "symbol", "")
         side = getattr(raw, "side", "")
@@ -178,6 +180,8 @@ def normalize_position_entry(terminal, raw):
         position_id = getattr(raw, "position_id", getattr(raw, "id", getattr(raw, "trade_id", None)))
         position_key = getattr(raw, "position_key", getattr(raw, "key", position_id))
         position_side = getattr(raw, "position_side", side)
+        stop_loss = getattr(raw, "stop_loss", None)
+        take_profit = getattr(raw, "take_profit", None)
 
     try:
         amount = float(amount or 0)
@@ -215,6 +219,14 @@ def normalize_position_entry(terminal, raw):
         units = float(units) if units not in (None, "") else None
     except Exception:
         units = None
+    try:
+        stop_loss = float(stop_loss) if stop_loss not in (None, "") else None
+    except Exception:
+        stop_loss = None
+    try:
+        take_profit = float(take_profit) if take_profit not in (None, "") else None
+    except Exception:
+        take_profit = None
 
     normalized_symbol = str(symbol or "")
     if not normalized_symbol:
@@ -227,11 +239,20 @@ def normalize_position_entry(terminal, raw):
 
     if mark is None or mark <= 0:
         mark = terminal._lookup_symbol_mid_price(normalized_symbol)
+    
+    # Fallback to entry price if mark price still unavailable
+    if mark is None or mark <= 0:
+        mark = entry if entry and entry > 0 else None
 
     value = abs_amount * float(mark or entry or 0)
-    if pnl is None and mark is not None and entry:
-        direction = 1.0 if normalized_side != "short" else -1.0
-        pnl = (float(mark) - entry) * abs_amount * direction
+    if pnl is None:
+        if mark is not None and entry:
+            direction = 1.0 if normalized_side != "short" else -1.0
+            pnl = (float(mark) - entry) * abs_amount * direction
+        else:
+            # If we can't calculate PnL (no mark price), default to 0
+            # This ensures the P/L column always displays a value
+            pnl = 0.0
 
     return {
         "symbol": normalized_symbol,
@@ -243,6 +264,8 @@ def normalize_position_entry(terminal, raw):
         "units": float(units if units is not None else (abs_amount if normalized_side != "short" else -abs_amount)),
         "entry_price": entry,
         "mark_price": float(mark or 0),
+        "stop_loss": stop_loss,
+        "take_profit": take_profit,
         "value": value,
         "pnl": float(pnl or 0),
         "realized_pnl": float(realized_pnl or 0),
@@ -263,6 +286,8 @@ def _positions_table_signature(table, normalized_positions):
                 f"{pos['amount']:.6f}",
                 f"{pos['entry_price']:.6f}",
                 f"{pos['mark_price']:.6f}",
+                f"{pos.get('stop_loss') or 0:.6f}",
+                f"{pos.get('take_profit') or 0:.6f}",
                 f"{pos['value']:.2f}",
                 f"{pos['pnl']:.2f}",
             )
@@ -276,10 +301,10 @@ def populate_positions_table(terminal, positions):
     if table is None:
         return
     close_all_btn = getattr(terminal, "positions_close_all_button", None)
-    if table.columnCount() < 9:
-        table.setColumnCount(9)
+    if table.columnCount() < 11:
+        table.setColumnCount(11)
         table.setHorizontalHeaderLabels(
-            ["Symbol", "Side", "Amount", "Entry", "Mark", "Value", "P/L", "View", "Close"]
+            ["Symbol", "Side", "Amount", "Entry", "Mark", "SL", "TP", "Value", "P/L", "View", "Close"]
         )
 
     normalized_positions = []
@@ -306,30 +331,34 @@ def populate_positions_table(terminal, positions):
     table.setRowCount(len(normalized_positions))
 
     for row, pos in enumerate(normalized_positions):
+        sl_str = f"{pos['stop_loss']:.6f}".rstrip("0").rstrip(".") if pos.get("stop_loss") else "-"
+        tp_str = f"{pos['take_profit']:.6f}".rstrip("0").rstrip(".") if pos.get("take_profit") else "-"
         values = [
             pos["symbol"],
             pos["side"].upper(),
             f"{pos['amount']:.6f}".rstrip("0").rstrip("."),
             f"{pos['entry_price']:.6f}".rstrip("0").rstrip("."),
             f"{pos['mark_price']:.6f}".rstrip("0").rstrip("."),
+            sl_str,
+            tp_str,
             f"{pos['value']:.2f}",
             f"{pos['pnl']:.2f}",
         ]
         for col, value in enumerate(values):
             item = QTableWidgetItem(value)
-            if col == 6:
+            if col == 8:
                 item.setForeground(QColor("#32d296" if pos["pnl"] >= 0 else "#ef5350"))
             table.setItem(row, col, item)
         
-        # Add View button
+        # Add View button (column 9)
         view_btn = QPushButton("View Position")
         view_btn.setStyleSheet(terminal._action_button_style())
         view_btn.setToolTip("View position details.")
         view_btn.clicked.connect(lambda _checked=False, payload=dict(pos): terminal._show_position_details(payload))
-        table.setCellWidget(row, 7, view_btn)
+        table.setCellWidget(row, 9, view_btn)
         
-        # Add Close button
-        table.setCellWidget(row, 8, terminal._build_position_close_button(pos, compact=True))
+        # Add Close button (column 10)
+        table.setCellWidget(row, 10, terminal._build_position_close_button(pos, compact=True))
 
     apply_positions_filter(terminal)
     _finish_table_update(table, previous_updates_enabled)

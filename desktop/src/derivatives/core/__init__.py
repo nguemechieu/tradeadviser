@@ -6,9 +6,7 @@ from derivatives.core.config import (
     RiskConfig,
     StrategyConfig,
 )
-from derivatives.core.event_bus import EventBus
 from derivatives.core.models import DerivativesEvent
-
 from derivatives.core.derivatives_orchestrator import DerivativesOrchestrator
 
 __all__ = [
@@ -17,7 +15,6 @@ __all__ = [
     "DerivativesOrchestrator",
     "DerivativesSystemConfig",
     "EngineConfig",
-    "EventBus",
     "MLConfig",
     "RiskConfig",
     "StrategyConfig",

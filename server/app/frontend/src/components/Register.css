@@ -1,0 +1,24 @@
+.register-section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #f0f2f5;
+  min-height: 100vh;
+  padding: 2rem;
+}
+
+.register-card {
+  background-color: rgba(10, 92, 80, 0.94);
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 600px;
+  padding: 2rem;
+}
+
+.register-form {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}

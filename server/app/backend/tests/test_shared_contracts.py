@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from sopotek.shared.commands.trading_commands import PlaceOrderCommand
-from sopotek.shared.contracts.base import ApiResponseEnvelope, BrokerIdentifier
-from sopotek.shared.contracts.market import FeatureSnapshot, SymbolSnapshot
-from sopotek.shared.contracts.session import BrokerSessionSummary, SessionState
-from sopotek.shared.contracts.trading import ExecutionRequest, ExecutionResult
-from sopotek.shared.enums.common import BrokerKind, ExecutionStatus, OrderSide, OrderType, SessionStatus
-from sopotek.shared.events.base import ServerEventEnvelope
+from shared.commands.trading_commands import PlaceOrderCommand
+from shared.contracts.base import ApiResponseEnvelope, BrokerIdentifier
+from shared.contracts.market import FeatureSnapshot, SymbolSnapshot
+from shared.contracts.session import BrokerSessionSummary, SessionState
+from shared.contracts.trading import ExecutionRequest, ExecutionResult
+from shared.enums.common import BrokerKind, ExecutionStatus, OrderSide, OrderType, SessionStatus
+from shared.events.base import ServerEventEnvelope
 
 
 def test_server_event_envelope_round_trip() -> None:

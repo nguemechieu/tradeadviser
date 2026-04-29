@@ -2,7 +2,7 @@
 App Controller is a Module - Main UI Controller for Sopotek Quant Trading System
 
 This module contains the AppController class, which serves as the primary PyQt6-based
-UI controller for the Sopotek Quant trading platform. It manages:
+UI controller for the TradeAdviser Quant trading platform. It manages:
 - User authentication and session management
 - Broker connections and paper trading
 - Market data streaming and web sockets
@@ -18,7 +18,9 @@ services, providing signals for real-time updates to the UI.
 """
 import copy
 import asyncio
-import html
+import pathlib
+from datetime import datetime, timedelta, timezone
+
 import inspect
 import json
 import logging
@@ -32,9 +34,6 @@ import traceback
 import aiohttp
 import pandas as pd
 import shiboken6  # type: ignore[import-untyped]
-from concurrent.futures import ThreadPoolExecutor
-from dataclasses import asdict, is_dataclass
-from functools import partial
 from PySide6.QtCore import QEvent, QSettings, QTimer, Signal
 from PySide6.QtWidgets import (
     QApplication,
@@ -50,7 +49,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 from dataclasses import asdict, is_dataclass
-from functools import partial
+
 from concurrent.futures import ThreadPoolExecutor
 from core.scheduler.event_scheduler import EventScheduler
 from core.scheduler.scheduler import Scheduler
@@ -60,10 +59,12 @@ from broker.market_venues import SPOT_ONLY_EXCHANGES, normalize_market_venue, su
 from broker.paper_broker import PaperBroker
 from broker.rate_limiter import RateLimiter
 from core.account_identity import resolve_account_label
-from core.server_client import TradeAdviserClient, TradeAdviserClientError
+from core.server_client import TradeAdviserClient
 from core.trading_core import TradingCore
-from event_bus.event_bus import EventBus
-from event_bus.event_types import EventType
+from events.event_bus import EventBus
+from events.event_bus.event_types import EventType
+
+from execution.hybrid_execution_request import HybridExecutionRequest
 from integrations.news_service import NewsService
 from integrations.telegram_service import TelegramService
 from integrations.trade_notifications import (
@@ -75,15 +76,16 @@ from integrations.trade_notifications import (
 from integrations.voice_service import VoiceService
 from engines.performance_engine import PerformanceEngine
 from manager.broker_manager import BrokerManager
+from portfolio.position_manager import PositionManager
 from market_data.candle_buffer import CandleBuffer
 from market_data.orderbook_buffer import OrderBookBuffer
 from market_data.ticker_buffer import TickerBuffer
 from market_data.ticker_stream import TickerStream
-from market_data.websocket.alpaca_web_socket import AlpacaWebSocket
-from market_data.websocket.binanceus_web_socket import BinanceUsWebSocket
-from market_data.websocket.coinbase_web_socket import CoinbaseWebSocket
-from market_data.websocket.oanda_web_socket import OandaWebSocket
-from market_data.websocket.paper_web_socket import PaperWebSocket
+from websocket.alpaca_web_socket import AlpacaWebSocket
+from websocket.binanceus_web_socket import BinanceUsWebSocket
+from websocket.coinbase_web_socket import CoinbaseWebSocket
+from websocket.oanda_web_socket import OandaWebSocket
+from websocket.paper_web_socket import PaperWebSocket
 from storage.agent_decision_repository import AgentDecisionRepository
 from storage.database import configure_database, get_database_url, init_database, is_sqlite_url, normalize_database_url
 from storage.equity_repository import EquitySnapshotRepository
@@ -92,7 +94,8 @@ from storage.trade_audit_repository import TradeAuditRepository
 from storage.trade_repository import TradeRepository, derive_trade_outcome
 from strategy.strategy import Strategy
 from ui.components.services.trade_safety import age_seconds, format_age_label, timeframe_seconds
-from sessions.session_manager import SessionManager
+from ui.components.utils.performance_utils import safe_timer_start
+from session.session_manager import SessionManager
 
 # Hybrid server connection imports (for future server-connected mode)
 
@@ -153,30 +156,57 @@ except ImportError:
         ServerEventEnvelope,
     )
 
-# Hybrid client classes (placeholder for future server connection mode)
-class HybridApiClient:
-    """Placeholder for hybrid API client."""
-    def __init__(self, base_url):
-        self.base_url = base_url
+# Import real hybrid client classes
+try:
+    from shared.hybrid_client import (
+        HybridApiClient,
+        HybridWsClient,
+        HybridSessionController,
+        HybridSession,
+    )
+except ImportError:
+    # Fallback placeholder classes for development without hybrid_client.py
+    class HybridSession:
+        """Placeholder for hybrid session data."""
+        def __init__(self):
+            self.session_id = ""
+            self.access_token = ""
+            self.user_id = ""
+            self.email = ""
+            self.status = "disconnected"
 
-class HybridWsClient:
-    """Placeholder for hybrid WebSocket client."""
-    def __init__(self, ws_url):
-        self.ws_url = ws_url
+    class HybridApiClient:
+        """Placeholder for hybrid API client."""
+        def __init__(self, base_url):
+            self.base_url = base_url
 
-class HybridSessionController:
-    """Placeholder for hybrid session controller."""
-    def __init__(self, api_client=None, ws_client=None):
-        self.api_client = api_client
-        self.ws_client = ws_client
-        self.event_callback = None
+    class HybridWsClient:
+        """Placeholder for hybrid WebSocket client."""
+        def __init__(self, ws_url):
+            self.ws_url = ws_url
+
+    class HybridSessionController:
+        """Placeholder for hybrid session controller."""
+        def __init__(self, api_client=None, ws_client=None):
+            self.api_client = api_client
+            self.ws_client = ws_client
+            self.event_callback = None
 
 # Define event types if not imported
 try:
     from sopotek.shared.events.base import EventType, ServerEventType
 except ImportError:
-    EventType = str
-    ServerEventType = str
+    class EventType:  # type: ignore
+        MARKET_TICK = "market.tick"
+        ACCOUNT_EVENT = "ACCOUNT_EVENT"
+        ALERT_EVENT = "ALERT_EVENT"
+        CANDLE = "CANDLE"
+        MARKET_DATA = "MARKET_DATA"
+        ORDER = "ORDER"
+        POSITION = "POSITION"
+    
+    class ServerEventType:  # type: ignore
+        AGENT_HEALTH_UPDATED = "AGENT HEALTH UPDATED"
 
 # Aliases for Hybrid* naming convention (for backward compatibility)
 HybridBrokerIdentifier = BrokerIdentifier
@@ -210,7 +240,7 @@ from ui.components.i18n import (
     translate_rich_text,
     translate_text)
 from ui.components.terminal import Terminal
-from ui.console.system_console import SystemConsole
+
 from ui.components.services.platform_sync_service import PlatformSyncService
 from ui.components.services.screenshot_service import capture_widget_to_output, sanitize_screenshot_fragment
 from ui.components.dashboard import Dashboard
@@ -222,12 +252,12 @@ from uuid import uuid4
 def _bounded_window_extent(requested, available, *, margin=24, minimum=640):
     """
     Calculate bounded window dimensions ensuring reasonable constraints.
-    
+
     Args:
         requested: Requested window size (pixels)
         available: Available space (pixels)
         margin: Margin to reserve (default 24 pixels)
-        minimum: Minimum allowed size (default 640 pixels)        
+        minimum: Minimum allowed size (default 640 pixels)
     Returns:
         Tuple of (bounded_size, bounded_minimum) ensuring size fits within constraints
     """
@@ -291,15 +321,15 @@ def _storage_mode_from_env():
 def _normalize_history_boundary(value, *, end_of_day=False):
     """
     Normalize history boundary to UTC-aware timestamp.
-    
+
     Handles string dates (YYYY-MM-DD or ISO format) and datetime objects.
     For date-only strings, sets time to end-of-day (23:59:59) or start-of-day (00:00:00)
     based on end_of_day parameter.
-    
+
     Args:
         value: Date/datetime value to normalize
         end_of_day: If True, set to end of day; if False, set to start of day
-        
+
     Returns:
         UTC-aware pandas Timestamp or None if invalid
     """
@@ -327,26 +357,40 @@ def _normalize_history_boundary(value, *, end_of_day=False):
     return timestamp
 
 
+def _normalize_live_agent_timestamp(timestamp):
+    if isinstance(timestamp, datetime):
+        normalized = timestamp.replace(tzinfo=timezone.utc) if timestamp.tzinfo is None else timestamp.astimezone(timezone.utc)
+        return normalized.timestamp(), normalized.strftime("%Y-%m-%d %H:%M:%S UTC")
+    text = str(timestamp or "").strip()
+    if not text:
+        return None, ""
+    try:
+        normalized = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        normalized = normalized.replace(tzinfo=timezone.utc) if normalized.tzinfo is None else normalized.astimezone(timezone.utc)
+        return normalized.timestamp(), normalized.strftime("%Y-%m-%d %H:%M:%S UTC")
+    except Exception:
+        return None, text
+
 
 class AppController(QMainWindow):
     """
     Main application controller for the Sopotek Quant trading platform.
-    
+
     Inherits from QMainWindow to provide the primary application window.
     Manages all core functionality including:
     - Broker connections and trading operations
     - Market data streaming and storage
-    - Strategy execution and monitoring  
+    - Strategy execution and monitoring
     - Portfolio and risk management
     - Integration services
     - Workspace access state
-    
+
     Class Attributes:
         MAX_HISTORY_LIMIT: Maximum data points for local storage (50000)
         MAX_BACKTEST_HISTORY_LIMIT: Maximum history for backtest analysis (1M)
         FOREX_STANDARD_LOT_UNITS: Standard forex lot size in units (100000)
         ORDER_SIZE_BUFFER: Buffer to apply when calculating order sizes (0.98)
-        
+
     Signals:
         symbols_signal: Emitted when symbol list changes
         candle_signal: Emitted when new candle data arrives
@@ -360,7 +404,7 @@ class AppController(QMainWindow):
         agent_runtime_signal: Emitted for agent runtime updates
         workspace access state updates
     """
-    
+
     # === Configuration Constants ===
     MAX_HISTORY_LIMIT = 50000
     MAX_BACKTEST_HISTORY_LIMIT = 1000000
@@ -411,7 +455,7 @@ class AppController(QMainWindow):
     ]
     QUOTE_PRIORITY = {"USDT": 0, "USD": 1, "USDC": 2, "BUSD": 3, "BTC": 4, "ETH": 5}
     COINBASE_QUOTE_PRIORITY = {"USD": 0, "USDC": 1, "EUR": 2, "GBP": 3, "USDT": 4, "BUSD": 5, "BTC": 6, "ETH": 7}
-    
+
     # === Exchange-Specific Symbol Limits ===
     COINBASE_SYMBOL_LIMIT = 10
     COINBASE_AUTO_ASSIGN_SYMBOL_LIMIT = 6
@@ -436,13 +480,13 @@ class AppController(QMainWindow):
     STOCKS_DISCOVERY_BATCH_SIZE = 8
     PAPER_SYMBOL_WATCHLIST_LIMIT = 24
     PAPER_DISCOVERY_BATCH_SIZE = 10
-    
+
     # === Data Freshness Thresholds ===
     QUOTE_STALE_SECONDS = 20.0
     ORDERBOOK_STALE_SECONDS = 20.0
     CANDLE_STALE_MIN_SECONDS = 60.0
     CANDLE_STALE_MULTIPLIER = 3.0
-    
+
     # === Forex and Commodity Assets ===
     FOREX_SYMBOL_QUOTES = {
         "AED", "AUD", "CAD", "CHF", "CNH", "CZK", "DKK", "EUR", "GBP", "HKD",
@@ -453,7 +497,7 @@ class AppController(QMainWindow):
         "XAU", "XAG", "XPT", "XPD", "XCU",
         "BCO", "WTICO", "NATGAS", "SOYBN", "WHEAT", "CORN", "SUGAR",
     }
-    
+
     # === Feature Gating ===
     TRADEADVISER_FEATURE_ALIASES = {
         "live_trading": "trading",
@@ -468,7 +512,7 @@ class AppController(QMainWindow):
     def __init__(self, *args, **kwargs):
         """
         Initialize the AppController (main application window).
-        
+
         Sets up:
         - PyQt6 main window and event handling
         - Logging infrastructure
@@ -478,7 +522,7 @@ class AppController(QMainWindow):
         - Market data buffers and streams
         - Integration services (Telegram, Email, SMS, News, Voice)
         - UI components and layouts
-        
+
         Raises exception if critical initialization fails (caught and logged).
         """
         super().__init__(*args, **kwargs)
@@ -496,7 +540,7 @@ class AppController(QMainWindow):
         self._ws_bus_task = None
         self.ws_bus = None
         self.ws_manager = None
-        
+
         # === Application Settings and Localization ===
         self.settings = QSettings("TradeAdviser", "TradingPlatform")
         self.language_code = normalize_language_code(
@@ -563,7 +607,7 @@ class AppController(QMainWindow):
         self.behavior_guard = None
         self.portfolio_allocator = None
         self.institutional_risk_engine = None
-        
+
         # === Quant System State ===
         self.quant_allocation_snapshot = {}
         self.quant_risk_snapshot = {}
@@ -574,7 +618,7 @@ class AppController(QMainWindow):
         self._live_agent_runtime_feed = []
         self.feedback_experiment_tracker = ExperimentTracker()
         self._strategy_feedback_cache = {}
-        
+
         # === Risk Management Configuration ===
         self.risk_profile_name = str(self.settings.value("risk/profile_name", "Balanced") or "Balanced").strip() or "Balanced"
         self.max_portfolio_risk = self.settings.value("risk/max_portfolio_risk", 0.10) or 0.10
@@ -595,8 +639,8 @@ class AppController(QMainWindow):
             self.settings.value("risk/margin_closeout_guard_enabled", "true")
         ).strip().lower() in {"1", "true", "yes", "on"}
         self.max_margin_closeout_pct = max(0.01,
-            min(1.0, float(self.settings.value("risk/max_margin_closeout_pct", 0.50) )))
-        
+                                           min(1.0, float(self.settings.value("risk/max_margin_closeout_pct") or 0.50) ))
+
         # === Trading Parameters ===
         self.confidence = 0
         self.volatility = 0
@@ -609,7 +653,7 @@ class AppController(QMainWindow):
         self.telegram_enabled = str(self.settings.value("integrations/telegram_enabled", "false")).lower() in {"1", "true", "yes", "on"}
         self.telegram_bot_token = str(self.settings.value("integrations/telegram_bot_token", "") or "").strip()
         self.telegram_chat_id = str(self.settings.value("integrations/telegram_chat_id", "") or "").strip()
-        
+
         # === Trade Close Notifications ===
         self.trade_close_notifications_enabled = str(
             self.settings.value("integrations/trade_close_notifications_enabled", "false")
@@ -623,7 +667,7 @@ class AppController(QMainWindow):
         self.trade_close_notify_sms = str(
             self.settings.value("integrations/trade_close_notify_sms", "false")
         ).lower() in {"1", "true", "yes", "on"}
-        
+
         # === Email Configuration ===
         self.trade_close_email_host = str(self.settings.value("integrations/trade_close_email_host", "") or "").strip()
         self.trade_close_email_port = int(self.settings.value("integrations/trade_close_email_port", 587) or 587)
@@ -634,13 +678,13 @@ class AppController(QMainWindow):
         self.trade_close_email_starttls = str(
             self.settings.value("integrations/trade_close_email_starttls", "true")
         ).lower() in {"1", "true", "yes", "on"}
-        
+
         # === SMS Configuration ===
         self.trade_close_sms_account_sid = str(self.settings.value("integrations/trade_close_sms_account_sid", "") or "").strip()
         self.trade_close_sms_auth_token = str(self.settings.value("integrations/trade_close_sms_auth_token", "") or "")
         self.trade_close_sms_from_number = str(self.settings.value("integrations/trade_close_sms_from_number", "") or "").strip()
         self.trade_close_sms_to_number = str(self.settings.value("integrations/trade_close_sms_to_number", "") or "").strip()
-        
+
         # === Voice and AI Services ===
         self.openai_api_key = str(self.settings.value("integrations/openai_api_key", "") or "").strip()
         self.openai_model = str(self.settings.value("integrations/openai_model", "gpt-5-mini") or "gpt-5-mini").strip()
@@ -662,13 +706,13 @@ class AppController(QMainWindow):
         if self.voice_openai_name not in self.OPENAI_TTS_VOICES:
             self.voice_openai_name = "alloy"
         self.voice_name = self._current_market_chat_voice_name()
-        
+
         # === News and Market Data Integration ===
         self.news_enabled = str(self.settings.value("integrations/news_enabled", "true")).lower() in {"1", "true", "yes", "on"}
         self.news_autotrade_enabled = str(self.settings.value("integrations/news_autotrade_enabled", "false")).lower() in {"1", "true", "yes", "on"}
         self.news_draw_on_chart = str(self.settings.value("integrations/news_draw_on_chart", "true")).lower() in {"1", "true", "yes", "on"}
         self.news_feed_url = str(self.settings.value("integrations/news_feed_url", NewsService.DEFAULT_FEED_URL) or NewsService.DEFAULT_FEED_URL).strip()
-        
+
         # === Market and Trading Preferences ===
         self.market_trade_preference = normalize_market_venue(self.settings.value("trading/market_type", "auto"))
         self.forex_candle_price_component = _normalize_forex_candle_price_component(
@@ -677,7 +721,7 @@ class AppController(QMainWindow):
         # === Database Configuration ===
         self.database_mode, self.database_url = self._resolve_initial_storage_preferences(self.settings)
         self.database_connection_url = ""
-        
+
         # === Autotrade Configuration ===
         self.autotrade_scope = self._normalize_autotrade_scope(self.settings.value("autotrade/scope", "all"))
         self._market_data_shortfall_notices = {}
@@ -692,7 +736,7 @@ class AppController(QMainWindow):
             for symbol in parsed_watchlist
             if str(symbol).strip()
         }
-        
+
         # === Strategy Configuration ===
         self.strategy_params = {
             "rsi_period": int(self.settings.value("strategy/rsi_period", 14)),
@@ -705,7 +749,9 @@ class AppController(QMainWindow):
             "min_confidence": float(self.settings.value("strategy/min_confidence", 0.55)),
             "signal_amount": float(self.settings.value("strategy/signal_amount", 1.0)),
         }
-        
+        self.equity_repository = None
+        self.agent_decision_repository = None
+
         # === Multi-Strategy Support ===
         self.multi_strategy_enabled = str(
             self.settings.value("strategy/multi_strategy_enabled", "true")
@@ -720,7 +766,7 @@ class AppController(QMainWindow):
             "strategy/symbol_assignment_locks",
             fallback_symbols=list(self.symbol_strategy_assignments.keys()),
         )
-        
+
         # === Strategy Auto-Assignment ===
         self.strategy_auto_assignment_enabled = str(
             self.settings.value("strategy/auto_assignment_enabled", "true")
@@ -740,7 +786,7 @@ class AppController(QMainWindow):
         self._strategy_auto_assignment_deferred_task = None
         self._strategy_ranking_executor = None
         self._terminal_runtime_restore_task = None
-        
+
         # === User Trade Risk Management ===
         self.user_trade_autocorrect_enabled = str(
             self.settings.value("risk/user_trade_autocorrect_enabled", "true")
@@ -776,6 +822,7 @@ class AppController(QMainWindow):
         self.ai_signal = None
         self.balances = {}
         self.balance = {}
+        self._position_manager = PositionManager()  # Track positions with SL/TP
 
         # === Market Data Infrastructure ===
         self.ticker_stream = TickerStream()
@@ -838,7 +885,7 @@ class AppController(QMainWindow):
             self._setup_data()
             self._setup_ui(self.controller)
             self.setWindowTitle(self.tr("app.window_title"))
-            self._cache_trim_timer.start()  # Start cache trimming after successful initialization
+            safe_timer_start(self._cache_trim_timer, 300000)  # Start cache trimming after successful initialization
         except Exception as exc:
             traceback.print_exc()
             startup_message = self._friendly_startup_error(exc)
@@ -852,7 +899,7 @@ class AppController(QMainWindow):
 
 
     # === Translation and Localization Methods ===
-    
+
     def tr(self, key, **kwargs):
         """Translate UI text using i18n system."""
         return translate(self.language_code, key, **kwargs)
@@ -863,15 +910,32 @@ class AppController(QMainWindow):
         return translator(self.language_code, text)
 
     # === Workspace Access Methods ===
-    
+
     def refresh_license_status(self):
         """Return the current workspace access snapshot."""
         self.license_status = self.get_license_status()
         return dict(self.license_status)
 
     def get_license_status(self):
-        """Return the current workspace access status."""
+        """Return the current workspace access status - supports full license, 30-day trial, and fallback."""
         merged = self._server_license_status_snapshot()
+        # Check for active trial or full license (30-day trial = full access)
+        trial_days_remaining = self._get_trial_days_remaining()
+        if trial_days_remaining is not None and trial_days_remaining > 0:
+            # Trial is active - grant full access
+            merged["tier"] = "trial"
+            merged["plan_name"] = f"30-Day Trial ({trial_days_remaining} days remaining)"
+            merged["is_premium"] = True
+            merged["features"] = sorted(set(self.TRADEADVISER_RESTRICTED_FEATURES))
+            merged["allowed_features"] = merged["features"]
+        elif trial_days_remaining == 0:
+            # Trial expired
+            merged["tier"] = "expired"
+            merged["plan_name"] = "Trial Expired"
+            merged["is_premium"] = False
+        # Full license always has all features
+        if merged.get("tier") != "expired":
+            self.allowed_features = set(merged.get("features") or merged.get("allowed_features") or self.TRADEADVISER_RESTRICTED_FEATURES)
         self.license_status = dict(merged)
         return dict(self.license_status)
 
@@ -886,7 +950,33 @@ class AppController(QMainWindow):
 
     def feature_message(self, feature):
         normalized_feature = self._normalized_tradeadviser_feature_name(feature)
-        return f"{normalized_feature.replace('_', ' ').title()} is available."
+        if self.license_allows(feature):
+            return f"{normalized_feature.replace('_', ' ').title()} is available."
+        else:
+            return f"{normalized_feature.replace('_', ' ').title()} requires an active license or trial."
+
+    def _get_trial_days_remaining(self) -> int | None:
+        """Get the number of days remaining in the trial period. None if no trial, 0 if expired."""
+        try:
+            # Check desktop license file if exists
+            license_file = pathlib.Path(self.config_dir or ".") / ".license_trial"
+            if license_file.exists():
+                data = json.loads(license_file.read_text())
+                start_date = datetime.fromisoformat(data.get("start_date", ""))
+                trial_duration = int(data.get("duration_days", 30))
+                end_date = start_date + timedelta(days=trial_duration)
+                days_remaining = (end_date - datetime.now()).days
+                if days_remaining > 0:
+                    return days_remaining
+                else:
+                    return 0
+        except Exception:
+            pass
+        # Check server license status
+        status = getattr(self, "license_status", {})
+        if status.get("tier") == "trial":
+            return status.get("days_remaining", 30)
+        return None
 
     def _normalized_tradeadviser_feature_name(self, feature):
         """Normalize feature name to TradeAdviser server standard."""
@@ -894,7 +984,7 @@ class AppController(QMainWindow):
         return self.TRADEADVISER_FEATURE_ALIASES.get(normalized, normalized)
 
     # === Server Configuration Methods ===
-    
+
     def _server_sync_profile(self):
         """Load server sync profile from platform sync service."""
         try:
@@ -933,6 +1023,7 @@ class AppController(QMainWindow):
     def _server_license_status_snapshot(self, base_status=None):
         allowed_features = sorted(set(getattr(self, "allowed_features", set()) or set()))
         status = {
+            "base_status": base_status,
             "tier": "workspace",
             "state": "active",
             "status": "active",
@@ -1176,8 +1267,8 @@ class AppController(QMainWindow):
             )
 
         if "coinbase" in lowered and any(
-            token in lowered
-            for token in ("unauthorized", "authentication", "invalid signature", "forbidden", "401")
+                token in lowered
+                for token in ("unauthorized", "authentication", "invalid signature", "forbidden", "401")
         ):
             return (
                 "Coinbase authentication failed. In Sopotek's Coinbase mode, use Coinbase Advanced Trade credentials: "
@@ -1324,7 +1415,7 @@ class AppController(QMainWindow):
     def eventFilter(self, watched, event):
         """
         Global event filter for language and UI updates.
-        
+
         Monitors Show events to apply language translations to newly visible widgets.
         Safely checks object validity using shiboken6 before accessing.
         """
@@ -1339,9 +1430,9 @@ class AppController(QMainWindow):
                 try:
                     is_window = getattr(watched, "isWindow", None)
                     if (
-                        callable(is_window)
-                        and is_window()
-                        and not bool(getattr(watched, "_ui_shutting_down", False))
+                            callable(is_window)
+                            and is_window()
+                            and not bool(getattr(watched, "_ui_shutting_down", False))
                     ):
                         apply_runtime_translations(watched, self.language_code)
                 except BaseException as exc:
@@ -1385,10 +1476,10 @@ class AppController(QMainWindow):
     def _resolve_initial_storage_preferences(settings):
         """
         Resolve database storage mode and connection URL.
-        
+
         Reads from environment variables first, then settings.
         Supports 'local' (SQLite) or 'remote' (PostgreSQL/MySQL) modes.
-        
+
         Returns:
             Tuple of (mode, database_url)
         """
@@ -1418,8 +1509,8 @@ class AppController(QMainWindow):
         - Restore persisted performance state
         """
         require_remote_storage = (
-            str(getattr(self, "database_mode", "local") or "local").strip().lower() == "remote"
-            and bool(_storage_mode_from_env() or _remote_database_url_from_env())
+                str(getattr(self, "database_mode", "local") or "local").strip().lower() == "remote"
+                and bool(_storage_mode_from_env() or _remote_database_url_from_env())
         )
         self.configure_storage_database(
             database_mode=getattr(self, "database_mode", "local"),
@@ -1436,12 +1527,12 @@ class AppController(QMainWindow):
     def _performance_trade_payload_from_record(self, trade):
         """
         Convert trade database record to performance tracking payload.
-        
+
         Extracts all relevant trade information from database record for performance analysis.
-        
+
         Args:
             trade: Trade record from database
-            
+
         Returns:
             dict: Normalized trade payload including exchange, symbol, side, price, size,
                   order type, status, PnL, strategy name, fees, and slippage
@@ -1469,7 +1560,7 @@ class AppController(QMainWindow):
 
     def _performance_scope(self):
         """Get current performance scope (exchange and account).
-        
+
         Returns:
             Tuple of (exchange_code, account_label) for filtering performance data
         """
@@ -1483,7 +1574,7 @@ class AppController(QMainWindow):
 
     def _performance_history_settings_key(self):
         """Generate settings key for storing performance history.
-        
+
         Includes exchange and account in key to support multi-exchange/account tracking.
         """
         exchange, account_label = self._performance_scope()
@@ -1494,7 +1585,7 @@ class AppController(QMainWindow):
 
     def _trade_row_exchange_value(self, trade):
         """Extract exchange value from trade record.
-        
+
         Handles both dict and object trade representations.
         """
         if isinstance(trade, dict):
@@ -1505,10 +1596,10 @@ class AppController(QMainWindow):
 
     def _repository_trade_rows_for_active_exchange(self, limit=200):
         """Retrieve trade records from repository filtered by active exchange.
-        
+
         Args:
             limit: Maximum number of trades to retrieve
-            
+
         Returns:
             List of trade records for current active exchange
         """
@@ -1741,21 +1832,6 @@ class AppController(QMainWindow):
             "payload": payload,
         }
 
-
-    def _normalize_live_agent_timestamp(self, timestamp):
-        if isinstance(timestamp, datetime):
-            normalized = timestamp.replace(tzinfo=timezone.utc) if timestamp.tzinfo is None else timestamp.astimezone(timezone.utc)
-            return normalized.timestamp(), normalized.strftime("%Y-%m-%d %H:%M:%S UTC")
-        text = str(timestamp or "").strip()
-        if not text:
-            return None, ""
-        try:
-            normalized = datetime.fromisoformat(text.replace("Z", "+00:00"))
-            normalized = normalized.replace(tzinfo=timezone.utc) if normalized.tzinfo is None else normalized.astimezone(timezone.utc)
-            return normalized.timestamp(), normalized.strftime("%Y-%m-%d %H:%M:%S UTC")
-        except Exception:
-            return None, text
-
     def _live_agent_memory_event_to_payload(self, event):
         if not isinstance(event, dict):
             return {}
@@ -1763,7 +1839,7 @@ class AppController(QMainWindow):
         if not symbol:
             return {}
         payload = dict(event.get("payload") or {})
-        timestamp_value, timestamp_label = self._normalize_live_agent_timestamp(event.get("timestamp"))
+        timestamp_value, timestamp_label = _normalize_live_agent_timestamp(event.get("timestamp"))
         return {
             "decision_id": str(event.get("decision_id") or "").strip(),
             "symbol": symbol,
@@ -1815,7 +1891,7 @@ class AppController(QMainWindow):
         row["timeframe"] = str(row.get("timeframe") or "").strip()
         row["decision_id"] = str(row.get("decision_id") or "").strip()
 
-        timestamp_value, timestamp_label = self._normalize_live_agent_timestamp(
+        timestamp_value, timestamp_label = _normalize_live_agent_timestamp(
             row.get("timestamp") if row.get("timestamp") not in (None, "") else datetime.now(timezone.utc)
         )
         row["timestamp"] = timestamp_value
@@ -1937,7 +2013,7 @@ class AppController(QMainWindow):
         if event_type == EventType.REASONING_DECISION:
             decision = str(payload.get("decision") or "NEUTRAL").strip().upper() or "NEUTRAL"
             confidence = payload.get("confidence")
-            confidence_text = ""
+
             try:
                 confidence_text = f" at {float(confidence):.2f} confidence"
             except Exception:
@@ -1948,7 +2024,7 @@ class AppController(QMainWindow):
             profile_id = str(payload.get("profile_id") or "").strip()
             selected_strategy = str(payload.get("selected_strategy") or strategy_name or "").strip() or "strategy blend"
             confidence = payload.get("confidence")
-            confidence_text = ""
+
             try:
                 confidence_text = f" at {float(confidence):.2f} confidence"
             except Exception:
@@ -2024,7 +2100,7 @@ class AppController(QMainWindow):
         self._append_live_agent_decision_event(payload)
         self._emit_agent_runtime_signal(payload)
         if event_type == EventType.SIGNAL:
-            self._create_task(self._sync_signal_to_server(event_type, data), "tradeadviser_signal_sync")
+            await self._create_task(self._sync_signal_to_server(event_type, data), "tradeadviser_signal_sync")
 
     def _bind_trading_runtime_streams(self):
         trading_system = getattr(self, "trading_system", None)
@@ -2036,13 +2112,13 @@ class AppController(QMainWindow):
         event_bus = getattr(trading_system, "event_bus", None)
         if event_bus is not None and hasattr(event_bus, "subscribe"):
             for event_type in (
-                EventType.SIGNAL,
-                EventType.REASONING_DECISION,
-                EventType.DECISION_EVENT,
-                EventType.RISK_APPROVED,
-                EventType.RISK_ALERT,
-                EventType.EXECUTION_PLAN,
-                EventType.ORDER_FILLED,
+                    EventType.SIGNAL,
+                    EventType.REASONING_DECISION,
+                    EventType.DECISION_EVENT,
+                    EventType.RISK_APPROVED,
+                    EventType.RISK_ALERT,
+                    EventType.EXECUTION_PLAN,
+                    EventType.ORDER_FILLED,
             ):
                 event_bus.subscribe(event_type, self._handle_trading_agent_bus_event)
 
@@ -2286,7 +2362,7 @@ class AppController(QMainWindow):
                 "Remote storage requested for %s but the runtime is using local SQLite at %s.",
                 raw_url or "the configured database URL",
                 configured_url,
-            )
+                )
             auto_fallback_to_local = True
             mode = "local"
             raw_url = ""
@@ -2302,7 +2378,7 @@ class AppController(QMainWindow):
         self._rebind_storage_dependencies()
 
         should_persist_storage_settings = (bool(persist) and not auto_fallback_to_local) or (
-            mode == "remote" and bool(raw_url) and self.database_url != raw_url
+                mode == "remote" and bool(raw_url) and self.database_url != raw_url
         )
         if should_persist_storage_settings:
             self.settings.setValue("storage/database_mode", self.database_mode)
@@ -2574,9 +2650,9 @@ class AppController(QMainWindow):
         ws_url = self._hybrid_ws_url_from_base(base_url)
         controller = getattr(self, "hybrid_session_controller", None)
         should_recreate = (
-            controller is None
-            or str(getattr(self, "hybrid_server_base_url", "") or "") != base_url
-            or str(getattr(self, "hybrid_server_ws_url", "") or "") != ws_url
+                controller is None
+                or str(getattr(self, "hybrid_server_base_url", "") or "") != base_url
+                or str(getattr(self, "hybrid_server_ws_url", "") or "") != ws_url
         )
         if should_recreate:
             await self._teardown_hybrid_session(clear_status=False)
@@ -2602,7 +2678,7 @@ class AppController(QMainWindow):
         username = str(active_profile.get("email") or "").strip()
         password = str(active_profile.get("password") or "").strip()
         try:
-            session_state = await controller.login(username, password)
+            session_state = await controller.connect({"email": username, "password": password})
         except Exception as exc:
             self.hybrid_server_last_error = str(exc)
             self.hybrid_server_connected = False
@@ -2661,14 +2737,14 @@ class AppController(QMainWindow):
         api_client = getattr(self, "hybrid_api_client", None)
         if api_client is None:
             return
-        
+
         # Poll every 2 seconds for positions and orders
         try:
             while True:
                 if not getattr(self, "hybrid_server_connected", False):
                     await asyncio.sleep(5)
                     continue
-                
+
                 try:
                     # Fetch positions and orders in parallel
                     positions, orders = await asyncio.gather(
@@ -2676,11 +2752,11 @@ class AppController(QMainWindow):
                         api_client.fetch_orders(),
                         return_exceptions=True
                     )
-                    
+
                     # Filter out exceptions
                     positions = positions if isinstance(positions, list) else []
                     orders = orders if isinstance(orders, list) else []
-                    
+
                     # Apply updates to terminals
                     if positions:
                         self._apply_hybrid_runtime_to_terminals({"positions": positions})
@@ -2688,7 +2764,7 @@ class AppController(QMainWindow):
                         self._apply_hybrid_runtime_to_terminals({"open_orders": orders})
                 except Exception as e:
                     self.logger.debug(f"Polling error: {e}")
-                
+
                 await asyncio.sleep(2)
         except asyncio.CancelledError:
             pass
@@ -3046,18 +3122,18 @@ class AppController(QMainWindow):
             self._apply_hybrid_runtime_to_terminals({"behavior_guard_status": dict(runtime.get("behavior_guard_status") or {})})
 
     async def _submit_trade_via_hybrid_server(
-        self,
-        *,
-        symbol,
-        side,
-        amount_units,
-        order_type,
-        price=None,
-        stop_price=None,
-        source="manual",
-        strategy_name="Manual",
-        reason="Manual order",
-        timeframe=None,
+            self,
+            *,
+            symbol,
+            side,
+            amount_units,
+            order_type,
+            price=None,
+            stop_price=None,
+            source="manual",
+            strategy_name="Manual",
+            reason="Manual order",
+            timeframe=None,
     ):
         controller = getattr(self, "hybrid_session_controller", None)
         broker_kind = self._hybrid_exchange_kind()
@@ -3084,7 +3160,7 @@ class AppController(QMainWindow):
             correlation_id=HybridCorrelationIds().correlation_id,
         )
         response = await controller.api_client.place_order(
-            HybridPlaceOrderCommand(execution_request=execution_request)
+            execution_request
         )
         if not response.success or response.data is None:
             raise RuntimeError(response.error.message if response.error else "Hybrid order placement failed.")
@@ -3211,7 +3287,11 @@ class AppController(QMainWindow):
         return input_box.text().strip() or None
 
     def _create_task(self, coro, name):
-        task = asyncio.create_task(coro)
+        # Handle case where a Task is passed instead of a coroutine
+        if isinstance(coro, asyncio.Task):
+            task = coro
+        else:
+            task = asyncio.create_task(coro)
 
         def _done(t):
             try:
@@ -3246,6 +3326,18 @@ class AppController(QMainWindow):
             _emit()
             return
         QTimer.singleShot(0, _emit)
+
+    def _run_on_gui_thread(self, func):
+        """Run a function on the GUI thread using QTimer.singleShot.
+        
+        This ensures that Qt operations that require the GUI thread are executed
+        safely even when called from async/background contexts.
+        
+        Args:
+            func: Callable to execute on the GUI thread
+        """
+        if callable(func):
+            QTimer.singleShot(0, func)
 
     def _handle_session_registry_changed(self):
         manager = getattr(self, "session_manager", None)
@@ -3505,26 +3597,26 @@ class AppController(QMainWindow):
         return session
     def start_trading_pipeline(self):
 
-     if not self.config or not self.broker:
-        self.logger.warning("Cannot start scheduler: config or broker missing")
-        return
+        if not self.config or not self.broker:
+            self.logger.warning("Cannot start scheduler: config or broker missing")
+            return
 
-    # 🔥 dynamic interval from latency
-     self.interval = self.dynamic_based_on_latency(
-        self.broker.latency_tracker,
-        base_interval=2
-    )
-     self.event_scheduler = EventScheduler(
-        event_bus=self.event_bus,
-        symbols=self.symbols,
-        interval=self.interval,
-        batch_size=5,
-    )
-     self.scheduler=Scheduler()
+        # 🔥 dynamic interval from latency
+        self.interval = self.dynamic_based_on_latency(
+            self.broker.latency_tracker,
+            base_interval=2
+        )
+        self.event_scheduler = EventScheduler(
+            event_bus=self.event_bus,
+            symbols=self.symbols,
+            interval=self.interval,
+            batch_size=5,
+        )
+        self.scheduler=Scheduler()
 
-# 🔥 start it
-     asyncio.create_task(self.event_scheduler.start())
-     asyncio.create_task(self.scheduler.start())
+        # 🔥 start it
+        asyncio.create_task(self.event_scheduler.start())
+        asyncio.create_task(self.scheduler.start())
 
 
     async def start_trading_session(self, session_id):
@@ -3636,34 +3728,34 @@ class AppController(QMainWindow):
         self.ws_manager = None
     def dynamic_based_on_latency(self,latency_tracker, base_interval=1.0):
 
-     stats = latency_tracker.stats()
+        stats = latency_tracker.stats()
 
-     avg = stats["avg"]
-     p95 = stats["p95"]
-     error_rate = stats["error_rate"]
+        avg = stats["avg"]
+        p95 = stats["p95"]
+        error_rate = stats["error_rate"]
 
-    # =========================
-    # BASE ADJUSTMENT
-    # =========================
-     interval = base_interval
+        # =========================
+        # BASE ADJUSTMENT
+        # =========================
+        interval = base_interval
 
-    # Slow API → increase interval
-     if avg > 0.5:
-        interval *= 1.5
+        # Slow API → increase interval
+        if avg > 0.5:
+            interval *= 1.5
 
-     if p95 > 1.0:
-        interval *= 2.0
+        if p95 > 1.0:
+            interval *= 2.0
 
-    # High errors → throttle hard
-     if error_rate > 0.1:
-        interval *= 2.5
+        # High errors → throttle hard
+        if error_rate > 0.1:
+            interval *= 2.5
 
-    # Fast API → speed up
-     if avg < 0.2 and error_rate < 0.02:
-        interval *= 0.8
+        # Fast API → speed up
+        if avg < 0.2 and error_rate < 0.02:
+            interval *= 0.8
 
-    # clamp
-     return max(0.5, min(5.0, interval))
+        # clamp
+        return max(0.5, min(5.0, interval))
 
     async def _bind_active_session_state(self, session, restart_stream=True):
         if session is None:
@@ -3756,8 +3848,10 @@ class AppController(QMainWindow):
                 if config.broker is None:
                     raise RuntimeError("Broker configuration missing")
 
-                self.dashboard.show_loading()
+                # Show loading on GUI thread
+                self._run_on_gui_thread(lambda: self.dashboard.show_loading())
                 await asyncio.sleep(0)
+                
                 self.config = config
                 await self.initialize_license(force_login=False)
                 self.strategy_name = Strategy.normalize_strategy_name(getattr(config, "strategy", self.strategy_name))
@@ -3810,10 +3904,11 @@ class AppController(QMainWindow):
 
                 await self.initialize_trading(session_id=session.session_id, force_new=True)
                 self._emit_symbols_signal_deferred(exchange, self.symbols)
-                self._schedule_startup_strategy_auto_assignment(
-                    symbols=self.symbols,
-                    timeframe=self.time_frame,
-                    exchange=exchange,
+                await self._create_task(
+                    self._schedule_startup_strategy_auto_assignment(
+                        exchange=exchange,
+                    ),
+                    name="startup_strategy_auto_assignment"
                 )
 
             except Exception as e:
@@ -3825,14 +3920,20 @@ class AppController(QMainWindow):
                 self.connected = False
                 self.connection_signal.emit("disconnected")
                 self.logger.exception("Initialization failed")
-                QMessageBox.critical(
-                    self,
-                    "Initialization Failed",
-                    self._friendly_initialization_error(e),
+                
+                # Show error dialog on GUI thread
+                error_msg = self._friendly_initialization_error(e)
+                self._run_on_gui_thread(
+                    lambda: QMessageBox.critical(
+                        self,
+                        "Initialization Failed",
+                        error_msg,
+                    )
                 )
             finally:
-                self.dashboard.hide_loading()
-                self._handle_session_registry_changed()
+                # Hide loading on GUI thread
+                self._run_on_gui_thread(lambda: self.dashboard.hide_loading())
+                self._run_on_gui_thread(lambda: self._handle_session_registry_changed())
 
     async def _fetch_symbols(self, broker):
         symbols = None
@@ -4426,7 +4527,7 @@ class AppController(QMainWindow):
 
             def solana_sort_key(symbol):
                 if "/" not in symbol:
-                    return (99, 1, symbol)
+                    return 99, 1, symbol
                 base, quote = symbol.split("/", 1)
                 quote_rank = preferred_quotes.index(quote) if quote in preferred_quotes else len(preferred_quotes)
                 account_rank = 0 if base in account_assets or quote in account_assets else 1
@@ -4677,31 +4778,31 @@ class AppController(QMainWindow):
                 self._terminal_runtime_restore_task = None
 
     def update_integration_settings(
-        self,
-        telegram_enabled=None,
-        telegram_bot_token=None,
-        telegram_chat_id=None,
-        trade_close_notifications_enabled=None,
-        trade_close_notify_telegram=None,
-        trade_close_notify_email=None,
-        trade_close_notify_sms=None,
-        trade_close_email_host=None,
-        trade_close_email_port=None,
-        trade_close_email_username=None,
-        trade_close_email_password=None,
-        trade_close_email_from=None,
-        trade_close_email_to=None,
-        trade_close_email_starttls=None,
-        trade_close_sms_account_sid=None,
-        trade_close_sms_auth_token=None,
-        trade_close_sms_from_number=None,
-        trade_close_sms_to_number=None,
-        openai_api_key=None,
-        openai_model=None,
-        news_enabled=None,
-        news_autotrade_enabled=None,
-        news_draw_on_chart=None,
-        news_feed_url=None,
+            self,
+            telegram_enabled=None,
+            telegram_bot_token=None,
+            telegram_chat_id=None,
+            trade_close_notifications_enabled=None,
+            trade_close_notify_telegram=None,
+            trade_close_notify_email=None,
+            trade_close_notify_sms=None,
+            trade_close_email_host=None,
+            trade_close_email_port=None,
+            trade_close_email_username=None,
+            trade_close_email_password=None,
+            trade_close_email_from=None,
+            trade_close_email_to=None,
+            trade_close_email_starttls=None,
+            trade_close_sms_account_sid=None,
+            trade_close_sms_auth_token=None,
+            trade_close_sms_from_number=None,
+            trade_close_sms_to_number=None,
+            openai_api_key=None,
+            openai_model=None,
+            news_enabled=None,
+            news_autotrade_enabled=None,
+            news_draw_on_chart=None,
+            news_feed_url=None,
     ):
         if telegram_enabled is not None:
             self.telegram_enabled = bool(telegram_enabled)
@@ -4893,7 +4994,7 @@ class AppController(QMainWindow):
             try:
                 return await existing_task
             except Exception:
-                
+
                 return []
 
         async def runner():
@@ -4994,7 +5095,7 @@ class AppController(QMainWindow):
             to_number=getattr(self, "trade_close_sms_to_number", ""),
         )
         close_previous = getattr(previous_sms_service, "close", None)
-        if close_existing and previous_sms_service is not None and callable(close_previous):
+        if close_existing and previous_sms_service is not None:
             try:
                 asyncio.get_event_loop().create_task(close_previous())
             except Exception:
@@ -5027,9 +5128,9 @@ class AppController(QMainWindow):
             total_size = previous_size + abs(float(size))
             if total_size > 0:
                 entry_price = (
-                    (float(previous.get("entry_price") or 0.0) * previous_size)
-                    + (float(entry_price) * abs(float(size)))
-                ) / total_size
+                                      (float(previous.get("entry_price") or 0.0) * previous_size)
+                                      + (float(entry_price) * abs(float(size)))
+                              ) / total_size
                 size = total_size
         elif size is None:
             size = previous.get("size") if previous else 0.0
@@ -5043,9 +5144,9 @@ class AppController(QMainWindow):
         if not payload.get("strategy_name"):
             payload["strategy_name"] = str(getattr(self, "strategy_name", "") or "").strip()
         if (
-            payload.get("exit_price") in (None, "")
-            and payload.get("close_price") in (None, "")
-            and payload.get("price") not in (None, "")
+                payload.get("exit_price") in (None, "")
+                and payload.get("close_price") in (None, "")
+                and payload.get("price") not in (None, "")
         ):
             payload["exit_price"] = payload.get("price")
         if payload.get("entry_price") in (None, ""):
@@ -5129,12 +5230,12 @@ class AppController(QMainWindow):
         if exchange_name == "oanda" and len(parts) == 2:
             base, quote = parts
             supports_lots = (
-                len(base) == 3
-                and len(quote) == 3
-                and base.isalpha()
-                and quote.isalpha()
-                and base in self.FOREX_SYMBOL_QUOTES
-                and quote in self.FOREX_SYMBOL_QUOTES
+                    len(base) == 3
+                    and len(quote) == 3
+                    and base.isalpha()
+                    and quote.isalpha()
+                    and base in self.FOREX_SYMBOL_QUOTES
+                    and quote in self.FOREX_SYMBOL_QUOTES
             )
         return {
             "symbol": normalized_symbol,
@@ -5219,12 +5320,12 @@ class AppController(QMainWindow):
         return None
 
     async def _resolve_trade_risk_context(
-        self,
-        symbol,
-        reference_price,
-        balances,
-        broker=None,
-        allow_cross_conversion=True,
+            self,
+            symbol,
+            reference_price,
+            balances,
+            broker=None,
+            allow_cross_conversion=True,
     ):
         base_currency, quote_currency = self._trade_symbol_parts(symbol)
         account_currency = self._balance_account_currency(balances)
@@ -5241,12 +5342,12 @@ class AppController(QMainWindow):
             return context
 
         is_forex = (
-            len(base_currency) == 3
-            and len(quote_currency) == 3
-            and base_currency.isalpha()
-            and quote_currency.isalpha()
-            and base_currency in self.FOREX_SYMBOL_QUOTES
-            and quote_currency in self.FOREX_SYMBOL_QUOTES
+                len(base_currency) == 3
+                and len(quote_currency) == 3
+                and base_currency.isalpha()
+                and quote_currency.isalpha()
+                and base_currency in self.FOREX_SYMBOL_QUOTES
+                and quote_currency in self.FOREX_SYMBOL_QUOTES
         )
         context["is_forex"] = is_forex
         if not is_forex:
@@ -5279,9 +5380,9 @@ class AppController(QMainWindow):
         elif account_currency and account_currency == base_currency and reference_value and reference_value > 0:
             quote_to_account_rate = 1.0 / float(reference_value)
         elif (
-            account_currency
-            and allow_cross_conversion
-            and account_currency not in {base_currency, quote_currency}
+                account_currency
+                and allow_cross_conversion
+                and account_currency not in {base_currency, quote_currency}
         ):
             direct_price = await self._conversion_reference_price(f"{quote_currency}/{account_currency}")
             if direct_price is not None and direct_price > 0:
@@ -5406,13 +5507,13 @@ class AppController(QMainWindow):
         normalized_symbol = self._normalize_market_data_symbol(snapshot.get("symbol") or symbol) or str(symbol or "").strip().upper()
         raw_payload = snapshot.get("raw") if isinstance(snapshot.get("raw"), dict) else {}
         broker_timestamp = (
-            snapshot.get("_received_at")
-            or snapshot.get("timestamp")
-            or snapshot.get("time")
-            or snapshot.get("datetime")
-            or raw_payload.get("time")
-            or raw_payload.get("timestamp")
-            or raw_payload.get("datetime")
+                snapshot.get("_received_at")
+                or snapshot.get("timestamp")
+                or snapshot.get("time")
+                or snapshot.get("datetime")
+                or raw_payload.get("time")
+                or raw_payload.get("timestamp")
+                or raw_payload.get("datetime")
         )
         received_at = broker_timestamp or datetime.now(timezone.utc).isoformat()
         snapshot["symbol"] = normalized_symbol
@@ -5536,7 +5637,7 @@ class AppController(QMainWindow):
             float(getattr(self, "CANDLE_STALE_MIN_SECONDS", 60.0) or 60.0),
             float(timeframe_seconds(timeframe_value, default=60))
             * float(getattr(self, "CANDLE_STALE_MULTIPLIER", 3.0) or 3.0),
-        )
+            )
         orderbook_threshold = max(1.0, float(getattr(self, "ORDERBOOK_STALE_SECONDS", 20.0) or 20.0))
 
         ticker_payload = ticker or self._cached_ticker_snapshot(normalized_symbol)
@@ -5565,8 +5666,8 @@ class AppController(QMainWindow):
                 )
                 refreshed_fresh = refreshed_age_seconds is not None and refreshed_age_seconds <= quote_threshold
                 if refreshed_fresh or (
-                    refreshed_age_seconds is not None
-                    and (quote_age_seconds is None or refreshed_age_seconds < quote_age_seconds)
+                        refreshed_age_seconds is not None
+                        and (quote_age_seconds is None or refreshed_age_seconds < quote_age_seconds)
                 ):
                     ticker_snapshot = refreshed_snapshot
                     quote_age_seconds = refreshed_age_seconds
@@ -5579,12 +5680,12 @@ class AppController(QMainWindow):
             refreshed_candle_timestamp = await self._refresh_trade_guard_candle_data(normalized_symbol, timeframe_value)
             refreshed_candle_age_seconds = age_seconds(refreshed_candle_timestamp)
             refreshed_candle_fresh = (
-                refreshed_candle_age_seconds is not None
-                and refreshed_candle_age_seconds <= candle_threshold_seconds
+                    refreshed_candle_age_seconds is not None
+                    and refreshed_candle_age_seconds <= candle_threshold_seconds
             )
             if refreshed_candle_fresh or (
-                refreshed_candle_age_seconds is not None
-                and (candle_age_seconds is None or refreshed_candle_age_seconds < candle_age_seconds)
+                    refreshed_candle_age_seconds is not None
+                    and (candle_age_seconds is None or refreshed_candle_age_seconds < candle_age_seconds)
             ):
                 candle_timestamp = refreshed_candle_timestamp
                 candle_age_seconds = refreshed_candle_age_seconds
@@ -5605,12 +5706,12 @@ class AppController(QMainWindow):
             refreshed_book_snapshot = await self._refresh_trade_guard_orderbook(normalized_symbol)
             refreshed_orderbook_age_seconds = age_seconds((refreshed_book_snapshot or {}).get("updated_at"))
             refreshed_orderbook_fresh = (
-                refreshed_orderbook_age_seconds is not None
-                and refreshed_orderbook_age_seconds <= orderbook_threshold
+                    refreshed_orderbook_age_seconds is not None
+                    and refreshed_orderbook_age_seconds <= orderbook_threshold
             )
             if refreshed_orderbook_fresh or (
-                refreshed_orderbook_age_seconds is not None
-                and (orderbook_age_seconds is None or refreshed_orderbook_age_seconds < orderbook_age_seconds)
+                    refreshed_orderbook_age_seconds is not None
+                    and (orderbook_age_seconds is None or refreshed_orderbook_age_seconds < orderbook_age_seconds)
             ):
                 book_snapshot = refreshed_book_snapshot
                 orderbook_age_seconds = refreshed_orderbook_age_seconds
@@ -5695,20 +5796,20 @@ class AppController(QMainWindow):
         }
 
     async def _record_trade_audit(
-        self,
-        action,
-        *,
-        status=None,
-        symbol=None,
-        requested_symbol=None,
-        side=None,
-        order_type=None,
-        source=None,
-        order_id=None,
-        message=None,
-        payload=None,
-        venue=None,
-        **extra_payload,
+            self,
+            action,
+            *,
+            status=None,
+            symbol=None,
+            requested_symbol=None,
+            side=None,
+            order_type=None,
+            source=None,
+            order_id=None,
+            message=None,
+            payload=None,
+            venue=None,
+            **extra_payload,
     ):
         repository = getattr(self, "trade_audit_repository", None)
         if repository is None:
@@ -5760,7 +5861,7 @@ class AppController(QMainWindow):
             parsed = None
         if isinstance(parsed, dict):
             return parsed
-        match = re.search(r"\{.*\}", payload_text, flags=re.DOTALL)
+        match = re.search(r"\{.*}", payload_text, flags=re.DOTALL)
         if not match:
             return None
         try:
@@ -5770,21 +5871,21 @@ class AppController(QMainWindow):
         return parsed if isinstance(parsed, dict) else None
 
     async def _recommend_trade_size_with_openai(
-        self,
-        *,
-        symbol,
-        side,
-        quantity,
-        requested_units,
-        deterministic_units,
-        reference_price,
-        balances,
-        closeout_guard,
-        order_type="market",
-        price=None,
-        stop_price=None,
-        stop_loss=None,
-        take_profit=None,
+            self,
+            *,
+            symbol,
+            side,
+            quantity,
+            requested_units,
+            deterministic_units,
+            reference_price,
+            balances,
+            closeout_guard,
+            order_type="market",
+            price=None,
+            stop_price=None,
+            stop_loss=None,
+            take_profit=None,
     ):
         api_key = str(getattr(self, "openai_api_key", "") or "").strip()
         if not api_key:
@@ -5946,23 +6047,23 @@ class AppController(QMainWindow):
         return account_price if account_price > 0 else None
 
     async def _retry_user_trade_after_balance_rejection(
-        self,
-        *,
-        order,
-        preflight,
-        symbol,
-        side,
-        amount,
-        quantity_mode=None,
-        order_type="market",
-        price=None,
-        stop_price=None,
-        stop_loss=None,
-        take_profit=None,
-        source="manual",
-        strategy_name="Manual",
-        reason="Manual order",
-        timeframe=None,
+            self,
+            *,
+            order,
+            preflight,
+            symbol,
+            side,
+            amount,
+            quantity_mode=None,
+            order_type="market",
+            price=None,
+            stop_price=None,
+            stop_loss=None,
+            take_profit=None,
+            source="manual",
+            strategy_name="Manual",
+            reason="Manual order",
+            timeframe=None,
     ):
         if not isinstance(order, dict):
             return order, preflight
@@ -6082,19 +6183,19 @@ class AppController(QMainWindow):
         return retried_order, refreshed_preflight
 
     async def _preflight_trade_submission(
-        self,
-        *,
-        symbol,
-        side,
-        amount,
-        quantity_mode=None,
-        order_type="market",
-        price=None,
-        stop_price=None,
-        stop_loss=None,
-        take_profit=None,
-        source=None,
-        timeframe=None,
+            self,
+            *,
+            symbol,
+            side,
+            amount,
+            quantity_mode=None,
+            order_type="market",
+            price=None,
+            stop_price=None,
+            stop_loss=None,
+            take_profit=None,
+            source=None,
+            timeframe=None,
     ):
         broker = getattr(self, "broker", None)
         if broker is None:
@@ -6210,37 +6311,37 @@ class AppController(QMainWindow):
         margin_rate = await self._instrument_margin_rate(resolved_symbol, broker=broker)
         margin_cap_applied = False
         if (
-            account_unit_price is not None
-            and free_margin is not None
-            and margin_rate is not None
-            and margin_rate > 0
+                account_unit_price is not None
+                and free_margin is not None
+                and margin_rate is not None
+                and margin_rate > 0
         ):
             if free_margin <= 0:
                 raise RuntimeError("No free margin is available for a new leveraged trade.")
             margin_cap = max(
                 0.0,
                 float(free_margin) * self.ORDER_SIZE_BUFFER / (float(account_unit_price) * float(margin_rate)),
-            )
+                )
             hard_caps.append(margin_cap)
             margin_cap_applied = True
             if margin_cap + 1e-12 < requested_units:
                 sizing_notes.append("Free margin reduced the order size for this symbol.")
 
         if (
-            exchange_name == "oanda"
-            and not margin_cap_applied
-            and free_margin is None
-            and available_cash is not None
-            and account_unit_price is not None
-            and account_currency
-            and account_currency == quote_currency
+                exchange_name == "oanda"
+                and not margin_cap_applied
+                and free_margin is None
+                and available_cash is not None
+                and account_unit_price is not None
+                and account_currency
+                and account_currency == quote_currency
         ):
             if available_cash <= 0:
                 raise RuntimeError("No available account balance is available for a new trade.")
             balance_cap = max(
                 0.0,
                 float(available_cash) * self.ORDER_SIZE_BUFFER / float(account_unit_price),
-            )
+                )
             hard_caps.append(balance_cap)
             if balance_cap + 1e-12 < requested_units:
                 sizing_notes.append("Available account balance reduced the order size.")
@@ -6270,9 +6371,9 @@ class AppController(QMainWindow):
             if adjusted_units + 1e-12 < requested_units:
                 sizing_notes.append(str(risk_reason or "Risk settings reduced the order size.").strip())
         elif (
-            equity is not None
-            and account_unit_price is not None
-            and not self._is_user_directed_trade_source(source)
+                equity is not None
+                and account_unit_price is not None
+                and not self._is_user_directed_trade_source(source)
         ):
             max_position_size_pct = max(0.001, float(getattr(self, "max_position_size_pct", 0.10) or 0.10))
             risk_cap = max(0.0, float(equity) * max_position_size_pct / float(account_unit_price))
@@ -6370,19 +6471,19 @@ class AppController(QMainWindow):
         return prepared
 
     async def preview_trade_submission(
-        self,
-        *,
-        symbol,
-        side,
-        amount,
-        quantity_mode=None,
-        order_type="market",
-        price=None,
-        stop_price=None,
-        stop_loss=None,
-        take_profit=None,
-        source="manual",
-        timeframe=None,
+            self,
+            *,
+            symbol,
+            side,
+            amount,
+            quantity_mode=None,
+            order_type="market",
+            price=None,
+            stop_price=None,
+            stop_loss=None,
+            take_profit=None,
+            source="manual",
+            timeframe=None,
     ):
         return await self._preflight_trade_submission(
             symbol=symbol,
@@ -6399,22 +6500,22 @@ class AppController(QMainWindow):
         )
 
     async def submit_trade_with_preflight(
-        self,
-        *,
-        symbol,
-        side,
-        amount,
-        quantity_mode=None,
-        order_type="market",
-        price=None,
-        stop_price=None,
-        stop_loss=None,
-        take_profit=None,
-        source="manual",
-        strategy_name="Manual",
-        reason="Manual order",
-        preflight=None,
-        timeframe=None,
+            self,
+            *,
+            symbol,
+            side,
+            amount,
+            quantity_mode=None,
+            order_type="market",
+            price=None,
+            stop_price=None,
+            stop_loss=None,
+            take_profit=None,
+            source="manual",
+            strategy_name="Manual",
+            reason="Manual order",
+            preflight=None,
+            timeframe=None,
     ):
         broker = getattr(self, "broker", None)
         if broker is None:
@@ -6758,9 +6859,9 @@ class AppController(QMainWindow):
             for symbol in list(source or []):
                 normalized_symbol = self._normalize_strategy_symbol_key(symbol)
                 if (
-                    normalized_symbol
-                    and self._is_plausible_market_symbol(normalized_symbol, broker_type=broker_type, exchange=exchange_code)
-                    and normalized_symbol not in symbol_candidates
+                        normalized_symbol
+                        and self._is_plausible_market_symbol(normalized_symbol, broker_type=broker_type, exchange=exchange_code)
+                        and normalized_symbol not in symbol_candidates
                 ):
                     symbol_candidates.append(normalized_symbol)
         return symbol_candidates
@@ -6880,9 +6981,9 @@ class AppController(QMainWindow):
 
         market = self._broker_market_for_symbol(normalized_symbol)
         is_derivative = (
-            active_preference == "derivative"
-            or ":" in normalized_symbol
-            or self._symbol_market_is_derivative(normalized_symbol, market=market)
+                active_preference == "derivative"
+                or ":" in normalized_symbol
+                or self._symbol_market_is_derivative(normalized_symbol, market=market)
         )
         if is_derivative:
             return "crypto_derivative"
@@ -7105,32 +7206,70 @@ class AppController(QMainWindow):
         )
         return biased
 
-    def _build_strategy_ranker(self, strategy_registry):
+    def _build_strategy_ranker(self, strategy_registry=None):
         from backtesting.strategy_ranker import StrategyRanker
 
         return StrategyRanker(
             strategy_registry=strategy_registry,
-            initial_balance=getattr(self, "initial_capital", 10000),
+            initial_balance=getattr(self, "initial_capital", 1000)
         )
 
     def _get_strategy_ranking_executor(self):
+        """
+        Return a dedicated single-worker executor for strategy ranking.
+
+        A single worker avoids heavy backtests competing against UI/event-loop tasks.
+        """
+
         executor = getattr(self, "_strategy_ranking_executor", None)
+
         if executor is None:
-            # Keep heavy pandas/ta ranking work off qasync's QThread executor.
-            executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="strategy-ranker")
-            self._strategy_ranking_executor = executor
+         executor = ThreadPoolExecutor(
+            max_workers=100,
+            thread_name_prefix="strategy-ranker",
+        )
+        self._strategy_ranking_executor = executor
+
         return executor
 
-    async def _run_strategy_ranking(self, ranker, frame, symbol, timeframe, strategy_names):
-        loop = asyncio.get_running_loop()
-        ranking_call = partial(
-            ranker.rank,
-            frame.copy(),
+    async def _run_strategy_ranking(
+            self,
+            ranker,
+            data,
             symbol,
-            timeframe,
-            strategy_names,
+            timeframe=None,
+            strategy_names=None,
+            top_n=None,
+            include_failed=True,
+            export_csv_path=None,
+            metadata=None,
+    ):
+        """
+        Run strategy ranking safely in a background executor.
+
+        Important:
+        Do NOT pass extra positional arguments to run_in_executor after ranking_call.
+        Anything after ranking_call becomes an argument to ranking_call itself.
+        """
+
+        loop = asyncio.get_running_loop()
+
+        def ranking_call():
+         return ranker.rank(
+            data=data,
+            symbol=symbol,
+            timeframe=timeframe,
+            strategy_names=strategy_names,
+            top_n=top_n,
+            include_failed=include_failed,
+            export_csv_path=export_csv_path,
+            metadata=metadata,
         )
-        return await loop.run_in_executor(self._get_strategy_ranking_executor(), ranking_call)
+        executor = self._get_strategy_ranking_executor()
+        return await loop.run_in_executor(
+            executor,
+            ranking_call,
+        )
 
     def _shutdown_strategy_ranking_executor(self, wait=False):
         executor = getattr(self, "_strategy_ranking_executor", None)
@@ -7505,8 +7644,8 @@ class AppController(QMainWindow):
                         except Exception as exc:
                             fetched = None
                             if not any(
-                                item.get("symbol") == symbol and str(item.get("timeframe") or "") == candidate_timeframe
-                                for item in failed_symbols
+                                    item.get("symbol") == symbol and str(item.get("timeframe") or "") == candidate_timeframe
+                                    for item in failed_symbols
                             ):
                                 failed_symbols.append({"symbol": symbol, "timeframe": candidate_timeframe, "reason": str(exc)})
                         frame = self._normalize_strategy_ranking_frame(fetched)
@@ -7519,10 +7658,10 @@ class AppController(QMainWindow):
 
                     results = await self._run_strategy_ranking(
                         ranker,
-                        frame,
-                        symbol,
-                        candidate_timeframe,
-                        strategy_names,
+                        data=frame,
+                        symbol=symbol,
+                        timeframe=candidate_timeframe,
+                        strategy_names=strategy_names,
                     )
                     records = results.to_dict("records") if results is not None and not getattr(results, "empty", True) else []
                     for record in records:
@@ -7845,10 +7984,10 @@ class AppController(QMainWindow):
         cache = dict(getattr(self, "_strategy_feedback_cache", {}) or {})
         now = time.monotonic()
         if (
-            cache
-            and now < float(cache.get("expires_at", 0.0) or 0.0)
-            and int(cache.get("limit", 0) or 0) >= requested_limit
-            and str(cache.get("exchange") or "").strip().lower() == str(exchange_code or "").strip().lower()
+                cache
+                and now < float(cache.get("expires_at", 0.0) or 0.0)
+                and int(cache.get("limit", 0) or 0) >= requested_limit
+                and str(cache.get("exchange") or "").strip().lower() == str(exchange_code or "").strip().lower()
         ):
             return list(cache.get("rows") or [])
 
@@ -7907,9 +8046,9 @@ class AppController(QMainWindow):
                 or ""
             ).strip().lower()
             closed_like = (
-                pnl is not None
-                or outcome in {"win", "loss", "flat"}
-                or status in {"filled", "closed"}
+                    pnl is not None
+                    or outcome in {"win", "loss", "flat"}
+                    or status in {"filled", "closed"}
             )
             if not closed_like:
                 continue
@@ -7957,8 +8096,8 @@ class AppController(QMainWindow):
                 bucket["fee_count"] += 1
 
             if any(
-                str(getattr(trade, field, "") or "").strip()
-                for field in ("reason", "setup", "outcome", "lessons")
+                    str(getattr(trade, field, "") or "").strip()
+                    for field in ("reason", "setup", "outcome", "lessons")
             ):
                 bucket["journaled"] += 1
 
@@ -7993,14 +8132,14 @@ class AppController(QMainWindow):
             average_adaptive_weight = None
             if int(bucket.get("adaptive_weight_count", 0) or 0) > 0:
                 average_adaptive_weight = (
-                    float(bucket.get("adaptive_weight_sum", 0.0) or 0.0)
-                    / float(int(bucket.get("adaptive_weight_count", 0) or 1))
+                        float(bucket.get("adaptive_weight_sum", 0.0) or 0.0)
+                        / float(int(bucket.get("adaptive_weight_count", 0) or 1))
                 )
             average_adaptive_score = None
             if int(bucket.get("adaptive_score_count", 0) or 0) > 0:
                 average_adaptive_score = (
-                    float(bucket.get("adaptive_score_sum", 0.0) or 0.0)
-                    / float(int(bucket.get("adaptive_score_count", 0) or 1))
+                        float(bucket.get("adaptive_score_sum", 0.0) or 0.0)
+                        / float(int(bucket.get("adaptive_score_count", 0) or 1))
                 )
 
             feedback_bias = 0.0
@@ -8421,7 +8560,7 @@ class AppController(QMainWindow):
                     continue
                 base_weight = max(0.0001, float(row.get("weight", 0.0) or 0.0))
                 totals[strategy_name] = totals.get(strategy_name, 0.0) + (
-                    base_weight * self._server_feedback_multiplier(strategy_name)
+                        base_weight * self._server_feedback_multiplier(strategy_name)
                 )
         if not totals:
             return {Strategy.normalize_strategy_name(getattr(self, "strategy_name", "Trend Following")): 1.0}
@@ -8454,14 +8593,14 @@ class AppController(QMainWindow):
         return bool(getattr(self, "hedging_enabled", True)) and self.broker_supports_hedging(broker)
 
     def assign_ranked_strategies_to_symbol(
-        self,
-        symbol,
-        rankings,
-        top_n=None,
-        timeframe=None,
-        assignment_source="manual",
-        lock_symbol=None,
-        refresh_preferences=True,
+            self,
+            symbol,
+            rankings,
+            top_n=None,
+            timeframe=None,
+            assignment_source="manual",
+            lock_symbol=None,
+            refresh_preferences=True,
     ):
         normalized_symbol = self._normalize_strategy_symbol_key(symbol)
         limit = max(1, int(top_n or self.max_symbol_strategies or 1))
@@ -8509,16 +8648,16 @@ class AppController(QMainWindow):
         return assigned
 
     async def submit_market_chat_trade(
-        self,
-        symbol,
-        side,
-        amount,
-        quantity_mode=None,
-        order_type="market",
-        price=None,
-        stop_price=None,
-        stop_loss=None,
-        take_profit=None,
+            self,
+            symbol,
+            side,
+            amount,
+            quantity_mode=None,
+            order_type="market",
+            price=None,
+            stop_price=None,
+            stop_loss=None,
+            take_profit=None,
     ):
         return await self.submit_trade_with_preflight(
             symbol=symbol,
@@ -8574,8 +8713,7 @@ class AppController(QMainWindow):
             "reason": "No strong directional bias was available.",
         }
 
-        tick = None
-        candles = None
+
         try:
             tick = await self._safe_fetch_ticker(normalized_symbol)
         except Exception:
@@ -8689,7 +8827,7 @@ class AppController(QMainWindow):
             self._safe_balance_metric((market_context or {}).get("risk_distance")) or 0.0,
             abs(float(entry)) * 0.002,
             1e-6,
-        )
+            )
         support = self._safe_balance_metric((market_context or {}).get("support"))
         resistance = self._safe_balance_metric((market_context or {}).get("resistance"))
 
@@ -8710,15 +8848,15 @@ class AppController(QMainWindow):
         return float(stop_loss), float(take_profit)
 
     async def _assess_user_trade_review(
-        self,
-        *,
-        symbol,
-        side,
-        amount_units,
-        reference_price,
-        stop_loss=None,
-        take_profit=None,
-        timeframe=None,
+            self,
+            *,
+            symbol,
+            side,
+            amount_units,
+            reference_price,
+            stop_loss=None,
+            take_profit=None,
+            timeframe=None,
     ):
         normalized_symbol = str(symbol or "").strip().upper()
         normalized_side = self._normalize_trade_side(side)
@@ -8754,12 +8892,12 @@ class AppController(QMainWindow):
         take_value = self._safe_balance_metric(take_profit)
 
         stop_valid = stop_value is not None and stop_value > 0 and (
-            (normalized_side == "buy" and stop_value < entry_value)
-            or (normalized_side == "sell" and stop_value > entry_value)
+                (normalized_side == "buy" and stop_value < entry_value)
+                or (normalized_side == "sell" and stop_value > entry_value)
         )
         take_valid = take_value is not None and take_value > 0 and (
-            (normalized_side == "buy" and take_value > entry_value)
-            or (normalized_side == "sell" and take_value < entry_value)
+                (normalized_side == "buy" and take_value > entry_value)
+                or (normalized_side == "sell" and take_value < entry_value)
         )
 
         suggested_stop, suggested_take = self._suggest_user_trade_levels(
@@ -8881,12 +9019,12 @@ class AppController(QMainWindow):
         }
 
     async def _recommend_user_trade_monitor_action_with_openai(
-        self,
-        *,
-        monitor,
-        position,
-        current_price,
-        adverse_distance,
+            self,
+            *,
+            monitor,
+            position,
+            current_price,
+            adverse_distance,
     ):
         api_key = str(getattr(self, "openai_api_key", "") or "").strip()
         if not api_key:
@@ -8994,11 +9132,11 @@ class AppController(QMainWindow):
                 log_method(str(message))
 
     async def _queue_monitored_user_trade_position(
-        self,
-        *,
-        order,
-        review,
-        timeframe=None,
+            self,
+            *,
+            order,
+            review,
+            timeframe=None,
     ):
         if not isinstance(order, dict) or not bool(getattr(self, "user_trade_risk_monitor_enabled", True)):
             return None
@@ -9079,11 +9217,11 @@ class AppController(QMainWindow):
         return payload
 
     async def _queue_pending_user_trade_review(
-        self,
-        *,
-        order,
-        review,
-        timeframe=None,
+            self,
+            *,
+            order,
+            review,
+            timeframe=None,
     ):
         if not isinstance(order, dict):
             return None
@@ -9212,10 +9350,10 @@ class AppController(QMainWindow):
                     position
                     for position in normalized_positions
                     if str(position.get("symbol") or "").strip().upper() == target_symbol
-                    and (
-                        not target_side
-                        or str(position.get("position_side") or position.get("side") or "").strip().lower() == target_side
-                    )
+                       and (
+                               not target_side
+                               or str(position.get("position_side") or position.get("side") or "").strip().lower() == target_side
+                       )
                 ),
                 None,
             )
@@ -9317,10 +9455,10 @@ class AppController(QMainWindow):
                     position
                     for position in normalized_positions
                     if str(position.get("symbol") or "").strip().upper() == target_symbol
-                    and (
-                        not target_side
-                        or str(position.get("position_side") or position.get("side") or "").strip().lower() == target_side
-                    )
+                       and (
+                               not target_side
+                               or str(position.get("position_side") or position.get("side") or "").strip().lower() == target_side
+                       )
                 ),
                 None,
             )
@@ -9467,7 +9605,7 @@ class AppController(QMainWindow):
         if not bool(getattr(self, "user_trade_autocorrect_enabled", True)):
             return None
         if not bool(getattr(self, "_pending_user_trade_reviews", {})) and not bool(
-            getattr(self, "_monitored_user_trade_positions", {})
+                getattr(self, "_monitored_user_trade_positions", {})
         ):
             return None
         task = getattr(self, "_pending_user_trade_review_task", None)
@@ -9482,18 +9620,18 @@ class AppController(QMainWindow):
         return self._pending_user_trade_review_task
 
     async def _handle_user_trade_review(
-        self,
-        order,
-        *,
-        symbol,
-        side,
-        order_type,
-        price=None,
-        stop_price=None,
-        stop_loss=None,
-        take_profit=None,
-        source=None,
-        timeframe=None,
+            self,
+            order,
+            *,
+            symbol,
+            side,
+            order_type,
+            price=None,
+            stop_price=None,
+            stop_loss=None,
+            take_profit=None,
+            source=None,
+            timeframe=None,
     ):
         if not isinstance(order, dict) or not bool(getattr(self, "user_trade_autocorrect_enabled", True)):
             return order
@@ -9511,9 +9649,9 @@ class AppController(QMainWindow):
             )
         )
         reference_price = (
-            self._safe_balance_metric(order.get("price"))
-            or self._safe_balance_metric(order.get("reference_price"))
-            or self._safe_balance_metric(price)
+                self._safe_balance_metric(order.get("price"))
+                or self._safe_balance_metric(order.get("reference_price"))
+                or self._safe_balance_metric(price)
         )
         review = await self._assess_user_trade_review(
             symbol=order_symbol,
@@ -9590,8 +9728,8 @@ class AppController(QMainWindow):
         normalized_status = str(order.get("status") or "").strip().lower()
         order_id = str(order.get("id") or order.get("order_id") or "").strip()
         cancelable_order = bool(order_id) and (
-            normalized_status in {"open", "pending", "new", "accepted"}
-            or (str(order_type or "market").strip().lower() != "market" and normalized_status in {"submitted", "placed"})
+                normalized_status in {"open", "pending", "new", "accepted"}
+                or (str(order_type or "market").strip().lower() != "market" and normalized_status in {"submitted", "placed"})
         )
 
         broker = getattr(self, "broker", None)
@@ -9938,9 +10076,9 @@ class AppController(QMainWindow):
         seen = set()
 
         for directory in (
-            Path("logs"),
-            Path("src") / "logs",
-            root_dir / "logs",
+                Path("logs"),
+                Path("src") / "logs",
+                root_dir / "logs",
         ):
             try:
                 resolved = directory.resolve()
@@ -9982,7 +10120,7 @@ class AppController(QMainWindow):
         if not lines:
             return None
 
-        frame_pattern = re.compile(r'File "([^"]+)", line (\d+) in ([^\s]+)')
+        frame_pattern = re.compile(r'File "([^"]+)", line (\d+) in (\S+)')
         frames = []
         capture = False
         for line in lines:
@@ -10063,8 +10201,8 @@ class AppController(QMainWindow):
 
         matches.reverse()
         return (
-            f"{path.name} updated {self._format_log_timestamp(path)}: "
-            + " | ".join(matches)
+                f"{path.name} updated {self._format_log_timestamp(path)}: "
+                + " | ".join(matches)
         )
 
     def market_chat_error_log_summary(self, open_window=True, max_entries=4):
@@ -10724,40 +10862,40 @@ class AppController(QMainWindow):
             return None
 
         if lowered in {"help", "commands", "show commands", "list commands"} or any(
-            token in lowered
-            for token in (
-                "what can you do",
-                "what can sopotek pilot do",
-                "how do i control",
-                "manage the app",
-                "control the app",
-                "list of command",
-                "list of commands",
-                "command list",
-            )
+                token in lowered
+                for token in (
+                        "what can you do",
+                        "what can sopotek pilot do",
+                        "how do i control",
+                        "manage the app",
+                        "control the app",
+                        "list of command",
+                        "list of commands",
+                        "command list",
+                )
         ):
             return self.market_chat_command_guide()
 
         if "telegram" not in lowered and any(
-            token in lowered for token in ("show app status", "show status", "app status", "system status", "status summary")
+                token in lowered for token in ("show app status", "show status", "app status", "system status", "status summary")
         ):
             return await self.market_chat_app_status_summary(show_panel=True)
 
         if any(
-            token in lowered
-            for token in (
-                "show bug summary",
-                "bug summary",
-                "show bugs",
-                "recent bugs",
-                "any bugs",
-                "what bugs",
-                "show error log",
-                "error log",
-                "show crash log",
-                "crash log",
-                "recent errors",
-            )
+                token in lowered
+                for token in (
+                        "show bug summary",
+                        "bug summary",
+                        "show bugs",
+                        "recent bugs",
+                        "any bugs",
+                        "what bugs",
+                        "show error log",
+                        "error log",
+                        "show crash log",
+                        "crash log",
+                        "recent errors",
+                )
         ):
             return self.market_chat_error_log_summary(open_window=True)
 
@@ -10817,31 +10955,31 @@ class AppController(QMainWindow):
                     return f"AI scope set to {getattr(terminal, '_autotrade_scope_label', lambda: scope.title())()}."
 
             if any(
-                token in lowered
-                for token in (
-                    "start ai trading",
-                    "enable ai trading",
-                    "turn on ai trading",
-                    "start auto trading",
-                    "enable auto trading",
-                    "turn on auto trading",
-                    "start the ai trading",
-                )
+                    token in lowered
+                    for token in (
+                            "start ai trading",
+                            "enable ai trading",
+                            "turn on ai trading",
+                            "start auto trading",
+                            "enable auto trading",
+                            "turn on auto trading",
+                            "start the ai trading",
+                    )
             ):
                 _ok, message = self.market_chat_set_ai_trading(True)
                 return message
 
             if any(
-                token in lowered
-                for token in (
-                    "stop ai trading",
-                    "disable ai trading",
-                    "turn off ai trading",
-                    "stop auto trading",
-                    "disable auto trading",
-                    "turn off auto trading",
-                    "pause ai trading",
-                )
+                    token in lowered
+                    for token in (
+                            "stop ai trading",
+                            "disable ai trading",
+                            "turn off ai trading",
+                            "stop auto trading",
+                            "disable auto trading",
+                            "turn off auto trading",
+                            "pause ai trading",
+                    )
             ):
                 _ok, message = self.market_chat_set_ai_trading(False)
                 return message
@@ -10882,11 +11020,11 @@ class AppController(QMainWindow):
                     return "Orderbook refresh requested."
 
         cancel_symbol_match = re.search(
-            r"(?:cancel)\s+orders?\s+(?:for|on)\s+([A-Za-z0-9_:/.-]+)",
+            r"cancel\s+orders?\s+(?:for|on)\s+([A-Za-z0-9_:/.-]+)",
             lowered,
         )
         cancel_id_match = re.search(
-            r"(?:cancel)\s+orders?\s+(?:id\s+)?([A-Za-z0-9_-]{3,})",
+            r"cancel\s+orders?\s+(?:id\s+)?([A-Za-z0-9_-]{3,})",
             lowered,
         )
         if cancel_symbol_match or ("cancel order" in lowered or "cancel orders" in lowered):
@@ -10917,7 +11055,7 @@ class AppController(QMainWindow):
             return f"Canceled order {order_id}." if count else f"No cancellation was performed for order {order_id}."
 
         close_match = re.search(
-            r"(?:close)\s+(?:(long|short)\s+)?position\s+([A-Za-z0-9_:/.-]+)(?:\s+(?:amount|size|units)\s+([-+]?\d*\.?\d+)(?:\s+(lots?|units?))?)?",
+            r"close\s+(?:(long|short)\s+)?position\s+([A-Za-z0-9_:/.-]+)(?:\s+(?:amount|size|units)\s+([-+]?\d*\.?\d+)(?:\s+(lots?|units?))?)?",
             lowered,
         )
         if close_match:
@@ -10966,40 +11104,40 @@ class AppController(QMainWindow):
             return "".join(lines)
 
         if (
-            any(token in lowered for token in ("position analysis", "broker positions", "my positions", "account positions"))
-            and any(token in lowered for token in ("position", "positions", "nav", "equity", "margin", "p/l", "pl"))
+                any(token in lowered for token in ("position analysis", "broker positions", "my positions", "account positions"))
+                and any(token in lowered for token in ("position", "positions", "nav", "equity", "margin", "p/l", "pl"))
         ) or (
-            "oanda" in lowered and any(token in lowered for token in ("position", "positions", "nav", "margin", "p/l", "pl"))
+                "oanda" in lowered and any(token in lowered for token in ("position", "positions", "nav", "margin", "p/l", "pl"))
         ):
             summary = self.market_chat_position_summary(open_window=True)
             if summary:
                 return summary
 
         if any(
-            token in lowered
-            for token in (
-                "quant pm",
-                "quant dashboard",
-                "portfolio allocator",
-                "capital at risk",
-                "portfolio risk dashboard",
-            )
+                token in lowered
+                for token in (
+                        "quant pm",
+                        "quant dashboard",
+                        "portfolio allocator",
+                        "capital at risk",
+                        "portfolio risk dashboard",
+                )
         ) and any(token in lowered for token in ("show", "open", "summary", "analysis", "analyze", "analyse")):
             summary = await self.market_chat_quant_pm_summary(open_window=True)
             if summary:
                 return summary
 
         if any(
-            token in lowered
-            for token in (
-                "trade history analysis",
-                "analyze trade history",
-                "analyse trade history",
-                "trade journal analysis",
-                "review my trades",
-                "analyze my trades",
-                "analyse my trades",
-            )
+                token in lowered
+                for token in (
+                        "trade history analysis",
+                        "analyze trade history",
+                        "analyse trade history",
+                        "trade journal analysis",
+                        "review my trades",
+                        "analyze my trades",
+                        "analyse my trades",
+                )
         ):
             return await self.market_chat_trade_history_summary(limit=400, open_window=True)
 
@@ -11012,7 +11150,7 @@ class AppController(QMainWindow):
         trade_match = re.search(
             r"(?:^|\b)trade\s+(buy|sell)\s+([A-Za-z0-9_:/.-]+)"
             r"(?:\s+(?:amount|size|units)\s+([-+]?\d*\.?\d+)(?:\s+(lots?|units?))?)?"
-            r"(?:\s+(?:type)\s+(market|limit|stop_limit|stop-limit|stop\s+limit))?"
+            r"(?:\s+type\s+(market|limit|stop_limit|stop-limit|stop\s+limit))?"
             r"(?:\s+(?:price|at)\s+([-+]?\d*\.?\d+))?"
             r"(?:\s+(?:trigger|stop_price|stoptrigger|stop_trigger|stop\s+trigger)\s+([-+]?\d*\.?\d+))?"
             r"(?:\s+(?:sl|stop|stop_loss)\s+([-+]?\d*\.?\d+))?"
@@ -11174,12 +11312,12 @@ class AppController(QMainWindow):
         return available, merged_catalog or list(available)
 
     def _best_ranked_autotrade_symbols(
-        self,
-        available_symbols=None,
-        catalog_symbols=None,
-        broker_type=None,
-        exchange=None,
-        limit=None,
+            self,
+            available_symbols=None,
+            catalog_symbols=None,
+            broker_type=None,
+            exchange=None,
+            limit=None,
     ):
         available, catalog = self._autotrade_symbol_pools(
             available_symbols=available_symbols,
@@ -11229,7 +11367,7 @@ class AppController(QMainWindow):
         fallback_source = self._prioritize_symbols_for_trading(
             available or candidates,
             top_n=len(available or candidates),
-        )
+            )
         resolved = []
         for source in (ranked_symbols, fallback_source, candidates):
             for symbol in source:
@@ -11240,12 +11378,12 @@ class AppController(QMainWindow):
         return resolved[:resolved_limit]
 
     def get_best_ranked_autotrade_symbols(
-        self,
-        available_symbols=None,
-        catalog_symbols=None,
-        broker_type=None,
-        exchange=None,
-        limit=None,
+            self,
+            available_symbols=None,
+            catalog_symbols=None,
+            broker_type=None,
+            exchange=None,
+            limit=None,
     ):
         return self._best_ranked_autotrade_symbols(
             available_symbols=available_symbols,
@@ -11305,14 +11443,14 @@ class AppController(QMainWindow):
         return ""
 
     def is_symbol_enabled_for_autotrade(
-        self,
-        symbol,
-        *,
-        available_symbols=None,
-        catalog_symbols=None,
-        selected_symbol=None,
-        broker_type=None,
-        exchange=None,
+            self,
+            symbol,
+            *,
+            available_symbols=None,
+            catalog_symbols=None,
+            selected_symbol=None,
+            broker_type=None,
+            exchange=None,
     ):
         normalized = str(symbol or "").upper().strip()
         if not normalized:
@@ -11343,13 +11481,13 @@ class AppController(QMainWindow):
         return normalized in available_set
 
     def get_active_autotrade_symbols(
-        self,
-        *,
-        available_symbols=None,
-        catalog_symbols=None,
-        selected_symbol=None,
-        broker_type=None,
-        exchange=None,
+            self,
+            *,
+            available_symbols=None,
+            catalog_symbols=None,
+            selected_symbol=None,
+            broker_type=None,
+            exchange=None,
     ):
         available, catalog = self._autotrade_symbol_pools(
             available_symbols=available_symbols,
@@ -11456,9 +11594,9 @@ class AppController(QMainWindow):
             broker_cfg = getattr(getattr(self, "config", None), "broker", None)
             broker_obj = getattr(self, "broker", None)
             token = (
-                getattr(broker_cfg, "api_key", None)
-                or getattr(broker_cfg, "token", None)
-                or getattr(broker_obj, "token", None)
+                    getattr(broker_cfg, "api_key", None)
+                    or getattr(broker_cfg, "token", None)
+                    or getattr(broker_obj, "token", None)
             )
             account_id = getattr(broker_cfg, "account_id", None) or getattr(broker_obj, "account_id", None)
             mode = getattr(broker_cfg, "mode", None) or getattr(broker_obj, "mode", "practice")
@@ -11572,6 +11710,9 @@ class AppController(QMainWindow):
                     self.ticker_buffer.update(symbol, ticker)
 
                     self.ticker_signal.emit(symbol, bid, ask)
+                    
+                    # Check SL/TP on ticker update
+                    self._check_and_close_sl_tp_on_ticker(symbol, bid, ask)
 
                 await asyncio.sleep(sleep_seconds)
 
@@ -11786,7 +11927,7 @@ class AppController(QMainWindow):
 
     def _trim_application_caches(self):
         """Periodically trim application caches to prevent unbounded memory growth.
-        
+
         This method is called by a QTimer (every 5 minutes) to clean up:
         - Stale market data warning timestamps
         - Old news cache entries
@@ -11795,81 +11936,171 @@ class AppController(QMainWindow):
         """
         try:
             now = time.monotonic()
-            
+
             # Trim market data warning timestamps: keep only recent (< 24 hours)
             timestamps = getattr(self, "_market_data_warning_timestamps", None)
             if isinstance(timestamps, dict):
-                stale_threshold = now - (24 * 3600)  # 24 hours
-                expired_keys = [key for key, ts in timestamps.items() if float(ts or 0.0) < stale_threshold]
-                for key in expired_keys:
-                    del timestamps[key]
-                if expired_keys:
-                    self.logger.debug("Trimmed %d stale market data warning timestamps", len(expired_keys))
-            
-            # Trim news cache: keep only recent (< 1 hour) and limit total size
+                stale_cutoff = now - (24 * 3600)
+                stale_keys = [k for k, v in timestamps.items() if float(v or 0) < stale_cutoff]
+                for key in stale_keys:
+                    timestamps.pop(key, None)
+
+            # Trim news cache: keep only recent entries
             news_cache = getattr(self, "_news_cache", None)
             if isinstance(news_cache, dict):
-                max_cache_size = 100
-                stale_threshold = now - 3600  # 1 hour
-                
-                # Remove stale entries
-                expired_symbols = []
-                for symbol, entry in list(news_cache.items()):
-                    if not isinstance(entry, dict):
-                        expired_symbols.append(symbol)
-                        continue
-                    fetched_at = float(entry.get("fetched_at", 0.0) or 0.0)
-                    if fetched_at < stale_threshold:
-                        expired_symbols.append(symbol)
-                
-                for symbol in expired_symbols:
-                    del news_cache[symbol]
-                
-                # If cache is still too large, remove oldest entries
-                if len(news_cache) > max_cache_size:
-                    sorted_entries = sorted(
-                        news_cache.items(),
-                        key=lambda item: float((item[1] or {}).get("fetched_at", 0.0) or 0.0)
+                # Keep last 1000 news entries
+                if len(news_cache) > 1000:
+                    sorted_keys = sorted(
+                        news_cache.keys(),
+                        key=lambda k: news_cache[k].get("timestamp", 0),
+                        reverse=True
                     )
-                    entries_to_remove = sorted_entries[:len(news_cache) - max_cache_size]
-                    for symbol, _ in entries_to_remove:
-                        del news_cache[symbol]
-                
-                trimmed_count = len(expired_symbols)
-                if len(news_cache) > max_cache_size:
-                    trimmed_count += len(news_cache) - max_cache_size
-                if trimmed_count > 0:
-                    self.logger.debug("Trimmed %d news cache entries", trimmed_count)
-            
-            # Trim news inflight: remove completed tasks
-            news_inflight = getattr(self, "_news_inflight", None)
-            if isinstance(news_inflight, dict):
-                completed_symbols = [sym for sym, task in list(news_inflight.items()) if task.done()]
-                for symbol in completed_symbols:
-                    del news_inflight[symbol]
-                if completed_symbols:
-                    self.logger.debug("Trimmed %d completed news inflight tasks", len(completed_symbols))
-            
-            # Trim trade close entry cache: limit size to prevent unbounded growth
-            trade_cache = getattr(self, "_trade_close_entry_cache", None)
-            if isinstance(trade_cache, dict) and len(trade_cache) > 1000:
-                # Keep only the most recent 500 entries
-                keys = list(trade_cache.keys())
-                for key in keys[:-500]:
-                    del trade_cache[key]
-                self.logger.debug("Trimmed trade close entry cache from %d to %d entries", len(keys), len(trade_cache))
-            
-            # Trim strategy feedback cache: limit size
-            feedback_cache = getattr(self, "_strategy_feedback_cache", None)
-            if isinstance(feedback_cache, dict) and len(feedback_cache) > 500:
-                # Keep only the most recent 250 entries
-                keys = list(feedback_cache.keys())
-                for key in keys[:-250]:
-                    del feedback_cache[key]
-                self.logger.debug("Trimmed strategy feedback cache from %d to %d entries", len(keys), len(feedback_cache))
-            
-        except Exception as exc:
-            self.logger.debug("Application cache trimming failed: %s", exc, exc_info=False)
+                    keys_to_remove = sorted_keys[1000:]
+                    for key in keys_to_remove:
+                        news_cache.pop(key, None)
+
+            # Trim trade close entry cache: keep only recent
+            cache = getattr(self, "_trade_close_entry_cache", None)
+            if isinstance(cache, dict) and len(cache) > 100:
+                sorted_keys = sorted(cache.keys(), reverse=True)
+                keys_to_remove = sorted_keys[100:]
+                for key in keys_to_remove:
+                    cache.pop(key, None)
+
+        except Exception:
+            pass
+
+    def _check_and_close_sl_tp_on_ticker(self, symbol: str, bid: float, ask: float) -> None:
+        """Check if any positions hit SL/TP and close them.
+
+        This method is called on each ticker update to check if open positions
+        should be closed due to stop loss or take profit being hit.
+        """
+        if self._position_manager is None:
+            return
+
+        normalized_symbol = str(symbol or "").strip().upper()
+        mid_price = (bid + ask) / 2.0 if bid > 0 and ask > 0 else bid if bid > 0 else ask
+
+        # Update the current price for this symbol
+        trade = self._position_manager.get_open_trade(normalized_symbol)
+        if trade is not None and mid_price > 0:
+            trade.current_price = mid_price
+
+            # Check if position should close
+            if trade.should_close_for_tp():
+                self._emit_sl_tp_triggered_event(normalized_symbol, trade, "take_profit", mid_price)
+                self._position_manager.close_trade(normalized_symbol, reason="take_profit_hit", exit_price=mid_price)
+            elif trade.should_close_for_sl():
+                self._emit_sl_tp_triggered_event(normalized_symbol, trade, "stop_loss", mid_price)
+                self._position_manager.close_trade(normalized_symbol, reason="stop_loss_hit", exit_price=mid_price)
+
+    def _emit_sl_tp_triggered_event(self, symbol: str, trade: Any, trigger_type: str, close_price: float) -> None:
+        """Emit an event when SL or TP is triggered.
+
+        Triggers:
+        - Event bus notification
+        - Terminal UI update
+        - Trade notifications (email, SMS, Telegram)
+        """
+        try:
+            event_type = "trade_take_profit_hit" if trigger_type == "take_profit" else "trade_stop_loss_hit"
+            pnl = trade.pnl if hasattr(trade, "pnl") else 0.0
+
+            # Emit to event bus
+            event_data = {
+                "symbol": symbol,
+                "trigger_type": trigger_type,
+                "close_price": close_price,
+                "pnl": pnl,
+                "trade_id": getattr(trade, "trade_id", "unknown"),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+            self.event_bus.emit(EventType.CUSTOM, event_data)
+
+            # Update terminal if available
+            terminal = getattr(self, "terminal", None)
+            if terminal is not None and hasattr(terminal, "_schedule_positions_refresh"):
+                try:
+                    terminal._schedule_positions_refresh()
+                except Exception:
+                    pass
+
+            # Send notifications
+            self._send_sl_tp_notification(symbol, trigger_type, close_price, pnl)
+
+        except Exception as e:
+            self.logger.error(f"Error emitting SL/TP event: {e}")
+
+    def _send_sl_tp_notification(self, symbol: str, trigger_type: str, close_price: float, pnl: float) -> None:
+        """Send notifications for SL/TP triggered events."""
+        try:
+            if not bool(getattr(self, "trade_close_notifications_enabled", False)):
+                return
+
+            trigger_label = "Take Profit" if trigger_type == "take_profit" else "Stop Loss"
+            message = f"{symbol}: {trigger_label} triggered at {close_price:.6f}, P/L: {pnl:.2f}"
+
+            # Telegram
+            if bool(getattr(self, "trade_close_notify_telegram", False)):
+                telegram_service = getattr(self, "telegram_service", None)
+                if telegram_service is not None and hasattr(telegram_service, "send_notification"):
+                    try:
+                        telegram_service.send_notification(message)
+                    except Exception:
+                        pass
+
+            # Email
+            if bool(getattr(self, "trade_close_notify_email", False)):
+                email_service = getattr(self, "email_trade_notification_service", None)
+                if email_service is not None and hasattr(email_service, "send_trade_notification"):
+                    try:
+                        email_service.send_trade_notification(
+                            subject=f"{trigger_label} Hit: {symbol}",
+                            body=message,
+                        )
+                    except Exception:
+                        pass
+
+            # SMS
+            if bool(getattr(self, "trade_close_notify_sms", False)):
+                sms_service = getattr(self, "sms_trade_notification_service", None)
+                if sms_service is not None and hasattr(sms_service, "send_trade_notification"):
+                    try:
+                        sms_service.send_trade_notification(message)
+                    except Exception:
+                        pass
+
+        except Exception as e:
+            self.logger.debug(f"Error sending SL/TP notification: {e}")
+
+    def _initialize_position_in_manager(
+        self,
+        symbol: str,
+        quantity: float,
+        entry_price: float,
+        stop_loss: float | None = None,
+        take_profit: float | None = None,
+        **kwargs
+    ) -> None:
+        """Register a position with the position manager.
+
+        This should be called when a new order fills or position is opened.
+        """
+        if self._position_manager is None:
+            return
+
+        try:
+            self._position_manager.open_trade(
+                symbol=symbol,
+                quantity=quantity,
+                entry_price=entry_price,
+                stop_loss=stop_loss,
+                take_profit=take_profit,
+                **{k: v for k, v in kwargs.items() if k not in {"symbol", "quantity", "entry_price", "stop_loss", "take_profit"}},
+            )
+        except Exception as e:
+            self.logger.debug(f"Error initializing position in manager for {symbol}: {e}")
 
     async def _safe_fetch_ticker(self, symbol):
         """Return normalized ticker updates from broker, with fallbacks.
@@ -12001,10 +12232,10 @@ class AppController(QMainWindow):
 
             side = str(raw.get("side") or raw.get("taker_side") or raw.get("direction") or "").strip().lower()
             timestamp = (
-                raw.get("datetime")
-                or raw.get("timestamp")
-                or raw.get("time")
-                or raw.get("created_at")
+                    raw.get("datetime")
+                    or raw.get("timestamp")
+                    or raw.get("time")
+                    or raw.get("created_at")
             )
 
             normalized.append(
@@ -12103,8 +12334,8 @@ class AppController(QMainWindow):
             )
             return f"{exchange}:{component}"
         return exchange
-
-    def _filter_ohlcv_rows_by_time_range(self, rows, start_time=None, end_time=None):
+    @staticmethod
+    def _filter_ohlcv_rows_by_time_range(rows, start_time=None, end_time=None):
         start_boundary = _normalize_history_boundary(start_time, end_of_day=False)
         end_boundary = _normalize_history_boundary(end_time, end_of_day=True)
         if start_boundary is None and end_boundary is None:
@@ -12220,6 +12451,34 @@ class AppController(QMainWindow):
 
         if should_record and trade_matches_active_session and getattr(self, "performance_engine", None) is not None:
             self.performance_engine.record_trade(trade)
+
+        # Initialize position in position manager if trade is filled
+        if status == "filled" and trade_matches_active_session:
+            try:
+                symbol = str(trade.get("symbol") or "").strip().upper()
+                quantity = float(trade.get("quantity") or trade.get("amount") or 0.0)
+                entry_price = float(trade.get("price") or trade.get("entry_price") or 0.0)
+                stop_loss = trade.get("stop_loss")
+                take_profit = trade.get("take_profit")
+                if symbol and quantity and entry_price:
+                    self._initialize_position_in_manager(
+                        symbol=symbol,
+                        quantity=quantity,
+                        entry_price=entry_price,
+                        stop_loss=stop_loss,
+                        take_profit=take_profit,
+                        strategy_name=trade.get("strategy_name", "unknown"),
+                        expected_horizon=trade.get("expected_horizon", "medium"),
+                        signal_expiry_time=trade.get("signal_expiry_time"),
+                        volatility_at_entry=float(trade.get("volatility_at_entry", 0.0) or 0.0),
+                        signal_strength=float(trade.get("signal_strength", 0.0) or 0.0),
+                        asset_class=trade.get("asset_class", "unknown"),
+                        regime=trade.get("regime"),
+                        metadata=trade.get("metadata", {}),
+                        trade_id=trade.get("order_id", trade.get("trade_id", "")),
+                    )
+            except Exception as e:
+                self.logger.debug(f"Error initializing position in manager: {e}")
 
         self.trade_signal.emit(trade)
         if self.terminal is not None and trade_matches_active_session:
@@ -12340,7 +12599,7 @@ class AppController(QMainWindow):
         try:
             return float(value)
         except Exception:
-           
+
             import traceback
             traceback.print_exc()
             return None
@@ -12556,7 +12815,6 @@ class AppController(QMainWindow):
                 "signer_configured": False,
             }
 
-        market_data_provider = ""
         swap_provider = ""
         if exchange_code == "solana":
             market_data_provider = str(getattr(broker, "market_data_provider", "gecko") or "gecko").strip().upper()
@@ -12651,7 +12909,7 @@ class AppController(QMainWindow):
         candle_threshold_seconds = max(
             float(getattr(self, "CANDLE_STALE_MIN_SECONDS", 60.0) or 60.0),
             float(timeframe_seconds(timeframe_value, default=60)) * float(getattr(self, "CANDLE_STALE_MULTIPLIER", 3.0) or 3.0),
-        )
+            )
         orderbook_threshold = max(1.0, float(getattr(self, "ORDERBOOK_STALE_SECONDS", 20.0) or 20.0))
 
         ticker_snapshot = self._cached_ticker_snapshot(normalized_symbol)
@@ -13307,7 +13565,7 @@ class AppController(QMainWindow):
             ],
         }
 
-    def _sanitize_ohlcv_rows(self, symbol, timeframe, rows, *, requested_limit=None, source_label="broker"):
+    def _sanitize_ohlcv_rows(self, symbol, timeframe, rows, *, requested_limit=50000, source_label="broker"):
         normalized_symbol = str(symbol or "").upper().strip() or "UNKNOWN"
         normalized_timeframe = str(timeframe or self.time_frame or "1h").strip() or "1h"
         deduped_rows = {}
@@ -13343,8 +13601,8 @@ class AppController(QMainWindow):
             self._log_market_data_warning_once(
                 f"ohlcv-sanitize:{source_label}:{normalized_symbol}:{normalized_timeframe}",
                 (
-                    f"Sanitized OHLCV data for {normalized_symbol} ({normalized_timeframe}) from {source_label}: "
-                    f"kept {len(cleaned_rows)} row(s), " + ", ".join(detail_parts) + "."
+                        f"Sanitized OHLCV data for {normalized_symbol} ({normalized_timeframe}) from {source_label}: "
+                        f"kept {len(cleaned_rows)} row(s), " + ", ".join(detail_parts) + "."
                 ),
                 interval_seconds=30.0,
             )
@@ -13365,12 +13623,12 @@ class AppController(QMainWindow):
             return row
         finalized = dict(row)
         finalized["outcome"] = (
-            derive_trade_outcome(
-                outcome=finalized.get("outcome"),
-                pnl=finalized.get("pnl"),
-                status=finalized.get("status"),
-            )
-            or ""
+                derive_trade_outcome(
+                    outcome=finalized.get("outcome"),
+                    pnl=finalized.get("pnl"),
+                    status=finalized.get("status"),
+                )
+                or ""
         )
         return finalized
 
@@ -13408,13 +13666,13 @@ class AppController(QMainWindow):
             size = abs(size)
 
         timestamp = (
-            row.get("timestamp")
-            or row.get("datetime")
-            or row.get("time")
-            or row.get("closeTime")
-            or row.get("openTime")
-            or repo_meta.get("timestamp")
-            or ""
+                row.get("timestamp")
+                or row.get("datetime")
+                or row.get("time")
+                or row.get("closeTime")
+                or row.get("openTime")
+                or repo_meta.get("timestamp")
+                or ""
         )
         status = str(
             row.get("status")
@@ -14233,15 +14491,15 @@ class AppController(QMainWindow):
                 metrics = snapshot.get("metrics", {}) or {}
                 selected_metrics = []
                 for key in (
-                    "Equity",
-                    "Net PnL",
-                    "Return",
-                    "Win Rate",
-                    "Profit Factor",
-                    "Max Drawdown",
-                    "Fees",
-                    "Avg Slippage",
-                    "Execution Drag",
+                        "Equity",
+                        "Net PnL",
+                        "Return",
+                        "Win Rate",
+                        "Profit Factor",
+                        "Max Drawdown",
+                        "Fees",
+                        "Avg Slippage",
+                        "Execution Drag",
                 ):
                     text = self._plain_text((metrics.get(key) or {}).get("text"))
                     if text and text != "-":
@@ -14261,7 +14519,7 @@ class AppController(QMainWindow):
                     action = self._plain_text(item.get("action") or item.get("side") or "-")
                     confidence = item.get("confidence")
                     why = self._plain_text(item.get("why") or item.get("reason") or "")
-                    confidence_text = ""
+
                     try:
                         confidence_text = f"{float(confidence):.2f}"
                     except Exception:
@@ -14736,6 +14994,7 @@ class AppController(QMainWindow):
                     data,
                     requested_limit=limit,
                     source_label="broker",
+
                 )
                 if range_requested and data:
                     data = self._filter_ohlcv_rows_by_time_range(
@@ -14964,8 +15223,8 @@ class AppController(QMainWindow):
             market_open = signal.get("market_open")
             trade_allowed = signal.get("trade_allowed")
             if any(
-                value is not None and str(value).strip() != ""
-                for value in (market_session, high_liquidity, asset_type, market_open, trade_allowed)
+                    value is not None and str(value).strip() != ""
+                    for value in (market_session, high_liquidity, asset_type, market_open, trade_allowed)
             ):
                 market_hours = {
                     "asset_type": str(asset_type or "").strip() or None,
@@ -15086,7 +15345,15 @@ class AppController(QMainWindow):
                     for name, value in fetch_kwargs.items()
                     if name in supported
                 }
-        candles = await fetcher(resolved_symbol, **fetch_kwargs)
+        # Run blocking fetch on executor to prevent UI freezing
+        loop = asyncio.get_running_loop()
+        candles = await loop.run_in_executor(
+            None,
+            lambda: asyncio.run(fetcher(resolved_symbol, **fetch_kwargs))
+        ) if asyncio.iscoroutinefunction(fetcher) else await loop.run_in_executor(
+            None,
+            lambda: fetcher(resolved_symbol, **fetch_kwargs)
+        )
         candles = self._sanitize_ohlcv_rows(
             resolved_symbol,
             timeframe,
@@ -15360,7 +15627,7 @@ class AppController(QMainWindow):
                     cache_trim_timer.stop()
                 except Exception:
                     self.logger.debug("Cache trim timer stop failed", exc_info=False)
-            
+
             self._session_closing = False
 
     def get_market_stream_status(self):

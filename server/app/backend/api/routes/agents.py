@@ -7,11 +7,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
-from backend.dependencies import get_db, get_current_user
-from backend.models import Agent, AgentStatus, AgentAudit, User
-from backend.schemas import UserSchema
+from server.app.backend.dependencies import get_db, get_current_user
+from server.app.backend.models import Agent, AgentStatus, AgentAudit, User
+from server.app.backend.schemas import UserSchema
 
-router = APIRouter(prefix="/admin/agents", tags=["agents"])
+router = APIRouter(prefix="/api/v3/admin/agents", tags=["agents"])
 
 
 class AgentCreate(BaseModel):
@@ -29,7 +29,7 @@ class AgentUpdate(BaseModel):
     is_active: bool | None = None
 
 
-@router.get("/overview")
+@router.get("/api/admin/agents/overview")
 async def get_agents_overview(
     db: Session = Depends(get_db),
     current_user: UserSchema = Depends(get_current_user)

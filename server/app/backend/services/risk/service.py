@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from sopotek.shared.contracts.trading import ExecutionRequest, RiskDecision
+from shared.contracts.trading import ExecutionRequest, RiskDecision
 
 
 class RiskService(Protocol):

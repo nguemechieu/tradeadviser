@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Main entry point for SQS (Sopotek Quant System) Server.
+"""Main entry point for TradeAdviser Server.
 
 This script starts the FastAPI server with proper environment configuration,
 logging setup, and error handling.
@@ -48,7 +48,7 @@ def main():
         env = environ.get("ENV", "production")
         reload = env == "development"
 
-        logger.info(f"Starting Sopotek Quant System Server")
+        logger.info(f"Starting TradeAdviser System Server")
         logger.info(f"Host: {host}")
         logger.info(f"Port: {port}")
         logger.info(f"Environment: {env}")

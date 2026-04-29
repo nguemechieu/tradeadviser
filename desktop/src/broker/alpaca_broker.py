@@ -1,13 +1,17 @@
 import asyncio
 import logging
+import traceback
 from types import SimpleNamespace
+
+from alpaca_trade_api.common import URL
 
 from broker.base_broker import BaseBroker
 
 try:
   import alpaca_trade_api as tradeapi
 except Exception:  # pragma: no cover - optional dependency at runtime
-    tradeapi = None
+    traceback.print_exc()
+    raise
 
 
 class AlpacaBroker(BaseBroker):
@@ -67,17 +71,19 @@ class AlpacaBroker(BaseBroker):
             raise ValueError("Alpaca secret is required")
 
         self.api = tradeapi.REST(
-            self.api_key,
-            self.secret,
-          base_url=  self.base_url,
+            key_id=self.api_key,
+            secret_key=self.secret,
+            base_url=URL(self.base_url),
             api_version="v2",
+            oauth=self.options.get("oauth", None),
+            raw_data=False,
         )
 
     async def _ensure_connected(self):
         if not self._connected:
             await self.connect()
-
-    async def _run_blocking(self, func, *args, **kwargs):
+    @staticmethod
+    async def _run_blocking( func, *args, **kwargs):
         return await asyncio.to_thread(func, *args, **kwargs)
 
     async def _call_api(self, method_name, *args, **kwargs):

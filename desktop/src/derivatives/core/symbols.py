@@ -24,7 +24,7 @@ MONTH_CODES = {
     "Z": 12,
 }
 
-COIN_QUOTES = ("USDT", "USDC", "BUSD", "USD", "BTC", "ETH", "EUR")
+COIN_QUOTES = ("USDT", "USDC", "BUSD", "USD", "DAI","BTC", "ETH", "EUR")
 ROOT_ALIASES = {"BIT": "BTC", "XBT": "BTC"}
 
 

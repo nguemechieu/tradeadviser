@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from alpha.base_alpha import AggregatedAlphaOpportunity
-from core.config import PortfolioConfig
+from core.regime_engine_config import PortfolioConfig
 
 
 @dataclass(slots=True)

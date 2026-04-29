@@ -124,6 +124,4 @@ class PaperTradeFeatureExtractor:
         value = coerce_float(atr_pct, 0.0) or 0.0
         if value >= 0.03:
             return "high"
-        if value >= 0.015:
-            return "medium"
-        return "low"
+        return "medium" if value >= 0.015 else "low"

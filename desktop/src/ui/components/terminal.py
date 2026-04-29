@@ -90,7 +90,7 @@ from backtesting.backtest_engine import BacktestEngine
 from backtesting.report_generator import ReportGenerator
 from backtesting.simulator import Simulator
 from broker.market_venues import MARKET_VENUE_CHOICES
-from event_bus.event_types import EventType
+from events.event_bus.event_types import EventType
 from ui.components.chart.chart_widget import ChartWidget
 from ui.components.actions.trading_actions import (
     cancel_all_orders,
@@ -194,6 +194,7 @@ from ui.components.panels.trading_updates import (
     trade_log_row_for_entry,
     update_trade_log,
 )
+from ui.components.utils.performance_utils import safe_timer_start
 from ui.components.panels.workspace_panels import (
     create_orderbook_panel,
     create_risk_heatmap_panel,
@@ -732,15 +733,38 @@ class Terminal(QMainWindow):
             return
         if bool(getattr(self, "_runtime_timers_started", False)):
             return
+        
+        try:
+            import threading
+            is_main_thread = threading.current_thread() is threading.main_thread()
+        except Exception:
+            is_main_thread = True
+        
+        def _safe_timer_start(timer, interval):
+            """Safely start timer - use singleShot if not on main thread."""
+            if timer is None:
+                return
+            try:
+                if is_main_thread:
+                    timer.start(interval)
+                else:
+                    # From background thread, use singleShot which is thread-safe
+                    QTimer.singleShot(interval, lambda t=timer, i=interval: t.start(i) if not t.isActive() else None)
+            except Exception:
+                pass
+        
         refresh_timer = getattr(self, "refresh_timer", None)
         if refresh_timer is not None:
-            refresh_timer.start(max(250, int(refresh_timer.interval() or 1000)))
+            _safe_timer_start(refresh_timer, max(250, int(refresh_timer.interval() or 1000)))
+        
         orderbook_timer = getattr(self, "orderbook_timer", None)
         if orderbook_timer is not None:
-            orderbook_timer.start(max(250, int(orderbook_timer.interval() or 1500)))
+            _safe_timer_start(orderbook_timer, max(250, int(orderbook_timer.interval() or 1500)))
+        
         signal_timer = getattr(self, "signal_scan_timer", None)
         if signal_timer is not None:
-            signal_timer.start(max(500, int(signal_timer.interval() or int(self.PASSIVE_SIGNAL_SCAN_INTERVAL_MS))))
+            _safe_timer_start(signal_timer, max(500, int(signal_timer.interval() or int(self.PASSIVE_SIGNAL_SCAN_INTERVAL_MS))))
+        
         self._runtime_timers_started = True
         QTimer.singleShot(1800, self._schedule_passive_signal_scan)
         self._schedule_terminal_refresh()
@@ -5549,7 +5573,7 @@ class Terminal(QMainWindow):
             sync_timer = QTimer(window)
             sync_timer.timeout.connect(lambda: self._schedule_positions_refresh())
             sync_timer.timeout.connect(lambda: self._refresh_position_analysis_window(window))
-            sync_timer.start(2500)
+            safe_timer_start(sync_timer, 2500)
             window._position_analysis_timer = sync_timer
 
         self._schedule_positions_refresh()
@@ -6017,7 +6041,7 @@ class Terminal(QMainWindow):
 
             sync_timer = QTimer(window)
             sync_timer.timeout.connect(lambda: self._schedule_quant_pm_refresh(window))
-            sync_timer.start(3000)
+            safe_timer_start(sync_timer, 3000)
             window._quant_pm_timer = sync_timer
 
         self._schedule_quant_pm_refresh(window)
@@ -7872,7 +7896,7 @@ class Terminal(QMainWindow):
         self.spinner_timer = QTimer()
         self.spinner_timer.timeout.connect(self._rotate_spinner)
 
-        self.spinner_timer.start(500)
+        safe_timer_start(self.spinner_timer, 500)
 
     def _update_symbols(self, exchange, symbols):
         normalized_symbols = [str(symbol or "").strip().upper() for symbol in symbols or [] if str(symbol or "").strip()]
@@ -8494,7 +8518,7 @@ class Terminal(QMainWindow):
             sync_timer.timeout.connect(
                 lambda: self._populate_portfolio_exposure_table(table)
             )
-            sync_timer.start(1200)
+            safe_timer_start(sync_timer, 1200)
             window._sync_timer = sync_timer
 
         self._populate_portfolio_exposure_table(table)
@@ -9336,7 +9360,7 @@ class Terminal(QMainWindow):
 
             sync_timer = QTimer(window)
             sync_timer.timeout.connect(lambda: self._refresh_performance_window(window))
-            sync_timer.start(1000)
+            safe_timer_start(sync_timer, 1000)
             window._sync_timer = sync_timer
 
         self._refresh_performance_window(window)
@@ -9496,7 +9520,7 @@ class Terminal(QMainWindow):
 
             sync_timer = QTimer(window)
             sync_timer.timeout.connect(lambda: self._schedule_closed_journal_refresh(window))
-            sync_timer.start(4000)
+            safe_timer_start(sync_timer, 4000)
             window._closed_journal_timer = sync_timer
 
         self._schedule_closed_journal_refresh(window)
@@ -10439,7 +10463,7 @@ class Terminal(QMainWindow):
             timer.stop()
             button.setText("Play Replay")
             return
-        timer.start(220)
+        safe_timer_start(timer, 220)
         button.setText("Pause Replay")
 
     def _advance_trade_review_playback(self, window):
@@ -11010,7 +11034,7 @@ class Terminal(QMainWindow):
 
             sync_timer = QTimer(window)
             sync_timer.timeout.connect(lambda: self._schedule_trade_journal_review_refresh(window))
-            sync_timer.start(7000)
+            safe_timer_start(sync_timer, 7000)
             window._journal_review_timer = sync_timer
 
         self._schedule_trade_journal_review_refresh(window)
@@ -11341,7 +11365,7 @@ class Terminal(QMainWindow):
 
             sync_timer = QTimer(window)
             sync_timer.timeout.connect(lambda: self._refresh_health_window(window))
-            sync_timer.start(3000)
+            safe_timer_start(sync_timer, 3000)
             window._health_timer = sync_timer
 
         if hasattr(self.controller, "run_startup_health_check") and hasattr(self.controller, "_create_task"):
@@ -13396,7 +13420,7 @@ class Terminal(QMainWindow):
 
             sync_timer = QTimer(window)
             sync_timer.timeout.connect(lambda: self._populate_recommendations_window(window))
-            sync_timer.start(1200)
+            safe_timer_start(sync_timer, 1200)
             window._sync_timer = sync_timer
 
         self._populate_recommendations_window(window)
@@ -13844,7 +13868,17 @@ def _hotfix_start_backtest_graph_animation(self, window=None):
     timer = getattr(window, "_backtest_graph_timer", None)
     if timer is not None and not timer.isActive():
         window._backtest_graph_phase = 0.0
-        timer.start()
+        # Safely start timer - use singleShot if not on main thread
+        try:
+            import threading
+            from PySide6.QtCore import QTimer as QT
+            if threading.current_thread() is threading.main_thread():
+                timer.start()
+            else:
+                # From background thread, use singleShot which is thread-safe
+                QT.singleShot(50, lambda: timer.start() if not timer.isActive() else None)
+        except Exception:
+            pass
 
 
 def _hotfix_stop_backtest_graph_animation(window, clear=False):
@@ -17653,11 +17687,11 @@ def _hotfix_apply_settings_values(self, values, persist=True, reload_chart=False
     if hasattr(self, "refresh_timer") and self.refresh_timer is not None:
         self.refresh_timer.setInterval(refresh_interval_ms)
         if bool(getattr(self, "_workspace_ready", False)):
-            self.refresh_timer.start(refresh_interval_ms)
+            safe_timer_start(self.refresh_timer, refresh_interval_ms)
     if hasattr(self, "orderbook_timer") and self.orderbook_timer is not None:
         self.orderbook_timer.setInterval(orderbook_interval_ms)
         if bool(getattr(self, "_workspace_ready", False)):
-            self.orderbook_timer.start(orderbook_interval_ms)
+            safe_timer_start(self.orderbook_timer, orderbook_interval_ms)
 
     current_chart = self._current_chart_widget()
     if isinstance(current_chart, ChartWidget):

@@ -8,7 +8,7 @@ Copy the key lines from this file into your app_controller.py to activate the lo
 # ============================================================================
 
 import asyncio  # Add if not already present
-from sqs_desktop.src.ui.console.loader import (
+from desktop.src.ui.console.loader import (
     LoadingManager,
     ConsoleLoaderIntegration,
 )

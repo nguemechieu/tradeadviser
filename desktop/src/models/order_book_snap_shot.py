@@ -9,12 +9,13 @@ OrderLevel = Tuple[float, float]
 
 @dataclass(slots=True)
 class OrderBookSnapshot:
+    """Represents a snapshot of an order book at a specific point in time."""
     symbol: str
 
     bids: List[OrderLevel]  # sorted DESC (highest price first)
     asks: List[OrderLevel]  # sorted ASC (lowest price first)
 
-    timestamp: float = field(default_factory=lambda: time.time())
+    timestamp: float = field(default_factory=time.time)
 
     # =========================
     # Top of Book

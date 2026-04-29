@@ -165,7 +165,17 @@ class LoadingOverlay(QFrame):
             self._fallback_index = 0
             self.spinner_label.setText(self._FALLBACK_FRAMES[0])
             if not self._fallback_timer.isActive():
-                self._fallback_timer.start()
+                # Safely start timer - use singleShot if not on main thread
+                try:
+                    import threading
+                    from PySide6.QtCore import QTimer as QT
+                    if threading.current_thread() is threading.main_thread():
+                        self._fallback_timer.start()
+                    else:
+                        # From background thread, use singleShot which is thread-safe
+                        QT.singleShot(50, lambda: self._fallback_timer.start() if not self._fallback_timer.isActive() else None)
+                except Exception:
+                    pass
 
     def clear_loading(self) -> None:
         self.hide()

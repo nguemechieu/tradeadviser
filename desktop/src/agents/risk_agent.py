@@ -1,10 +1,20 @@
-from event_bus.event import Event
-from event_bus.event_types import EventType
+from events.event_bus.event_types import EventType
+from events.event import Event
+
 
 from agents.base_agent import BaseAgent
 
 
 class RiskAgent(BaseAgent):
+    """Coordinate risk review for trade signals before they proceed through the pipeline. Acts as
+    a gatekeeper that can approve, modify, or block trades based on an external reviewer and
+    current context.
+
+    The agent inspects the working decision context, normalizes the embedded signal, and delegates
+    to a reviewer callable to perform domain-specific risk checks. It then updates the context with
+    approval status, reasons, and memory traces, and optionally emits risk alerts on the event bus
+    when trades are blocked."""
+
     def __init__(self, reviewer, memory=None, event_bus=None):
         super().__init__("RiskAgent", memory=memory, event_bus=event_bus)
         self.reviewer = reviewer

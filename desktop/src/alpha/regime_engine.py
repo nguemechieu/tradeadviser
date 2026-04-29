@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 from alpha.base_alpha import MarketRegime
-from core.config import RegimeEngineConfig
+from core.regime_engine_config import RegimeEngineConfig
 
 try:
     from ta.trend import ADXIndicator

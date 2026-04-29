@@ -1,5 +1,5 @@
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QDockWidget, QGridLayout, QLabel, QTableWidget, QTextBrowser, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QDockWidget, QGridLayout, QLabel, QTableWidget, QTextBrowser, QVBoxLayout, QWidget, QTabWidget
 
 from ui.console.system_console import SystemConsole
 
@@ -18,7 +18,7 @@ def create_system_console_panel(terminal):
     terminal.system_console = SystemConsole()
     terminal.system_console.screenshot_requested.connect(terminal.take_screen_shot)
 
-    dock = QDockWidget("System Console", terminal)
+    dock = QDockWidget("System Console & Order Book", terminal)
     dock.setObjectName("system_console_dock")
     terminal.system_console_dock = dock
     dock.setWidget(terminal.system_console)

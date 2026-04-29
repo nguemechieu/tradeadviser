@@ -7,7 +7,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from core.config import TimeStopConfig
+from core.regime_engine_config import TimeStopConfig
 from risk.time_stop_engine import TimeStopEngine
 from sopotek.brokers.paper import PaperBroker
 from sopotek.core.event_bus import AsyncEventBus, InMemoryEventStore

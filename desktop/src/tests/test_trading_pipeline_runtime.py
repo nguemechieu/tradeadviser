@@ -7,9 +7,9 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import core.sopotek_trading as sopotek_trading_module
+import core.system_trading as sopotek_trading_module
 import worker.symbol_worker as symbol_worker_module
-from core.sopotek_trading import SopotekTrading
+from core.system_trading import SopotekTrading
 from engines.risk_engine import RiskEngine
 from worker.symbol_worker import SymbolWorker
 

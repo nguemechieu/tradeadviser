@@ -6,8 +6,8 @@ import logging
 from typing import Any
 
 from execution.virtual_trade_manager import VirtualTradeManager
-from sopotek.core.event_bus import AsyncEventBus
-from sopotek.core.event_types import EventType
+from events.event_bus import AsyncEventBus
+from events.event_bus.event_types import EventType
 
 
 class TradeWatcher:

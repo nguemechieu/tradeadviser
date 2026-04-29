@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from agents.signal_agent import SignalAgent
 from agents.signal_fanout import merge_signal_agent_results
-from core.sopotek_trading import SopotekTrading
+from core.system_trading import SopotekTrading
 from engines.risk_engine import RiskEngine
 from event_bus.event_bus import EventBus
 from event_bus.event_types import EventType

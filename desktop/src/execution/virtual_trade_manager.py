@@ -6,10 +6,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+from events.event_bus import AsyncEventBus
+from models.signal import ClosePositionRequest, ExecutionReport
+from  events.event_bus.event_types import EventType
 from journal.trade_journal import TradeJournal
-from sopotek.core.event_bus import AsyncEventBus
-from sopotek.core.event_types import EventType
-from sopotek.core.models import ClosePositionRequest, ExecutionReport
 
 
 def _utc_now() -> datetime:
@@ -110,6 +110,7 @@ class VirtualTradeManager:
         return trades
 
     async def register_entry(self, report: ExecutionReport) -> VirtualTrade | None:
+        
         if str(report.status).lower() in {"failed", "rejected", "rejected_market_hours"}:
             return None
 
@@ -172,6 +173,23 @@ class VirtualTradeManager:
         return trade
 
     async def check_exit_conditions(self, latest_prices: dict[str, float] | None = None) -> list[VirtualExitDecision]:
+        """Evaluate all open virtual trades against current prices and generate exit decisions. Updates
+        internal price snapshots and determines which trades should be closed based on their virtual
+        stop-loss and take-profit rules.
+
+        The method refreshes prices, iterates over non-closed trades, and applies break-even and
+        trailing-stop logic before checking for stop or take-profit hits. It returns a list of
+        structured exit decisions that describe the desired exit action for each triggered trade.
+
+        Args:
+            latest_prices: Optional mapping of symbol to latest observed price, used to update the
+                manager's internal price cache before evaluating trades.
+
+        Returns:
+            list[VirtualExitDecision]: A list of exit decisions for trades that met their virtual
+                exit conditions at the time of evaluation.
+        """
+        
         if latest_prices:
             self.latest_prices.update({str(symbol).upper(): float(price) for symbol, price in latest_prices.items() if float(price or 0.0) > 0.0})
 

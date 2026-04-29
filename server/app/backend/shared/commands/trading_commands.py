@@ -7,9 +7,9 @@ from typing import Any
 
 from pydantic import Field
 
-from sopotek.shared.contracts.base import CorrelationIds, SessionContext, SharedModel, utc_now
-from sopotek.shared.contracts.trading import ExecutionRequest
-from sopotek.shared.enums.common import ReportKind
+from shared.contracts.base import CorrelationIds, SessionContext, SharedModel, utc_now
+from shared.contracts.trading import ExecutionRequest
+from shared.enums.common import ReportKind
 
 
 class UICommand(SharedModel):

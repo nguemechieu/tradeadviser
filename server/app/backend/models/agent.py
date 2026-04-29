@@ -5,7 +5,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 import enum
 import uuid
 
-from backend.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
+from server.app.backend.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
 
 class AgentStatus(str, enum.Enum):

@@ -4,14 +4,16 @@ import importlib
 import logging
 from collections.abc import Mapping
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from derivatives.core.config import StrategyConfig
-from derivatives.core.event_bus import EventBus
+from derivatives.core.live_market_cache import LiveMarketCache
 from derivatives.core.models import BrokerRoute, TradingSignal
-from derivatives.data.live_cache.cache.live_market_cache import LiveMarketCache
 from derivatives.engine.strategies import BaseStrategy, MLStrategy
 from derivatives.ml.feature_engineering.features import build_feature_vector
+
+if TYPE_CHECKING:
+    from events.event_bus import EventBus
 
 
 class StrategyEngine:

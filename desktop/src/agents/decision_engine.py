@@ -3,11 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable
 
-from sopotek.core.models import Signal
+from models.signal import Signal
 
 
 @dataclass(slots=True)
 class DecisionOutcome:
+    """Holds the outcome of a decision made by the DecisionEngine."""
+
     votes: dict[str, float] = field(default_factory=lambda: {"buy": 0.0, "sell": 0.0})
     best_by_side: dict[str, Signal] = field(default_factory=dict)
     winning_side: str | None = None

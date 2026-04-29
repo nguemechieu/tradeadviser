@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from sopotek.shared.enums.common import BrokerKind, SessionStatus
+from shared.enums.common import BrokerKind, SessionStatus
 
 
 PayloadT = TypeVar("PayloadT")

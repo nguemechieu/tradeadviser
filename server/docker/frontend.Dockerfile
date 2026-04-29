@@ -1,24 +1,25 @@
 FROM node:22-alpine AS builder
 
-WORKDIR /frontend
+WORKDIR /app/frontend
 
 ENV NODE_ENV=production \
-    DISABLE_TELEMETRY=1
+    DISABLE_TELEMETRY=1 \
+    NEXT_TELEMETRY_DISABLED=1
 
-COPY /package*.json ./
+COPY server/app/frontend/package*.json ./
 
-RUN npm ci --legacy-peer-deps
+RUN npm install --no-optional --legacy-peer-deps && npm install --force --legacy-peer-deps
 
-COPY . .
+COPY server/app/frontend/ ./
 
 RUN npm run build
 
 
 FROM nginx:alpine
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY server/docker/nginx.conf /etc/nginx/conf.d/default.conf
 
-COPY --from=builder /build/dist /usr/share/nginx/html
+COPY --from=builder /app/frontend/dist /usr/share/nginx/html
 
 EXPOSE 80
 

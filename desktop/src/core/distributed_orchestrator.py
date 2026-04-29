@@ -4,12 +4,14 @@ import multiprocessing as mp
 import pickle
 from contextlib import suppress
 
+from core.trading_core import TradingCore
+
 
 def run_process(symbols, controller):
-    from core.sopotek_trading import SopotekTrading
+   
 
     async def runner():
-        system = SopotekTrading(controller=controller)
+        system = TradingCore(controller=controller)
         system.symbols = symbols
         await system.start()
 

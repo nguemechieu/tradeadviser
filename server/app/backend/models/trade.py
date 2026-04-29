@@ -5,7 +5,7 @@ from enum import Enum
 from sqlalchemy import DateTime, Enum as SqlEnum, ForeignKey, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from backend.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
+from server.app.backend.db.base import TimestampMixin, UUIDPrimaryKeyMixin, Base
 
 
 class TradeSide(str, Enum):

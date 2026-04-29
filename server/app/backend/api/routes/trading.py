@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 
-from backend.api.routes._auth_helpers import resolve_optional_bearer_user
-from backend.dependencies import ServerServiceContainer, get_services
+from server.app.backend.api.routes._auth_helpers import resolve_optional_bearer_user
+from server.app.backend.dependencies import ServerServiceContainer, get_services
 
 
-router = APIRouter(prefix="/api/v1/trading", tags=["trading"])
+router = APIRouter(prefix="/api/v3/trading", tags=["trading"])
 
 
-@router.post("/broker/connect")
+@router.post("/api/broker/connect")
 async def connect_broker(
     payload: dict,
     authorization: str | None = Header(default=None),
@@ -24,7 +24,7 @@ async def connect_broker(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
-@router.post("/subscriptions/market-data")
+@router.post("/api/subscriptions/market-data")
 async def request_market_data_subscription(
     payload: dict,
     authorization: str | None = Header(default=None),
@@ -37,7 +37,7 @@ async def request_market_data_subscription(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
-@router.post("/orders")
+@router.post("/api/orders")
 async def place_order(
     payload: dict,
     authorization: str | None = Header(default=None),
@@ -50,7 +50,7 @@ async def place_order(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
-@router.post("/orders/cancel")
+@router.post("/api/orders/cancel")
 async def cancel_order(
     payload: dict,
     authorization: str | None = Header(default=None),
@@ -63,7 +63,7 @@ async def cancel_order(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
-@router.post("/positions/close")
+@router.post("/api/positions/close")
 async def close_position(
     payload: dict,
     authorization: str | None = Header(default=None),
@@ -76,7 +76,7 @@ async def close_position(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
-@router.post("/kill-switch")
+@router.post("/api/kill-switch")
 async def trigger_kill_switch(
     payload: dict,
     authorization: str | None = Header(default=None),

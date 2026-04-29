@@ -7,7 +7,7 @@ from typing import Any
 
 from pydantic import Field
 
-from sopotek.shared.contracts.base import SharedModel, SymbolIdentifier, utc_now
+from shared.contracts.base import SharedModel, SymbolIdentifier, utc_now
 
 
 class SymbolSnapshot(SharedModel):

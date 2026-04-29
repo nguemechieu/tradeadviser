@@ -1,4 +1,4 @@
-"""Transport-safe enums used by Sopotek desktop and server boundaries."""
+"""Transport-safe enums used by  desktop and server boundaries."""
 
 from __future__ import annotations
 

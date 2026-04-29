@@ -3,11 +3,12 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any, Mapping, Optional
 
-from models.instrument import Instrument
+from .instrument import Instrument
 
 
 @dataclass(slots=True)
 class Position:
+    """Represents a trading position with price, Greeks, and metadata."""
     symbol: str
     quantity: float
     side: str = "long"

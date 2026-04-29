@@ -7,7 +7,7 @@ from collections.abc import Iterable
 
 from fastapi import WebSocket
 
-from sopotek.shared.events.base import ServerEventEnvelope
+from shared.events.base import ServerEventEnvelope
 
 
 class WebSocketManager:

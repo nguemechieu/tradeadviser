@@ -6,7 +6,7 @@ from backend.api.routes._auth_helpers import resolve_bearer_user
 from backend.dependencies import ServerServiceContainer, get_services
 
 
-router = APIRouter(prefix="/workspace", tags=["Workspace"])
+router = APIRouter(prefix="/api/workspace", tags=["Workspace"])
 
 
 @router.get("/settings")

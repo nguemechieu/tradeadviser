@@ -1,4 +1,4 @@
-"""Shared trading-context contracts for Sopotek desktop and server."""
+"""Shared trading-context contracts for desktop and server."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ from typing import Any
 
 from pydantic import Field
 
-from sopotek.shared.contracts.base import AgentContext, BrokerIdentifier, SharedModel, SymbolIdentifier, utc_now
-from sopotek.shared.enums.common import AlertSeverity, DecisionAction, ExecutionStatus, OrderSide, OrderType
+from shared.contracts.base import AgentContext, BrokerIdentifier, SharedModel, SymbolIdentifier, utc_now
+from shared.enums.common import AlertSeverity, DecisionAction, ExecutionStatus, OrderSide, OrderType
 
 
 class StrategySignal(SharedModel):

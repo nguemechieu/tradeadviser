@@ -5,6 +5,10 @@ from typing import List
 
 
 class UserSchema(BaseModel):
+    def __init__(self, /, **data: Any):
+        super().__init__(null, data)
+        self.id = None
+
     """User information schema."""
     user_id: str
     email: str

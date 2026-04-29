@@ -5,8 +5,8 @@ current market context, enriches the incoming signal payload when possible,
 publishes a regime event, and records the classification in agent memory.
 """
 
-from event_bus.event import Event
-from event_bus.event_types import EventType
+from events.event import Event
+from events.event_bus.event_types import EventType
 
 from agents.base_agent import BaseAgent
 

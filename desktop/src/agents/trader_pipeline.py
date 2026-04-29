@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from agents.validation_engine import ValidationResult
-from sopotek.core.models import Signal, SignalStatus
+from models.signal import Signal, SignalStatus
 
 
 def _safe_float(value: Any, default: float = 0.0) -> float:

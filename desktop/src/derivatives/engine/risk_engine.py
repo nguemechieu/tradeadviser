@@ -4,9 +4,10 @@ import logging
 from datetime import datetime, timezone
 
 from derivatives.core.config import RiskConfig
-from derivatives.core.event_bus import EventBus
+
+from derivatives.core.live_market_cache import LiveMarketCache
 from derivatives.core.models import PortfolioState, RiskAssessment
-from derivatives.data.live_cache.cache.live_market_cache import LiveMarketCache
+from events.event_bus.event_bus import EventBus
 
 
 class RiskEngine:

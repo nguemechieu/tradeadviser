@@ -6,11 +6,11 @@ Endpoints for system monitoring, broker connectivity, deployment status.
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from backend.dependencies import get_db, get_current_user
-from backend.models import User, SystemHealth, TradeStats
-from backend.schemas import UserSchema
+from server.app.backend.dependencies import get_db, get_current_user
+from server.app.backend.models import SystemHealth, TradeStats
+from server.app.backend.schemas import UserSchema
 
-router = APIRouter(prefix="/admin/operations", tags=["operations"])
+router = APIRouter(prefix="/api/v3/admin/operations", tags=["operations"])
 
 
 @router.get("/health")

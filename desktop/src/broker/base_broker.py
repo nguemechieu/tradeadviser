@@ -1,32 +1,56 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
 import logging
+import time
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
-from dataclasses import is_dataclass
+from dataclasses import asdict, is_dataclass
 from datetime import datetime, timezone
-from typing import Any, Optional
-from core.monitoring.latency_tracker import LatencyTracker
+from typing import Any
 
 try:
     import aiohttp
-except ImportError:  # pragma: no cover - optional dependency in stripped test environments
+except ImportError:  # pragma: no cover
     aiohttp = None
 
 try:
     import websockets
-except ImportError:  # pragma: no cover - optional dependency in stripped test environments
+except ImportError:  # pragma: no cover
     websockets = None
 
 from broker.market_venues import supported_market_venues_for_profile
-from core.event_bus.event import Event
-from core.event_bus.event_types import EventType
+from events.event import Event
+from events.event_bus.event_types import EventType
 from models.instrument import Instrument
 from models.order import Order
-
 from core.monitoring.latency_tracker import LatencyTracker
+
+
+def _event_name(event_type: Any, fallback: str) -> str:
+    """Return a safe event name even if Event Type is incomplete or shadowed."""
+    try:
+        if hasattr(event_type, "value"):
+            return str(event_type.value)
+        text = str(event_type or "").strip()
+        return text or fallback
+    except Exception:
+        return fallback
+
+
+async def _maybe_await(value: Any) -> Any:
+    if inspect.isawaitable(value):
+        return await value
+    return value
+
+
+def _safe_symbol(value: Any) -> str:
+    if isinstance(value, Instrument):
+        return str(value.symbol or "").strip().upper()
+    return str(value or "").strip().upper()
+
 
 class BaseBroker(ABC):
     DEFAULT_STREAM_POLL_SECONDS = 1.0
@@ -35,15 +59,15 @@ class BaseBroker(ABC):
         self.event_bus = event_bus
         self.logger = logging.getLogger(self.__class__.__name__)
         self._streaming_market_data = False
-        self.latency_tracker = LatencyTracker()  # ✅ FIX
+        self.latency_tracker = LatencyTracker()
 
     @abstractmethod
     async def connect(self):
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     async def close(self):
-        pass
+        raise NotImplementedError
 
     async def disconnect(self):
         await self.close()
@@ -56,9 +80,7 @@ class BaseBroker(ABC):
 
     def is_authenticated(self):
         connected = getattr(self, "_connected", None)
-        if isinstance(connected, bool):
-            return connected
-        return False
+        return bool(connected) if isinstance(connected, bool) else False
 
     async def refresh_session(self):
         return {"authenticated": bool(self.is_authenticated())}
@@ -67,33 +89,52 @@ class BaseBroker(ABC):
         self.event_bus = event_bus
         return self
 
+    def _event_type(self, name: str, fallback: str) -> str:
+        return _event_name(getattr(EventType, name, None), fallback)
+
     async def _publish_event(self, event_type, payload):
         if self.event_bus is None:
             return None
-        event = Event(event_type, payload)
-        await self.event_bus.publish(event)
+
+        event = Event(type=_event_name(event_type, str(event_type or "event")), data=payload)
+        publish = getattr(self.event_bus, "publish", None)
+        if not callable(publish):
+            return None
+
+        try:
+            await _maybe_await(publish(event))
+        except TypeError:
+            await _maybe_await(publish(event.type, event.data))
+        except Exception:
+            self.logger.debug("Event publish failed for %s", event.type, exc_info=True)
+            return None
+
         return event
 
     async def _emit_market_data_event(self, payload):
         payload = dict(payload or {})
         payload.setdefault("broker", getattr(self, "exchange_name", None))
-        await self._publish_event(EventType.MARKET_DATA_EVENT, payload)
-        await self._publish_event(EventType.MARKET_DATA, payload)
-        await self._publish_event(EventType.MARKET_TICK, payload)
+        await self._publish_event(self._event_type("MARKET_DATA_EVENT", "market.data.event"), payload)
+        await self._publish_event(self._event_type("MARKET_DATA", "market.data"), payload)
+        await self._publish_event(self._event_type("MARKET_TICK", "market.tick"), payload)
 
     async def _emit_order_event(self, payload):
         payload = dict(payload or {})
         payload.setdefault("broker", getattr(self, "exchange_name", None))
-        await self._publish_event(EventType.ORDER_EVENT, payload)
-        await self._publish_event(EventType.EXECUTION_REPORT, payload)
+        await self._publish_event(self._event_type("ORDER_EVENT", "order.event"), payload)
+        await self._publish_event(self._event_type("EXECUTION_REPORT", "execution.report"), payload)
 
     async def _emit_position_event(self, payload):
-        await self._publish_event(EventType.POSITION_EVENT, dict(payload or {}))
-        await self._publish_event(EventType.POSITION, dict(payload or {}))
+        payload = dict(payload or {})
+        payload.setdefault("broker", getattr(self, "exchange_name", None))
+        await self._publish_event(self._event_type("POSITION_EVENT", "position.event"), payload)
+        await self._publish_event(self._event_type("POSITION", "position"), payload)
 
     async def _emit_account_event(self, payload):
-        await self._publish_event(EventType.ACCOUNT_EVENT, dict(payload or {}))
-        await self._publish_event(EventType.PORTFOLIO_SNAPSHOT, dict(payload or {}))
+        payload = dict(payload or {})
+        payload.setdefault("broker", getattr(self, "exchange_name", None))
+        await self._publish_event(self._event_type("ACCOUNT_EVENT", "account.event"), payload)
+        await self._publish_event(self._event_type("PORTFOLIO_SNAPSHOT", "portfolio.snapshot"), payload)
 
     @staticmethod
     def _coerce_mapping(value):
@@ -104,7 +145,7 @@ class BaseBroker(ABC):
         if hasattr(value, "to_dict") and callable(getattr(value, "to_dict")):
             return dict(value.to_dict())
         if is_dataclass(value):
-            return dict(value.__dict__)
+            return asdict(value)
         raise TypeError(f"Expected a mapping-compatible value, got {type(value)!r}")
 
     @staticmethod
@@ -121,18 +162,13 @@ class BaseBroker(ABC):
                     return str(symbol).strip().upper()
         return ""
 
-    # ===============================
-    # MARKET DATA
-    # ===============================
-
     @abstractmethod
     async def fetch_ticker(self, symbol):
-        pass
+        raise NotImplementedError
 
     async def fetch_tickers(self, symbols=None):
-        symbols = list(symbols or [])
         snapshots = []
-        for symbol in symbols:
+        for symbol in list(symbols or []):
             snapshots.append(await self.fetch_ticker(symbol))
         return snapshots
 
@@ -172,11 +208,7 @@ class BaseBroker(ABC):
         raise NotImplementedError("fetch_status is not implemented for this broker")
 
     async def stream_market_data(self, symbols):
-        normalized_symbols = [
-            str(symbol.symbol if isinstance(symbol, Instrument) else symbol).strip().upper()
-            for symbol in (symbols or [])
-            if str(symbol.symbol if isinstance(symbol, Instrument) else symbol).strip()
-        ]
+        normalized_symbols = [_safe_symbol(symbol) for symbol in (symbols or []) if _safe_symbol(symbol)]
         if not normalized_symbols:
             return
 
@@ -188,7 +220,11 @@ class BaseBroker(ABC):
         try:
             while self._streaming_market_data:
                 for symbol in normalized_symbols:
-                    ticker = await self.fetch_ticker(symbol)
+                    try:
+                        ticker = await self.fetch_ticker(symbol)
+                    except Exception:
+                        self.logger.debug("fetch_ticker failed during stream for %s", symbol, exc_info=True)
+                        continue
                     if isinstance(ticker, Mapping):
                         payload = dict(ticker)
                         payload.setdefault("symbol", symbol)
@@ -210,38 +246,28 @@ class BaseBroker(ABC):
         self.stop_market_data_stream()
         return True
 
-    # ===============================
-    # TRADING
-    # ===============================
-
     @abstractmethod
     async def create_order(
-        self,
-        symbol,
-        side,
-        amount,
-        type="market",
-        price=None,
-        stop_price=None,
-        params=None,
-        stop_loss=None,
-        take_profit=None,
+            self,
+            symbol,
+            side,
+            amount,
+            type="market",
+            price=None,
+            stop_price=None,
+            params=None,
+            stop_loss=None,
+            take_profit=None,
     ):
-        pass
+        raise NotImplementedError
 
     async def place_order(self, order):
         payload = Order.from_mapping(order).to_dict()
         params = dict(payload.get("params") or {})
-        if payload.get("instrument") is not None:
-            params.setdefault("instrument", payload.get("instrument"))
-        if payload.get("legs"):
-            params.setdefault("legs", payload.get("legs"))
-        if payload.get("broker"):
-            params.setdefault("broker", payload.get("broker"))
-        if payload.get("client_order_id"):
-            params.setdefault("client_order_id", payload.get("client_order_id"))
-        if payload.get("time_in_force"):
-            params.setdefault("time_in_force", payload.get("time_in_force"))
+        for key in ("instrument", "legs", "broker", "client_order_id", "time_in_force"):
+            if payload.get(key):
+                params.setdefault(key, payload.get(key))
+
         execution = await self.create_order(
             symbol=self._symbol_from_order_payload(payload),
             side=payload.get("side"),
@@ -259,7 +285,7 @@ class BaseBroker(ABC):
 
     @abstractmethod
     async def cancel_order(self, order_id, symbol=None):
-        pass
+        raise NotImplementedError
 
     async def cancel_all_orders(self, symbol=None):
         raise NotImplementedError("cancel_all_orders is not implemented for this broker")
@@ -273,13 +299,9 @@ class BaseBroker(ABC):
         filters = dict(filters or {})
         return await self.fetch_orders(symbol=filters.get("symbol"), limit=filters.get("limit"))
 
-    # ===============================
-    # ACCOUNT
-    # ===============================
-
     @abstractmethod
     async def fetch_balance(self):
-        pass
+        raise NotImplementedError
 
     async def get_account_info(self):
         account = await self.fetch_balance()
@@ -291,7 +313,7 @@ class BaseBroker(ABC):
         account = await self.get_account_info()
         if isinstance(account, Mapping):
             return [dict(account)]
-        if isinstance(account, Sequence):
+        if isinstance(account, Sequence) and not isinstance(account, (str, bytes, bytearray)):
             return list(account)
         return []
 
@@ -304,6 +326,9 @@ class BaseBroker(ABC):
 
     async def get_positions(self):
         positions = await self.fetch_positions()
+        if isinstance(positions, Mapping):
+            await self._emit_position_event(dict(positions))
+            return positions
         if isinstance(positions, list):
             for position in positions:
                 if isinstance(position, Mapping):
@@ -311,15 +336,26 @@ class BaseBroker(ABC):
         return positions
 
     async def fetch_position(self, symbol):
-        positions = await self.fetch_positions(symbols=[symbol])
-        if isinstance(positions, list):
-            for position in positions:
-                if isinstance(position, dict) and position.get("symbol") == symbol:
-                    return position
+        normalized_symbol = _safe_symbol(symbol)
+        if not normalized_symbol:
+            return None
+        try:
+            positions = await self.fetch_positions(symbols=[normalized_symbol])
+        except TypeError:
+            positions = await self.fetch_positions()
+        if isinstance(positions, Mapping):
+            return dict(positions) if _safe_symbol(positions.get("symbol")) == normalized_symbol else None
+        if not isinstance(positions, list):
+            return None
+        for position in positions:
+            if not isinstance(position, Mapping):
+                continue
+            if _safe_symbol(position.get("symbol")) == normalized_symbol:
+                return dict(position)
         return None
 
     def _position_amount(self, position):
-        if not isinstance(position, dict):
+        if not isinstance(position, Mapping):
             return 0.0
         for key in ("amount", "qty", "quantity", "size", "contracts"):
             value = position.get(key)
@@ -334,14 +370,13 @@ class BaseBroker(ABC):
         return 0.0
 
     def _position_side(self, position):
-        if not isinstance(position, dict):
+        if not isinstance(position, Mapping):
             return None
-        side = position.get("side")
+        side = position.get("side") or position.get("position_side")
         if side is not None:
-            return str(side).lower()
-        amount = position.get("amount")
+            return str(side).strip().lower()
         try:
-            numeric = float(amount)
+            numeric = float(position.get("amount"))
         except Exception:
             return None
         if numeric < 0:
@@ -351,19 +386,20 @@ class BaseBroker(ABC):
         return None
 
     async def close_position(
-        self,
-        symbol,
-        amount=None,
-        params=None,
-        order_type="market",
-        position=None,
-        position_side=None,
-        position_id=None,
+            self,
+            symbol,
+            amount=None,
+            params=None,
+            order_type="market",
+            position=None,
+            position_side=None,
+            position_id=None,
     ):
-        target_position = position if isinstance(position, dict) else None
-        if not isinstance(target_position, dict):
+        normalized_symbol = _safe_symbol(symbol)
+        target_position = position if isinstance(position, Mapping) else None
+        if not isinstance(target_position, Mapping):
             try:
-                positions = await self.fetch_positions(symbols=[symbol])
+                positions = await self.fetch_positions(symbols=[normalized_symbol])
             except TypeError:
                 positions = await self.fetch_positions()
             except Exception:
@@ -372,19 +408,14 @@ class BaseBroker(ABC):
             candidates = [
                 item
                 for item in (positions or [])
-                if isinstance(item, dict) and item.get("symbol") == symbol
+                if isinstance(item, Mapping) and _safe_symbol(item.get("symbol")) == normalized_symbol
             ]
             if position_id:
                 normalized_id = str(position_id).strip().lower()
                 candidates = [
                     item
                     for item in candidates
-                    if str(
-                        item.get("position_id")
-                        or item.get("id")
-                        or item.get("trade_id")
-                        or ""
-                    ).strip().lower() == normalized_id
+                    if str(item.get("position_id") or item.get("id") or item.get("trade_id") or "").strip().lower() == normalized_id
                 ]
             if position_side:
                 normalized_side = str(position_side).strip().lower()
@@ -394,37 +425,26 @@ class BaseBroker(ABC):
                     if str(item.get("position_side") or item.get("side") or "").strip().lower() == normalized_side
                 ]
             if len(candidates) > 1 and self.supports_hedging():
-                raise ValueError(
-                    f"Multiple hedge legs are open for {symbol}. Specify the long or short position to close."
-                )
-            target_position = candidates[0] if candidates else await self.fetch_position(symbol)
+                raise ValueError(f"Multiple hedge legs are open for {normalized_symbol}. Specify the long or short position to close.")
+            target_position = candidates[0] if candidates else await self.fetch_position(normalized_symbol)
 
-        if not isinstance(target_position, dict):
+        if not isinstance(target_position, Mapping):
             return None
-
         close_amount = self._position_amount(target_position) if amount is None else abs(float(amount))
         if close_amount <= 0:
             return None
-
         side = self._position_side(target_position)
         close_side = "buy" if side in {"short", "sell"} else "sell"
-        return await self.create_order(
-            symbol=symbol,
-            side=close_side,
-            amount=close_amount,
-            type=order_type,
-            params=params,
-        )
+        return await self.create_order(symbol=normalized_symbol, side=close_side, amount=close_amount, type=order_type, params=params)
 
     async def close_all_positions(self, symbols=None, params=None, order_type="market"):
         try:
             positions = await self.fetch_positions(symbols=symbols)
         except TypeError:
             positions = await self.fetch_positions()
-
         closed = []
         for position in positions or []:
-            if not isinstance(position, dict):
+            if not isinstance(position, Mapping):
                 continue
             symbol = position.get("symbol")
             if not symbol:
@@ -454,30 +474,22 @@ class BaseBroker(ABC):
     async def fetch_open_orders_snapshot(self, symbols=None, limit=None):
         if not symbols:
             return await self.fetch_open_orders(limit=limit)
-
         snapshot = []
         seen = set()
-        for symbol in dict.fromkeys(str(item).strip() for item in (symbols or []) if str(item).strip()):
+        for symbol in dict.fromkeys(_safe_symbol(item) for item in (symbols or []) if _safe_symbol(item)):
             try:
                 orders = await self.fetch_open_orders(symbol=symbol, limit=limit)
             except TypeError:
                 orders = await self.fetch_open_orders(symbol)
-
             for order in orders or []:
-                if isinstance(order, dict):
-                    key = (
-                        str(order.get("id") or ""),
-                        str(order.get("clientOrderId") or ""),
-                        str(order.get("symbol") or symbol),
-                        str(order.get("status") or ""),
-                    )
+                if isinstance(order, Mapping):
+                    key = (str(order.get("id") or ""), str(order.get("clientOrderId") or order.get("client_order_id") or ""), _safe_symbol(order.get("symbol") or symbol), str(order.get("status") or ""))
                 else:
                     key = (str(order), "", symbol, "")
                 if key in seen:
                     continue
                 seen.add(key)
                 snapshot.append(order)
-
         return snapshot
 
     async def fetch_closed_orders(self, symbol=None, limit=None):
@@ -497,10 +509,7 @@ class BaseBroker(ABC):
 
     def supported_market_venues(self):
         config = getattr(self, "config", None)
-        return supported_market_venues_for_profile(
-            getattr(config, "type", None),
-            getattr(config, "exchange", None),
-        )
+        return supported_market_venues_for_profile(getattr(config, "type", None), getattr(config, "exchange", None))
 
     def apply_market_preference(self, preference=None):
         return []
@@ -521,14 +530,12 @@ class BaseBroker(ABC):
         raise NotImplementedError("fetch_deposit_address is not implemented for this broker")
 
 
-class BaseDerivativeBroker(BaseBroker):
+class BaseDerivativeBroker(BaseBroker, ABC):
     DEFAULT_TIMEOUT_SECONDS = 30
 
     def __init__(self, config, event_bus=None):
-        resolved_bus = event_bus or getattr(config, "event_bus", None)
         options = dict(getattr(config, "options", None) or {})
-        if resolved_bus is None:
-            resolved_bus = options.get("event_bus")
+        resolved_bus = event_bus or getattr(config, "event_bus", None) or options.get("event_bus")
         super().__init__(event_bus=resolved_bus)
         self.config = config
         self.exchange_name = str(getattr(config, "exchange", self.__class__.__name__) or self.__class__.__name__).strip().lower()
@@ -546,22 +553,12 @@ class BaseDerivativeBroker(BaseBroker):
         self.client_secret = options.get("client_secret") or self.params.get("client_secret") or self.secret
         self.base_url = str(options.get("base_url") or self.params.get("base_url") or self.default_base_url()).rstrip("/")
         self.ws_url = str(options.get("ws_url") or self.params.get("ws_url") or self.default_ws_url()).rstrip("/")
-        self.timeout_seconds = float(
-            options.get("timeout_seconds")
-            or self.params.get("timeout_seconds")
-            or max(1, int(getattr(config, "timeout", self.DEFAULT_TIMEOUT_SECONDS) or self.DEFAULT_TIMEOUT_SECONDS))
-        )
-        self.market_data_poll_interval = float(
-            options.get("market_data_poll_interval")
-            or self.params.get("market_data_poll_interval")
-            or self.DEFAULT_STREAM_POLL_SECONDS
-        )
+        self.timeout_seconds = float(options.get("timeout_seconds") or self.params.get("timeout_seconds") or max(1, int(getattr(config, "timeout", self.DEFAULT_TIMEOUT_SECONDS) or self.DEFAULT_TIMEOUT_SECONDS)))
+        self.market_data_poll_interval = float(options.get("market_data_poll_interval") or self.params.get("market_data_poll_interval") or self.DEFAULT_STREAM_POLL_SECONDS)
         self.session = None
         self._connected = False
         self._market_cache = {}
         self._websocket = None
-
-        self.latency_tracker = LatencyTracker()
 
     def default_base_url(self):
         return ""
@@ -585,17 +582,11 @@ class BaseDerivativeBroker(BaseBroker):
         await self._authenticate()
         self._connected = True
         return True
+
     def connection_health(self):
+        stats = self.latency_tracker.stats()
+        return {"exchange": self.exchange_name, "avg_latency": stats.get("avg"), "p95_latency": stats.get("p95"), "error_rate": stats.get("error_rate"), "connected": self._connected}
 
-     stats = self.latency_tracker.stats()
-
-     return {
-        "exchange": self.exchange_name,
-        "avg_latency": stats["avg"],
-        "p95_latency": stats["p95"],
-        "error_rate": stats["error_rate"],
-        "connected": self._connected,
-    }
     async def close(self):
         self.stop_market_data_stream()
         if self._websocket is not None:
@@ -617,135 +608,66 @@ class BaseDerivativeBroker(BaseBroker):
             headers["Authorization"] = f"Bearer {self.access_token}"
         return headers
 
-    import time
-
-async def _request_json(
-        self,
-        method,
-        path,
-        *,
-        params=None,
-        json_payload=None,
-        data=None,
-        headers=None,
-        base_url=None,
-        include_meta=False,
-        expected_statuses=(200, 201, 202, 204),
-):
-    session = await self._ensure_session()
-    request_headers = {**self._auth_headers(), **dict(headers or {})}
-    root = str(base_url or self.base_url or "").rstrip("/")
-    url = path if str(path).startswith("http") else f"{root}/{str(path).lstrip('/')}"
-
-    start = time.time()
-
-    try:
-        async with session.request(
-                method.upper(),
-                url,
-                params=params,
-                json=json_payload,
-                data=data,
-                headers=request_headers,
-        ) as response:
-
-            if response.status not in expected_statuses:
-                body = await response.text()
-                raise RuntimeError(
-                    f"{self.exchange_name} {method.upper()} {url} failed: {response.status} {body}"
-                )
-
-            if response.status == 204:
-                payload = {}
-            else:
-                text = await response.text()
-                payload = {}
-                if text:
-                    try:
-                        payload = json.loads(text)
-                    except json.JSONDecodeError:
-                        payload = {"raw": text}
-
-        # ✅ record latency
-        if hasattr(self, "latency_tracker"):
+    async def _request_json(self, method, path, *, params=None, json_payload=None, data=None, headers=None, base_url=None, include_meta=False, expected_statuses=(200, 201, 202, 204)):
+        session = await self._ensure_session()
+        request_headers = {**self._auth_headers(), **dict(headers or {})}
+        root = str(base_url or self.base_url or "").rstrip("/")
+        url = path if str(path).startswith("http") else f"{root}/{str(path).lstrip('/')}"
+        start = time.time()
+        try:
+            async with session.request(str(method or "GET").upper(), url, params=params, json=json_payload, data=data, headers=request_headers) as response:
+                response_headers = dict(response.headers)
+                status = int(response.status)
+                if status not in expected_statuses:
+                    body = await response.text()
+                    raise RuntimeError(f"{self.exchange_name} {str(method).upper()} {url} failed: {status} {body}")
+                if status == 204:
+                    payload = {}
+                else:
+                    text = await response.text()
+                    payload = {}
+                    if text:
+                        try:
+                            payload = json.loads(text)
+                        except json.JSONDecodeError:
+                            payload = {"raw": text}
             self.latency_tracker.record(time.time() - start)
+            if include_meta:
+                return payload, response_headers, status
+            return payload
+        except Exception as exc:
+            self.latency_tracker.record_error(time.time() - start)
+            self.logger.warning("%s request failed: %s", self.exchange_name, exc)
+            raise
 
-        if include_meta:
-            return payload, dict(response.headers), response.status
-
-        return payload
-
-    except Exception as e:
-        if hasattr(self, "latency_tracker"):
-            self.latency_tracker.record_error()
-
-        self.logger.warning(f"{self.exchange_name} request failed: {e}")
-        raise
     async def fetch_balance(self):
         return await self.get_account_info()
 
     async def fetch_positions(self, symbols=None):
         positions = await self.get_positions()
-        targets = {
-            str(item.symbol if isinstance(item, Instrument) else item).strip().upper()
-            for item in (symbols or [])
-            if str(item.symbol if isinstance(item, Instrument) else item).strip()
-        }
+        targets = {_safe_symbol(item) for item in (symbols or []) if _safe_symbol(item)}
         if not targets:
             return positions
-        return [
-            position
-            for position in list(positions or [])
-            if isinstance(position, Mapping) and str(position.get("symbol") or "").strip().upper() in targets
-        ]
+        return [position for position in list(positions or []) if isinstance(position, Mapping) and _safe_symbol(position.get("symbol")) in targets]
 
-    async def create_order(
-        self,
-        symbol,
-        side,
-        amount,
-        type="market",
-        price=None,
-        stop_price=None,
-        params=None,
-        stop_loss=None,
-        take_profit=None,
-    ):
-        payload = {
-            "symbol": symbol,
-            "side": side,
-            "amount": amount,
-            "type": str(type or "market").strip().lower(),
-            "price": price,
-            "stop_price": stop_price,
-            "stop_loss": stop_loss,
-            "take_profit": take_profit,
-            "params": dict(params or {}),
-        }
+    async def create_order(self, symbol, side, amount, type="market", price=None, stop_price=None, params=None, stop_loss=None, take_profit=None):
+        payload = {"symbol": symbol, "side": side, "amount": amount, "type": str(type or "market").strip().lower(), "price": price, "stop_price": stop_price, "stop_loss": stop_loss, "take_profit": take_profit, "params": dict(params or {})}
         return await self.place_order(payload)
 
     async def fetch_ticker(self, symbol):
         quotes = await self._fetch_quotes([symbol])
         if isinstance(quotes, list) and quotes:
             return quotes[0]
-        return {"symbol": str(symbol).strip().upper(), "broker": self.exchange_name}
+        return {"symbol": _safe_symbol(symbol), "broker": self.exchange_name}
 
     async def fetch_orderbook(self, symbol, limit=50):
         ticker = await self.fetch_ticker(symbol)
         bid = ticker.get("bid")
         ask = ticker.get("ask")
-        return {
-            "symbol": ticker.get("symbol") or str(symbol).strip().upper(),
-            "bids": [[bid, 0.0]] if bid not in (None, "") else [],
-            "asks": [[ask, 0.0]] if ask not in (None, "") else [],
-        }
+        return {"symbol": ticker.get("symbol") or _safe_symbol(symbol), "bids": [[bid, 0.0]] if bid not in (None, "") else [], "asks": [[ask, 0.0]] if ask not in (None, "") else []}
 
     async def fetch_status(self):
-        return {
-            "status": "connected" if self._connected else "disconnected",
-            "broker": self.exchange_name,
-            "mode": self.mode,
-        }
+        return {"status": "connected" if self._connected else "disconnected", "broker": self.exchange_name, "mode": self.mode}
 
     async def fetch_markets(self):
         return dict(self._market_cache)
@@ -754,16 +676,13 @@ async def _request_json(
         return list(self._market_cache)
 
     async def fetch_orders(self, symbol=None, limit=None):
-        orders = await self._list_orders(status=None, symbol=symbol, limit=limit)
-        return list(orders or [])
+        return list(await self._list_orders(status=None, symbol=symbol, limit=limit) or [])
 
     async def fetch_open_orders(self, symbol=None, limit=None):
-        orders = await self._list_orders(status="open", symbol=symbol, limit=limit)
-        return list(orders or [])
+        return list(await self._list_orders(status="open", symbol=symbol, limit=limit) or [])
 
     async def fetch_closed_orders(self, symbol=None, limit=None):
-        orders = await self._list_orders(status="closed", symbol=symbol, limit=limit)
-        return list(orders or [])
+        return list(await self._list_orders(status="closed", symbol=symbol, limit=limit) or [])
 
     async def fetch_order(self, order_id, symbol=None):
         return await self._get_order(order_id, symbol=symbol)
@@ -781,14 +700,13 @@ async def _request_json(
         if websockets is None:
             raise RuntimeError("websockets is required for derivative broker streaming")
         headers = self._auth_headers()
-        async with websockets.connect(self.ws_url, extra_headers=headers or None) as websocket:
+        async with websockets.connect(self.ws_url, additional_headers=headers or None) as websocket:
             self._websocket = websocket
             auth_message = self._websocket_auth_message()
             if auth_message is not None:
                 await websocket.send(json.dumps(auth_message))
             for message in self._websocket_subscriptions(symbols):
                 await websocket.send(json.dumps(message))
-
             self._streaming_market_data = True
             try:
                 async for raw_message in websocket:
@@ -838,3 +756,6 @@ async def _request_json(
 
     async def place_order(self, order):
         raise NotImplementedError(f"{self.__class__.__name__} must implement place_order")
+
+
+__all__ = ["BaseBroker", "BaseDerivativeBroker"]

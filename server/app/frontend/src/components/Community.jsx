@@ -1,11 +1,11 @@
 import { Link } from "react-router-dom"
 
-const Lounge = () => {
+const Community = () => {
     return (
         <section>
-            <h1>The Lounge</h1>
+            <h1>Community</h1>
             <br />
-            <p>Admins and Editors can hang out here.</p>
+            <p>Community features and discussions for traders.</p>
             <div className="flexGrow">
                 <Link to="/">Home</Link>
             </div>
@@ -13,4 +13,4 @@ const Lounge = () => {
     )
 }
 
-export default Lounge
+export default Community

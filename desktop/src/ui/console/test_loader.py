@@ -4,14 +4,14 @@ import asyncio
 import pytest
 from unittest.mock import Mock, patch, AsyncMock
 
-from tradeadviser_desktop.src.ui.console.loader import (
+from desktop.src.ui.console.loader import (
     LoadingManager,
     LoadingState,
     LoadingTask,
     LoadingIndicator,
     ConsoleLoaderIntegration,
 )
-from tradeadviser_desktop.src.ui.console.system_console import SystemConsole
+from desktop.src.ui.console.system_console import SystemConsole
 
 
 class TestLoadingTask:

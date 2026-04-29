@@ -4,9 +4,9 @@ Lists all available API endpoints with their descriptions, methods, and required
 """
 
 from fastapi import APIRouter, Depends, status
-from backend.dependencies import ServerServiceContainer, get_services
+from server.app.backend.dependencies import ServerServiceContainer, get_services
 
-router = APIRouter(prefix="/docs", tags=["Documentation"])
+router = APIRouter(prefix="/api/v3/docs", tags=["Documentation"])
 
 
 # Comprehensive route documentation

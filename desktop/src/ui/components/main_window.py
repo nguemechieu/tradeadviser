@@ -1,4 +1,5 @@
-from PySide6.QtWidgets import QMainWindow, QAction
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QMainWindow
 
 
 class MainWindow(QMainWindow):

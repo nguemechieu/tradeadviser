@@ -134,7 +134,7 @@ class CredentialManager:
             traceback.print_exc()
 
     @staticmethod
-    def touch_account(account_name: str):
+    def touch_account(account_name: str="admin_test"):
 
         try:
             CredentialManager._migrate_legacy_accounts()
@@ -143,7 +143,7 @@ class CredentialManager:
             CredentialManager._manager().touch_account(account_name)
 
         except Exception:
-            traceback.print_exc()
+           raise
 
     # =====================================================
     # LOAD ACCOUNT
@@ -160,7 +160,7 @@ class CredentialManager:
             return CredentialManager._migrate_legacy_account(account_name)
 
         except Exception:
-            traceback.print_exc()
+            raise
 
             return None
 
@@ -176,9 +176,8 @@ class CredentialManager:
             return CredentialManager._manager().list_accounts()
 
         except Exception:
-            traceback.print_exc()
+            raise
 
-            return []
 
     # =====================================================
     # DELETE ACCOUNT

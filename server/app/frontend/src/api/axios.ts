@@ -1,37 +1,88 @@
-import axios, { AxiosInstance } from 'axios';
+import axios from "axios";
+import axiosRetry from "axios-retry";
 
-// Determine base URL based on environment
-const getBaseURL = (): string => {
-  // In Vite development (port 5173), use Vite proxy to localhost:8000
-  if (typeof window !== 'undefined' && window.location.port === '5173') {
-    return 'http://localhost:8000';
-  }
-  // In Docker or production, use relative paths
-  // The frontend (Nginx) will proxy these to the backend
-  // This works because:
-  // - Browser on localhost:3000 makes request to /auth/login
-  // - Nginx proxies it to http://backend:8000/auth/login (same container network)
-  // - or in production, the same host with proper routing
-  return '';
-};
+// if using React context (only usable in a hook!)
 
-const BASE_URL = getBaseURL();
+const BASE_URL = "http://localhost:8080";
 
-const axiosInstance: AxiosInstance = axios.create({
-  baseURL: BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  withCredentials: false,
+// 🔓 Public instance (no auth)
+const axiosPublic = axios.create({
+    baseURL: BASE_URL,
 });
 
-export const axiosPrivate: AxiosInstance = axios.create({
-  baseURL: BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json'
-  },
-  withCredentials: true
+// 🔐 Private instance (with credentials)
+const axiosPrivate = axios.create({
+    baseURL: BASE_URL,
+    withCredentials: true,
 });
 
-export default axiosInstance;
+// 🔁 Retry on network or 5xx
+axiosRetry(axiosPrivate, {
+    retries: 3,
+    retryDelay: axiosRetry.exponentialDelay,
+    retryCondition: (error: { response: { status: number; }; }) => {
+        if (!error.response) return true;
+        return [500, 502, 503, 504].includes(error.response.status);
+    },
+});
+
+// 🔑 Add access token from localStorage
+axiosPrivate.interceptors.request.use(
+    (config) => {
+        const token = localStorage.getItem("accessToken");
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+    },
+    (error) => Promise.reject(error)
+);
+
+// // 🔄 Refresh token on 401 and retry original request
+// axiosPrivate.interceptors.response.use(
+//     (response) => response,
+//     async (error) => {
+//         const originalRequest = error.config;
+//
+//         if (error.response?.status === 401 && !originalRequest._retry) {
+//             originalRequest._retry = true;
+//             try {
+//                 const newToken = await refreshAccessToken();
+//                 if (newToken) {
+//                     localStorage.setItem("accessToken", newToken);
+//                     originalRequest.headers.Authorization = `Bearer ${newToken}`;
+//                     return axiosPrivate(originalRequest);
+//                 }
+//             } catch (err) {
+//                 console.error("Token refresh failed:", err);
+//             }
+//         }
+//
+//         return Promise.reject(error);
+//     }
+// );
+
+// // 🔄 Refresh token on 401 and retry original request
+// axiosPrivate.interceptors.response.use(
+//     (response) => response,
+//     async (error) => {
+//         const originalRequest = error.config;
+//
+//         if (error.response?.status === 401 && !originalRequest._retry) {
+//             originalRequest._retry = true;
+//             try {
+//                 const newToken = await refreshAccessToken();
+//                 if (newToken) {
+//                     localStorage.setItem("accessToken", newToken);
+//                     originalRequest.headers.Authorization = `Bearer ${newToken}`;
+//                     return axiosPrivate(originalRequest);
+//                 }
+//             } catch (err) {
+//                 console.error("Token refresh failed:", err);
+//             }
+//         }
+//
+//         return Promise.reject(error);
+//     }
+// );
+export { axiosPublic, axiosPrivate };

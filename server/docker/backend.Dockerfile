@@ -25,7 +25,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy backend requirements
-COPY /app/backend/requirements.txt  ./requirements.txt
+COPY server/app/backend/requirements.txt ./requirements.txt
 
 # Build Python wheels
 RUN pip install --upgrade pip setuptools wheel && \

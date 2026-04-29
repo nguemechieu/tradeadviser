@@ -8,8 +8,8 @@ from uuid import uuid4
 
 from pydantic import Field
 
-from sopotek.shared.contracts.base import SharedModel, utc_now
-from sopotek.shared.enums.common import EventSource
+from shared.contracts.base import SharedModel, utc_now
+from shared.enums.common import EventSource
 
 
 PayloadT = TypeVar("PayloadT")

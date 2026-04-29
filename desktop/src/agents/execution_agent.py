@@ -1,5 +1,5 @@
-from event_bus.event import Event
-from event_bus.event_types import EventType
+from events.event import Event
+from events.event_bus.event_types import EventType
 
 from agents.base_agent import BaseAgent
 

@@ -127,11 +127,11 @@ class RiskAssessment:
     confidence: float
     reason: str
     order_type: str = "market"
-    limit_price: float | None = None
-    stop_loss: float | None = None
-    take_profit: float | None = None
+    limit_price: float | None = 0.0
+    stop_loss: float | None = 0.0
+    take_profit: float | None = 0.0
     broker_key: str | None = None
-    exchange: str | None = None
+    exchange: str | None = "unknown"
     strategy_name: str = "unknown"
     metadata: dict[str, Any] = field(default_factory=dict)
     timestamp: datetime = field(default_factory=utc_now)
@@ -150,9 +150,9 @@ class OrderCommand:
     broker_key: str
     exchange: str
     order_type: str = "market"
-    limit_price: float | None = None
-    stop_price: float | None = None
-    take_profit: float | None = None
+    limit_price: float | None = 0.0
+    stop_price: float | None = 0.0
+    take_profit: float | None = 0.0
     strategy_name: str = "unknown"
     metadata: dict[str, Any] = field(default_factory=dict)
     timestamp: datetime = field(default_factory=utc_now)

@@ -8,11 +8,58 @@ This module provides tools to prevent UI blocking:
 """
 
 import time
+import threading
+import traceback
+
 from PySide6.QtCore import QTimer
+from PySide6.QtWidgets import QApplication
+
+
+def _is_main_thread() -> bool:
+    """Check if currently running on the main Qt thread."""
+    try:
+        return QApplication.instance() and threading.current_thread() is threading.main_thread()
+    except Exception:
+        traceback.print_exc()
+        return False
+
+
+def safe_timer_start(timer: QTimer, interval_ms: int) -> None:
+    """Safely start a QTimer from any thread.
+    
+    If called from the main Qt thread, starts the timer directly.
+    If called from a background thread, uses QTimer.singleShot (thread-safe).
+    
+    Args:
+        timer: QTimer instance to start
+        interval_ms: Interval in milliseconds
+    """
+    if timer is None:
+        return
+    
+    try:
+        if _is_main_thread():
+            if not timer.isActive():
+                timer.start(interval_ms)
+        else:
+            # From background thread: use singleShot to emit timeout on main thread
+            if hasattr(timer, 'timeout'):
+                # Cancel any pending single shots and schedule new one
+                QTimer.singleShot(interval_ms, timer.timeout.emit)
+    except RuntimeError:
+        # Timer may have been deleted or is invalid
+        pass
+    except Exception:
+        # Suppress any other Qt-related errors
+        pass
 
 
 class ThrottledHandler:
-    """Throttles callback invocations to prevent UI blocking from frequent signals."""
+    """Throttles callback invocations to prevent UI blocking from frequent signals.
+    
+    Thread-safe: Can be triggered from any thread. Timer operations are marshalled
+    to the main Qt thread automatically.
+    """
     
     def __init__(self, callback, throttle_ms=500):
         """
@@ -29,46 +76,64 @@ class ThrottledHandler:
         self.timer.timeout.connect(self._on_throttle_timeout)
         self.pending = False
         self.last_call = 0
+        self._lock = threading.Lock()
     
     def trigger(self, *args, **kwargs):
-        """Request callback invocation (throttled)."""
-        self.last_args = args
-        self.last_kwargs = kwargs
-        
-        if self.timer.isActive():
-            self.pending = True
-            return
-        
-        elapsed = (time.time() - self.last_call) * 1000
-        if elapsed >= self.throttle_ms:
-            self._invoke()
-        else:
-            self.pending = True
-            self.timer.start(int(self.throttle_ms - elapsed))
+        """Request callback invocation (throttled). Thread-safe."""
+        with self._lock:
+            self.last_args = args
+            self.last_kwargs = kwargs
+            
+            if self.timer.isActive():
+                self.pending = True
+                return
+            
+            elapsed = (time.time() - self.last_call) * 1000
+            if elapsed >= self.throttle_ms:
+                self._invoke()
+            else:
+                self.pending = True
+                # Use QTimer.singleShot (thread-safe) instead of timer.start()
+                delay = int(self.throttle_ms - elapsed)
+                if _is_main_thread():
+                    self.timer.start(delay)
+                else:
+                    QTimer.singleShot(delay, self._on_throttle_timeout)
     
     def _invoke(self):
         """Execute callback with latest args."""
         try:
             self.callback(*self.last_args, **self.last_kwargs)
+        except Exception:
+            pass
         finally:
             self.last_call = time.time()
     
     def _on_throttle_timeout(self):
         """Handle timer timeout."""
-        if self.pending:
-            self.pending = False
-            self._invoke()
+        with self._lock:
             if self.pending:
-                self.timer.start(self.throttle_ms)
+                self.pending = False
+                self._invoke()
+                if self.pending:
+                    if _is_main_thread():
+                        self.timer.start(self.throttle_ms)
+                    else:
+                        QTimer.singleShot(self.throttle_ms, self._on_throttle_timeout)
     
     def stop(self):
         """Stop pending operations."""
-        self.timer.stop()
-        self.pending = False
+        with self._lock:
+            self.timer.stop()
+            self.pending = False
 
 
 class DebouncedHandler:
-    """Debounces callback invocations to wait for activity to settle."""
+    """Debounces callback invocations to wait for activity to settle.
+    
+    Thread-safe: Can be triggered from any thread. Timer operations are marshalled
+    to the main Qt thread automatically.
+    """
     
     def __init__(self, callback, debounce_ms=300):
         """
@@ -83,24 +148,32 @@ class DebouncedHandler:
         self.timer = QTimer()
         self.timer.setSingleShot(True)
         self.timer.timeout.connect(self._on_debounce_timeout)
+        self._lock = threading.Lock()
     
     def trigger(self, *args, **kwargs):
-        """Request callback invocation (debounced)."""
-        self.last_args = args
-        self.last_kwargs = kwargs
-        self.timer.stop()
-        self.timer.start(self.debounce_ms)
+        """Request callback invocation (debounced). Thread-safe."""
+        with self._lock:
+            self.last_args = args
+            self.last_kwargs = kwargs
+            self.timer.stop()
+            # Use QTimer.singleShot (thread-safe) instead of timer.start()
+            if _is_main_thread():
+                self.timer.start(self.debounce_ms)
+            else:
+                QTimer.singleShot(self.debounce_ms, self._on_debounce_timeout)
     
     def _on_debounce_timeout(self):
         """Execute callback after debounce period."""
-        try:
-            self.callback(*self.last_args, **self.last_kwargs)
-        finally:
-            pass
+        with self._lock:
+            try:
+                self.callback(*self.last_args, **self.last_kwargs)
+            except Exception:
+                pass
     
     def stop(self):
         """Stop pending operations."""
-        self.timer.stop()
+        with self._lock:
+            self.timer.stop()
 
 
 class PerformanceMonitor:
@@ -165,7 +238,10 @@ def batch_table_updates(table_widget):
 
 
 class LazyTableLoader:
-    """Lazy-loads table rows in batches to prevent UI blocking."""
+    """Lazy-loads table rows in batches to prevent UI blocking.
+    
+    Note: Intended for main-thread use. All timer operations occur on main thread.
+    """
     
     def __init__(self, table_widget, rows_data, batch_size=50, populate_row_callback=None):
         """
@@ -187,7 +263,7 @@ class LazyTableLoader:
         self.timer.timeout.connect(self._load_batch)
     
     def start(self):
-        """Start lazy loading process."""
+        """Start lazy loading process. Must be called from main thread."""
         if not self.rows_data:
             return
         
@@ -204,13 +280,19 @@ class LazyTableLoader:
         with batch_table_updates(self.table):
             for row in range(self.current_row, end_row):
                 if self.populate_row:
-                    self.populate_row(self.table, row, self.rows_data[row])
+                    try:
+                        self.populate_row(self.table, row, self.rows_data[row])
+                    except Exception:
+                        pass
         
         self.current_row = end_row
         
-        # Schedule next batch if more rows exist
+        # Schedule next batch if more rows exist (use singleShot for thread safety)
         if self.current_row < len(self.rows_data):
-            self.timer.start(10)  # 10ms delay between batches
+            if _is_main_thread():
+                self.timer.start(10)
+            else:
+                QTimer.singleShot(10, self._load_batch)
 
 
 class TableDataCache:

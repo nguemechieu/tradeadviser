@@ -3,11 +3,10 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, Field
 
-from backend.api.routes._auth_helpers import resolve_admin_user
-from backend.dependencies import ServerServiceContainer, get_services
+import server.app.backend.build.lib.api.routes._auth_helpers
+from server.app.backend.dependencies import ServerServiceContainer, get_services
 
-
-router = APIRouter(prefix="/admin", tags=["Admin"])
+router = APIRouter(prefix="/api/v3/admin", tags=["Admin"])
 
 
 class AdminCreateUserRequest(BaseModel):
@@ -31,7 +30,7 @@ async def get_admin_overview(
     authorization: str | None = Header(default=None),
     services: ServerServiceContainer = Depends(get_services),
 ) -> dict:
-    admin_user = resolve_admin_user(authorization, services)
+    admin_user = server.app.backend.build.lib.api.routes._auth_helpers.resolve_admin_user(authorization, services)
     return services.admin_overview(admin_user)
 
 
@@ -40,7 +39,7 @@ async def get_admin_users(
     authorization: str | None = Header(default=None),
     services: ServerServiceContainer = Depends(get_services),
 ) -> list[dict]:
-    admin_user = resolve_admin_user(authorization, services)
+    admin_user = server.app.backend.build.lib.api.routes._auth_helpers.resolve_admin_user(authorization, services)
     return services.admin_list_users(admin_user)
 
 
@@ -50,7 +49,7 @@ async def create_admin_user(
     authorization: str | None = Header(default=None),
     services: ServerServiceContainer = Depends(get_services),
 ) -> dict:
-    admin_user = resolve_admin_user(authorization, services)
+    admin_user = server.app.backend.build.lib.api.routes._auth_helpers.resolve_admin_user(authorization, services)
     try:
         return await services.admin_create_user(admin_user, payload.model_dump())
     except ValueError as exc:
@@ -64,7 +63,7 @@ async def update_admin_user_status(
     authorization: str | None = Header(default=None),
     services: ServerServiceContainer = Depends(get_services),
 ) -> dict:
-    admin_user = resolve_admin_user(authorization, services)
+    admin_user = server.app.backend.build.lib.api.routes._auth_helpers.resolve_admin_user(authorization, services)
     try:
         return services.admin_update_user_status(admin_user, user_id, payload.is_active)
     except ValueError as exc:
@@ -78,7 +77,7 @@ async def update_admin_user_role(
     authorization: str | None = Header(default=None),
     services: ServerServiceContainer = Depends(get_services),
 ) -> dict:
-    admin_user = resolve_admin_user(authorization, services)
+    admin_user = server.app.backend.build.lib.api.routes._auth_helpers.resolve_admin_user(authorization, services)
     try:
         return services.admin_update_user_role(admin_user, user_id, payload.role)
     except ValueError as exc:

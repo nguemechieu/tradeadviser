@@ -5,10 +5,10 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
-from backend.dependencies import ServerServiceContainer, get_services
+from server.app.backend.dependencies import ServerServiceContainer, get_services
 
 
-router = APIRouter(prefix="/session", tags=["session"])
+router = APIRouter(prefix="/api/v3/session", tags=["session"])
 
 
 class SessionLoginRequest(BaseModel):
@@ -20,7 +20,7 @@ class SessionResumeRequest(BaseModel):
     session_id: str = Field(min_length=1)
 
 
-@router.post("/login")
+@router.post("/api/login")
 async def login(
     payload: SessionLoginRequest,
     services: ServerServiceContainer = Depends(get_services),
@@ -31,7 +31,7 @@ async def login(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
 
 
-@router.post("/resume")
+@router.post("/api/resume")
 async def resume_session(
     payload: SessionResumeRequest,
     services: ServerServiceContainer = Depends(get_services),

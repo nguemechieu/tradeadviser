@@ -1,6 +1,6 @@
 import json
 from datetime import datetime, timedelta
-from sopotek_quant_system.security.license_manager import LicenseManager
+from security.license_manager import LicenseManager
 
 lm = LicenseManager()
 

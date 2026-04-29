@@ -1,20 +1,18 @@
 import { Link } from "react-router-dom"
 
-const LinkPage = () => {
+const VerifyLink = () => {
     return (
         <section>
-            <h1>Links</h1>
+            <h1>Verify Email</h1>
             <br />
-            <h2>Public</h2>
-            <Link to="/login">Login</Link>
-            <Link to="/register">Register</Link>
+            <p>Please check your email to verify your account.</p>
             <br />
-            <h2>Private</h2>
+            <h2>Navigation</h2>
+            <Link to="/login">Back to Login</Link>
+            <br />
             <Link to="/">Home</Link>
-            <Link to="/editor">Editors Page</Link>
-            <Link to="/admin">Admin Page</Link>
         </section>
     )
 }
 
-export default LinkPage
+export default VerifyLink

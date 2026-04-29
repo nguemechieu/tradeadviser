@@ -117,7 +117,7 @@ class TradeAdviserClient:
         headers = {
             "Accept": "application/json",
             "Content-Type": "application/json",
-            "User-Agent": "SopotekDesktop/TradeAdviserClient",
+            "User-Agent": "Desktop/TradeAdviserClient",
         }
         if authenticated:
             if not self.token:

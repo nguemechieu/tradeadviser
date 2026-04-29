@@ -4,6 +4,28 @@ from agents.base_agent import BaseAgent
 
 
 class SignalAgent(BaseAgent):
+    """Select, normalize, and qualify trade signals for a given symbol. Orchestrates signal
+    generation, optional news bias adjustments, and final filtering before passing signals
+    further down the decision pipeline.
+
+    The agent delegates raw signal selection to an injected selector callable, enriches and
+    clamps the signal, and optionally records candidate signals instead of producing a final
+    decision. It can also integrate a display builder, publisher, and memory/event bus to log
+    or broadcast signal-related activity across the system.
+    Parameters:
+        selector: Callable that takes (symbol, candles, dataset) and returns a tuple of
+            (signal_dict, assigned_strategies). The signal_dict should contain keys like
+            'side', 'confidence', 'strategy_name', etc. Assigned_strategies can be any metadata
+            about which strategies are relevant to this signal.
+        name: Optional name for the agent instance (default: "SignalAgent").
+        display_builder: Optional callable to build a display representation of the signal.
+        publisher: Optional callable to publish the signal to an external system.
+        news_bias_applier: Optional callable that takes (symbol, signal) and returns either
+            a modified signal dict or a boolean indicating whether to reduce confidence.
+        memory: Optional memory store for recording agent decisions.
+        event_bus: Optional event bus for publishing events related to signal processing.
+        candidate_mode: If True, the agent will store signals as candidates instead of final decisions.
+    """ 
 
     def __init__(
             self,

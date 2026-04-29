@@ -5,11 +5,11 @@ import logging
 import time
 from uuid import uuid4
 
+from broker.base_broker import BaseBroker
+from models.signal import ClosePositionRequest, TradeReview, OrderIntent, ExecutionReport
+from events.event_bus.async_event_bus import AsyncEventBus
+from events.event_bus.event_types import EventType
 from execution.virtual_trade_manager import VirtualTradeManager
-from sopotek.broker.base import BaseBroker
-from sopotek.core.event_bus import AsyncEventBus
-from sopotek.core.event_types import EventType
-from sopotek.core.models import ClosePositionRequest, ExecutionReport, OrderIntent, TradeReview
 
 
 class OrderExecutor:
@@ -218,9 +218,9 @@ class OrderExecutor:
             await self.bus.publish(EventType.ORDER_FILLED, report, priority=80, source="order_executor")
         await self.bus.publish(EventType.EXECUTION_REPORT, report, priority=85, source="order_executor")
 
+    @staticmethod
     def _failed_report(
-        self,
-        *,
+            *,
         symbol: str,
         side: str,
         quantity: float,

@@ -1,8 +1,8 @@
 import asyncio
 import contextlib
 
-from event_bus.event import Event
-from event_bus.event_types import EventType
+from events.event import Event
+from events.event_bus.event_types import EventType
 
 
 class MarketDataEngine:

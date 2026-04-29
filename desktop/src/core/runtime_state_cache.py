@@ -6,8 +6,9 @@ from dataclasses import asdict, is_dataclass
 from datetime import datetime
 from typing import Any, Iterable
 
-from core.event_bus import AsyncEventBus
-from core.models import Candle, ExecutionReport, OrderBookSnapshot, PortfolioSnapshot, PositionUpdate
+from events.event_bus import AsyncEventBus
+from  models.signal import Candle, ExecutionReport, OrderBookSnapshot, PortfolioSnapshot, PositionUpdate
+
 class RuntimeStateCache:
     """Maintain a replayable in-memory view of the event-driven runtime."""
 
@@ -18,6 +19,26 @@ class RuntimeStateCache:
         recent_event_capacity: int = 256,
         seen_event_capacity: int = 4096,
     ) -> None:
+        self._seen_event_id_set = None
+        self._seen_event_ids = None
+        self.recent_events = None
+        self.trade_journal_summaries = None
+        self.trade_journal_entries = None
+        self.alerts = None
+        self.trade_feedback = None
+        self.risk_alerts = None
+        self.mobile_dashboard_snapshot = None
+        self.performance_metrics = None
+        self.portfolio_snapshot = None
+        self.positions = None
+        self.order_ids_by_symbol = None
+        self.orders = None
+        self.signals = None
+        self.trade_reviews = None
+        self.candles = None
+        self.order_books = None
+        self.latest_by_event_type = None
+        self.market_ticks = None
         self.candle_capacity = max(1, int(candle_capacity))
         self.recent_event_capacity = max(1, int(recent_event_capacity))
         self.seen_event_capacity = max(1, int(seen_event_capacity))
@@ -121,8 +142,7 @@ class RuntimeStateCache:
                 payload = self._normalize_payload(getattr(event, "data", None), model=ExecutionReport)
             order_id = str((payload or {}).get("order_id") or (payload or {}).get("id") or "").strip()
             if order_id:
-                snapshot = {**self.orders.get(order_id, {}), **dict(payload or {})}
-                snapshot["event_type"] = event_type
+                snapshot = {**self.orders.get(order_id, {}), **dict(payload or {}), "event_type": event_type}
                 self.orders[order_id] = snapshot
                 if symbol:
                     order_ids = self.order_ids_by_symbol[symbol]

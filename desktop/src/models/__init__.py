@@ -1,6 +1,6 @@
-from models.instrument import Instrument, InstrumentType, OptionRight
-from models.order import Order, OrderLeg, OrderSide, OrderType
-from models.position import Position
+from .instrument import Instrument, InstrumentType, OptionRight
+from .order import Order, OrderLeg, OrderSide, OrderType
+from .position import Position
 
 __all__ = [
     "Instrument",

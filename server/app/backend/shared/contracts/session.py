@@ -5,9 +5,8 @@ from __future__ import annotations
 from datetime import datetime
 
 from pydantic import Field
-
-from sopotek.shared.contracts.base import SharedModel, UserContext, utc_now
-from sopotek.shared.enums.common import BrokerKind, SessionStatus
+from shared.contracts.base import SharedModel, utc_now
+from shared.enums.common import BrokerKind, SessionStatus
 
 
 class BrokerSessionSummary(SharedModel):

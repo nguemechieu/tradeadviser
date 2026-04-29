@@ -204,8 +204,8 @@ class PlatformSyncService:
     async def fetch_workspace_settings(self, profile_overrides: dict[str, Any] | None = None) -> dict[str, Any]:
         profile = self.save_profile(profile_overrides)
         try:
-            workspace = await self._authorized_request("GET", "/api/workspace/settings", profile=profile)
-            user = await self._authorized_request("GET", "/api/auth/me", profile=profile)
+            workspace = await self._authorized_request("GET", "/api/v3/workspace/settings", profile=profile)
+            user = await self._authorized_request("GET", "/api/v3/auth/me", profile=profile)
             updated_profile = self.store.record_status(
                 "success",
                 f"Loaded workspace from server for {str(user.get('email') or profile.get('email') or 'user').strip()}.",
@@ -233,8 +233,8 @@ class PlatformSyncService:
         
         payload = self._workspace_payload_for_sync(workspace_payload, profile=profile)
         try:
-            workspace = await self._authorized_request("PUT", "/api/workspace/settings", payload=payload, profile=profile)
-            user = await self._authorized_request("GET", "/api/auth/me", profile=profile)
+            workspace = await self._authorized_request("PUT", "/api/v3/workspace/settings", payload=payload, profile=profile)
+            user = await self._authorized_request("GET", "/api/v3/auth/me", profile=profile)
             updated_profile = self.store.record_status(
                 "success",
                 f"Synced desktop workspace to server for {str(user.get('email') or profile.get('email') or 'user').strip()}.",
@@ -299,7 +299,7 @@ class PlatformSyncService:
             try:
                 session_payload = await self._request_json(
                     method="POST",
-                    url=f"{profile['base_url']}/api/auth/refresh",
+                    url=f"{profile['base_url']}/api/v3/auth/refresh",
                     payload={
                         "refresh_token": str(profile.get("refresh_token") or "").strip(),
                         "remember_me": bool(profile.get("remember_me", True)),
@@ -331,7 +331,7 @@ class PlatformSyncService:
         try:
             session_payload = await self._request_json(
                 method="POST",
-                url=f"{base_url}/api/auth/login",
+                url=f"{base_url}/api/v3/auth/login",
                 payload={
                     "identifier": identifier,
                     "password": password,

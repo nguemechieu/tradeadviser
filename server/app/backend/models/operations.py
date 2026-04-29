@@ -1,10 +1,10 @@
 """System health and operations monitoring models."""
 
-from sqlalchemy import String, Float, Boolean, Enum, JSON, Text
+from sqlalchemy import String,  Enum, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 import enum
 
-from backend.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
+from server.app.backend.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
 
 
 class ServiceStatus(str, enum.Enum):

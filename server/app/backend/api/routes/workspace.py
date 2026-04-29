@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Header
 
-from backend.api.routes._auth_helpers import resolve_bearer_user
-from backend.dependencies import ServerServiceContainer, get_services
+from server.app.backend.api.routes._auth_helpers import resolve_bearer_user
+from server.app.backend.dependencies import ServerServiceContainer, get_services
 
 
-router = APIRouter(prefix="/workspace", tags=["Workspace"])
+router = APIRouter(prefix="/api/v3/workspace", tags=["Workspace"])
 
 
 @router.get("/settings")

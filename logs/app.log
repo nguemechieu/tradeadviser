@@ -1,0 +1,87 @@
+TradeAdviser workspace initialization failed: 405: Method Not Allowed
+Initializing desktop-local broker runtime for coinbase
+WebSocket init failed for coinbase: type object 'str' has no attribute 'MARKET_TICK'. Falling back to polling.
+Not enough data for PERP/USD:USD (1m): received 17 of 240 requested candles. Indicators, AI signals, and backtests may be limited.
+Not enough data for PERP/USD:USD (5m): received 47 of 240 requested candles. Indicators, AI signals, and backtests may be limited.
+Not enough data for PERP/USD:USD (15m): received 97 of 240 requested candles. Indicators, AI signals, and backtests may be limited.
+Not enough data for PERP/USD:USD (4h): no candles were returned. Try another timeframe, load more history, or wait for more market data.
+Not enough data for PERP/USDC:USDC (1m): received 18 of 240 requested candles. Indicators, AI signals, and backtests may be limited.
+Not enough data for PERP/USDC:USDC (5m): received 48 of 240 requested candles. Indicators, AI signals, and backtests may be limited.
+Not enough data for PERP/USDC:USDC (15m): received 98 of 240 requested candles. Indicators, AI signals, and backtests may be limited.
+Not enough data for PERP/USDC:USDC (4h): no candles were returned. Try another timeframe, load more history, or wait for more market data.
+TradeAdviser workspace initialization failed: 405: Method Not Allowed
+Initializing desktop-local broker runtime for coinbase
+Platform workspace push failed: 
+WebSocket init failed for coinbase: type object 'str' has no attribute 'MARKET_TICK'. Falling back to polling.
+Initial terminal data load timed out; opening workspace in degraded mode.
+Not enough data for AAVE/BTC (4h): no candles were returned. Try another timeframe, load more history, or wait for more market data.
+Storage database configuration failed; falling back to local SQLite
+Traceback (most recent call last):
+  File "c:\Users\nguem\Documents\GitHub\tradeadviser\desktop\src\ui\components\app_controller.py", line 2270, in configure_storage_database
+    init_database()
+    ~~~~~~~~~~~~~^^
+  File "c:\Users\nguem\Documents\GitHub\tradeadviser\desktop\src\storage\database.py", line 334, in init_database
+    from storage import paper_trade_learning_repository  # noqa: F401
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\nguem\Documents\GitHub\tradeadviser\desktop\src\storage\paper_trade_learning_repository.py", line 19, in <module>
+    class PaperTradeEventRow(storage_db.Base):
+    ...<43 lines>...
+            }
+  File "C:\Users\nguem\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_api.py", line 199, in __init__
+    _as_declarative(reg, cls, dict_)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\nguem\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py", line 245, in _as_declarative
+    return _MapperConfig.setup_mapping(registry, cls, dict_, None, {})
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nguem\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py", line 326, in setup_mapping
+    return _ClassScanMapperConfig(
+        registry, cls_, dict_, table, mapper_kw
+    )
+  File "C:\Users\nguem\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py", line 577, in __init__
+    self._setup_table(table)
+    ~~~~~~~~~~~~~~~~~^^^^^^^
+  File "C:\Users\nguem\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\orm\decl_base.py", line 1762, in _setup_table
+    table_cls(
+    ~~~~~~~~~^
+        tablename,
+        ^^^^^^^^^^
+    ...<3 lines>...
+        **table_kw,
+        ^^^^^^^^^^^
+    ),
+    ^
+  File "<string>", line 2, in __new__
+  File "C:\Users\nguem\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\util\deprecations.py", line 281, in warned
+    return fn(*args, **kwargs)  # type: ignore[no-any-return]
+  File "C:\Users\nguem\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\sql\schema.py", line 429, in __new__
+    return cls._new(*args, **kw)
+           ~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\nguem\AppData\Roaming\Python\Python314\site-packages\sqlalchemy\sql\schema.py", line 461, in _new
+    raise exc.InvalidRequestError(
+    ...<5 lines>...
+    )
+sqlalchemy.exc.InvalidRequestError: Table 'paper_trade_events' is already defined for this MetaData instance.  Specify 'extend_existing=True' to redefine options and columns on an existing Table object.
+TradeAdviser workspace initialization failed: 405: Method Not Allowed
+Initializing desktop-local broker runtime for coinbase
+WebSocket init failed for coinbase: type object 'str' has no attribute 'MARKET_TICK'. Falling back to polling.
+Initial terminal data load timed out; opening workspace in degraded mode.
+Not enough data for AAVE/USD (4h): no candles were returned. Try another timeframe, load more history, or wait for more market data.
+TradeAdviser workspace initialization failed: 405: Method Not Allowed
+Initializing desktop-local broker runtime for coinbase
+WebSocket init failed for coinbase: type object 'str' has no attribute 'MARKET_TICK'. Falling back to polling.
+TradeAdviser workspace initialization failed: 405: Method Not Allowed
+Initializing desktop-local broker runtime for coinbase
+WebSocket init failed for coinbase: type object 'str' has no attribute 'MARKET_TICK'. Falling back to polling.
+TradeAdviser workspace initialization failed: 405: Method Not Allowed
+Hybrid server login failed, falling back to desktop-local flow: 'HybridSessionController' object has no attribute 'login'
+Initializing session for broker coinbase
+Coinbase fast market bootstrap loaded 911 markets
+Created session id=coinbase-live-001 exchange=coinbase type=crypto mode=live
+WebSocket init failed for coinbase: type object 'str' has no attribute 'MARKET_TICK'. Falling back to polling.
+Not enough data for 1INCH/EUR (1h): received 84 of 240 requested candles. Indicators, AI signals, and backtests may be limited.
+Not enough data for 1INCH/EUR (4h): no candles were returned. Try another timeframe, load more history, or wait for more market data.
+Not enough data for 1INCH/GBP (1h): received 48 of 240 requested candles. Indicators, AI signals, and backtests may be limited.
+Not enough data for 1INCH/GBP (4h): no candles were returned. Try another timeframe, load more history, or wait for more market data.
+Not enough data for BNT/USDC (1h): received 102 of 180 requested candles. Indicators, AI signals, and backtests may be limited.
+Not enough data for AAVE/GBP (4h): no candles were returned. Try another timeframe, load more history, or wait for more market data.
+Destroyed session id=coinbase-live-001
