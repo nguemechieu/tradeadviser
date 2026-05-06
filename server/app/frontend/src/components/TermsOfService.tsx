@@ -10,7 +10,7 @@ const TermsOfService = () => {
                 </Typography>
 
                 <Typography variant="body1" >
-                    Welcome to Sopotek. By accessing or using our platform, you agree to be bound by these Terms of Service. Please read them carefully.
+                    Welcome to TradeAdviser. By accessing or using our platform, you agree to be bound by these Terms of Service. Please read them carefully.
                 </Typography>
 
                 <Typography variant="h6" gutterBottom fontWeight={600}>

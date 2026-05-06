@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 
 import FriendRequestList from "./FriendRequestList";
-import {axiosPrivate} from "../api/axiosPrivate";
+import { axiosPrivate } from "../api/axios";
 
 const FriendsPage = () => {
   const [requests, setRequests] = useState([]);
@@ -12,8 +12,10 @@ const FriendsPage = () => {
     // Mock API call to fetch friend requests
       const fetchRequests = async () => {
         try {
-          const response = await axiosPrivate.get("/api/friend-requests");
-          setRequests(response.data);
+          // Friend requests endpoint not available - feature not yet implemented
+          // const response = await axiosPrivate.get("/api/v3/...");
+          // setRequests(response.data);
+          setRequests([]);
         } catch (error) {
           console.error("Error fetching friend requests: ", error);
         }
@@ -37,8 +39,10 @@ const FriendsPage = () => {
   useEffect(() => {
     const fetchFriends = async () => {
       try {
-        const response = await axiosPrivate.get("/api/v3/friends");
-        setFriends(response.data);
+        // Friends list endpoint not available - feature not yet implemented
+        // const response = await axiosPrivate.get("/api/v3/...");
+        // setFriends(response.data);
+        setFriends([]);
       } catch (error) {
         console.error("Error fetching friends: ", error);
       }
@@ -46,7 +50,7 @@ const FriendsPage = () => {
     fetchFriends().catch((error) =>
       console.error("Error fetching friends: ", error),
     );
-  }, [friends]);
+  }, []);
 
   return (
     <div

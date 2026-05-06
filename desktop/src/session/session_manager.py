@@ -6,13 +6,7 @@ import logging
 from typing import Any
 
 from session.trading_session import TradingSession
-
-
-def _safe_float(value: Any, default: float = 0.0) -> float:
-    try:
-        return float(value)
-    except Exception:
-        return float(default)
+from shared.utils import safe_float
 
 
 def _session_gross_exposure(session: TradingSession, snapshot: Any) -> float:
@@ -21,11 +15,12 @@ def _session_gross_exposure(session: TradingSession, snapshot: Any) -> float:
     if isinstance(metadata, dict):
         risk_state = metadata.get("risk_state")
         if isinstance(risk_state, dict):
-            gross_exposure = _safe_float(risk_state.get("gross_exposure"), 0.0)
+            gross_exposure = safe_float(risk_state.get("gross_exposure"), 0.0)
     if gross_exposure <= 0 and hasattr(session, "gross_exposure"):
         try:
-            gross_exposure = _safe_float(session.gross_exposure(), 0.0)
-        except Exception:
+            gross_exposure = safe_float(session.gross_exposure(), 0.0)
+        except Exception as e:
+            logging.debug("Failed to get gross exposure: %s", e)
             gross_exposure = 0.0
     return gross_exposure
 
@@ -33,8 +28,9 @@ def _session_gross_exposure(session: TradingSession, snapshot: Any) -> float:
 def _session_unrealized_pnl(session: TradingSession) -> float:
     if hasattr(session, "unrealized_pnl"):
         try:
-            return _safe_float(session.unrealized_pnl(), 0.0)
-        except Exception:
+            return safe_float(session.unrealized_pnl(), 0.0)
+        except Exception as e:
+            logging.debug("Failed to get unrealized PnL: %s", e)
             return 0.0
     return 0.0
 
@@ -60,7 +56,7 @@ class PortfolioAggregator:
             session_status = str(
                 getattr(snapshot, "status", getattr(session, "status", "")) or ""
             ).strip().lower()
-            total_equity += _safe_float(snapshot.equity, 0.0)
+            total_equity += safe_float(snapshot.equity, 0.0)
             total_positions += int(snapshot.positions_count or 0)
             total_open_orders += int(snapshot.open_orders_count or 0)
             total_trades += int(snapshot.trade_count or 0)
@@ -87,7 +83,7 @@ class PortfolioAggregator:
                 },
             )
             bucket["sessions"] += 1
-            bucket["equity"] += _safe_float(snapshot.equity, 0.0)
+            bucket["equity"] += safe_float(snapshot.equity, 0.0)
             bucket["positions"] += int(snapshot.positions_count or 0)
             bucket["open_orders"] += int(snapshot.open_orders_count or 0)
             bucket["trades"] += int(snapshot.trade_count or 0)

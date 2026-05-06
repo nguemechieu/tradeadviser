@@ -24,13 +24,13 @@ export function PerformanceAuditDashboard({ token, onError }) {
       setError("");
 
       const [metricsRes, auditRes, complianceRes] = await Promise.all([
-        fetch("/admin/performance-audit/system-metrics", {
+        fetch("/api/v3/admin/performance-audit/api/system-metrics", {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        fetch(`/admin/performance-audit/audit-log?days=${filterDays}`, {
+        fetch(`/api/v3/admin/performance-audit/api/audit-log?days=${filterDays}`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        fetch("/admin/performance-audit/compliance-report", {
+        fetch("/api/v3/admin/performance-audit/api/compliance-report", {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);

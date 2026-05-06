@@ -20,6 +20,8 @@ interface DashboardCard {
   link: string;
   roles: string[];
   color: string;
+  category: string;
+  tags?: string[];
 }
 
 const ImprovedDashboard = () => {
@@ -31,68 +33,104 @@ const ImprovedDashboard = () => {
 
   const dashboardCards: DashboardCard[] = [
     {
+      title: 'Pro Trading Terminal',
+      description: 'Automated trading with AI bots, real-time signals, and trade management',
+      icon: '🚀',
+      link: '/trading-terminal',
+      roles: ['trader', 'admin', 'super_admin'],
+      color: 'cyan',
+      category: 'trading',
+      tags: ['bots', 'automation', 'signals', 'terminal'],
+    },
+    {
       title: 'Trading Editor',
-      description: 'Create and manage trading strategies',
+      description: 'Create and manage trading strategies with advanced tools',
       icon: '✏️',
       link: '/trading-editor',
       roles: ['trader', 'admin', 'super_admin'],
       color: 'blue',
+      category: 'trading',
+      tags: ['strategies', 'editor', 'tools'],
+    },
+    {
+      title: 'Live Signals',
+      description: 'Real-time trading signals powered by advanced technical analysis',
+      icon: '⚡',
+      link: '/signals',
+      roles: ['trader', 'admin', 'super_admin'],
+      color: 'yellow',
+      category: 'trading',
+      tags: ['signals', 'alerts', 'analysis'],
     },
     {
       title: 'Community',
-      description: 'Connect with other traders',
+      description: 'Connect with other traders and share insights',
       icon: '👥',
       link: '/community',
       roles: ['trader', 'admin', 'super_admin'],
       color: 'purple',
+      category: 'community',
+      tags: ['social', 'discussion', 'network'],
     },
     {
       title: 'Operations',
-      description: 'System health and monitoring',
+      description: 'System health monitoring and infrastructure management',
       icon: '🔧',
       link: '/admin/operations',
       roles: ['operations', 'admin', 'super_admin'],
       color: 'green',
+      category: 'admin',
+      tags: ['system', 'monitoring', 'health'],
     },
     {
       title: 'Risk Management',
-      description: 'Portfolio risk limits and monitoring',
+      description: 'Portfolio risk limits, monitoring, and alerts',
       icon: '⚠️',
       link: '/admin/risk',
       roles: ['risk_manager', 'admin', 'super_admin'],
       color: 'red',
+      category: 'portfolio',
+      tags: ['risk', 'limits', 'monitoring'],
     },
     {
       title: 'Users & Licenses',
-      description: 'Manage user accounts and licenses',
+      description: 'Manage user accounts, permissions, and licenses',
       icon: '🎫',
       link: '/admin/users-licenses',
       roles: ['admin', 'super_admin'],
       color: 'yellow',
+      category: 'admin',
+      tags: ['users', 'management', 'licenses'],
     },
     {
       title: 'AI Agents',
-      description: 'Deploy and manage trading agents',
+      description: 'Deploy and manage intelligent trading agents',
       icon: '🤖',
       link: '/admin/agents',
       roles: ['admin', 'super_admin'],
       color: 'cyan',
+      category: 'ai',
+      tags: ['ai', 'automation', 'agents'],
     },
     {
       title: 'Performance Audit',
-      description: 'Detailed performance metrics and audit logs',
+      description: 'Detailed performance metrics and compliance audit logs',
       icon: '📋',
       link: '/admin/performance-audit',
       roles: ['admin', 'super_admin'],
       color: 'indigo',
+      category: 'admin',
+      tags: ['audit', 'performance', 'logs'],
     },
     {
       title: 'API Documentation',
-      description: 'View all available API routes',
+      description: 'View all available API routes and integration guides',
       icon: '🗺️',
       link: '/docs/routes',
       roles: ['admin', 'super_admin'],
       color: 'gray',
+      category: 'documentation',
+      tags: ['api', 'docs', 'integration'],
     },
   ];
 
@@ -103,6 +141,24 @@ const ImprovedDashboard = () => {
   const visibleCards = dashboardCards.filter((card) =>
     card.roles.includes(userRole)
   );
+
+  // Group cards by category
+  const groupedCards = visibleCards.reduce((acc, card) => {
+    if (!acc[card.category]) {
+      acc[card.category] = [];
+    }
+    acc[card.category].push(card);
+    return acc;
+  }, {} as Record<string, DashboardCard[]>);
+
+  const categoryLabels: Record<string, { title: string; icon: string }> = {
+    trading: { title: 'Trading Tools', icon: '📊' },
+    portfolio: { title: 'Portfolio Management', icon: '💼' },
+    community: { title: 'Community', icon: '🌐' },
+    admin: { title: 'Administration', icon: '⚙️' },
+    ai: { title: 'AI & Automation', icon: '🚀' },
+    documentation: { title: 'Resources', icon: '📚' },
+  };
 
   return (
     <section className="dashboard-improved">
@@ -164,19 +220,56 @@ const ImprovedDashboard = () => {
         </div>
       </div>
 
-      {/* Navigation Grid */}
+      {/* Available Modules - New Grouped Layout */}
       <div className="dashboard-section">
-        <h3 className="section-title">Available Modules</h3>
-        <div className="dashboard-grid">
-          {visibleCards.map((card) => (
-            <Link key={card.link} to={card.link} className={`dashboard-card card-${card.color}`}>
-              <div className="card-icon">{card.icon}</div>
-              <h4 className="card-title">{card.title}</h4>
-              <p className="card-description">{card.description}</p>
-              <div className="card-arrow">→</div>
-            </Link>
-          ))}
+        <div className="section-header">
+          <h3 className="section-title">Available Modules</h3>
+          <p className="section-subtitle">Access all features available to your role</p>
         </div>
+        
+        {Object.entries(groupedCards).map(([category, cards], categoryIndex) => (
+          <div key={category} className="module-category" style={{ animationDelay: `${categoryIndex * 0.1}s` }}>
+            <div className="category-header">
+              <span className="category-icon">{categoryLabels[category]?.icon || '📦'}</span>
+              <h4 className="category-title">{categoryLabels[category]?.title || category}</h4>
+              <span className="category-count">{cards.length}</span>
+            </div>
+            
+            <div className="modules-grid">
+              {cards.map((card) => (
+                <Link key={card.link} to={card.link} className={`module-card card-${card.color}`}>
+                  <div className="card-background"></div>
+                  
+                  <div className="card-header">
+                    <div className="card-icon-wrapper">
+                      <div className="card-icon">{card.icon}</div>
+                    </div>
+                    <div className="card-meta">
+                      <h4 className="card-title">{card.title}</h4>
+                      <div className="card-tags">
+                        {card.tags?.slice(0, 2).map((tag) => (
+                          <span key={tag} className="tag">{tag}</span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="card-description">{card.description}</p>
+
+                  <div className="card-footer">
+                    <div className="card-role">
+                      <span className="role-indicator">🔐</span>
+                    </div>
+                    <div className="card-cta">
+                      <span className="cta-text">Access</span>
+                      <span className="cta-arrow">→</span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Quick Links */}

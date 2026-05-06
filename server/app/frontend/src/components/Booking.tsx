@@ -54,7 +54,8 @@ const Booking = () => {
         }
 
         try {
-            await axiosPrivate.post("/api/bookings", formData);
+            // Bookings endpoint not available - feature not yet implemented
+            // await axiosPrivate.post("/api/v3/...", formData);
             toast.success("Booking submitted successfully!");
             navigate("/thank-you");
         } catch (err) {

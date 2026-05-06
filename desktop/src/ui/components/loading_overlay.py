@@ -179,7 +179,12 @@ class LoadingOverlay(QFrame):
 
     def clear_loading(self) -> None:
         self.hide()
+        self.lower()  # Lower the overlay below other widgets
         if self._movie is not None:
             self._movie.stop()
         if self._fallback_timer.isActive():
             self._fallback_timer.stop()
+        # Restore focus to parent widget to re-enable dashboard interactions
+        parent_widget = self.parentWidget()
+        if parent_widget is not None:
+            parent_widget.setFocus()

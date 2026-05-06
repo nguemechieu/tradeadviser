@@ -5,6 +5,7 @@ import inspect
 import json
 import logging
 import time
+import traceback
 from dataclasses import dataclass, field
 from typing import Any, Callable
 from urllib.parse import urlsplit, urlunsplit
@@ -95,7 +96,8 @@ def _safe_float_or_none(value: Any) -> float | None:
         return None
     try:
         return float(value)
-    except Exception:
+    except Exception as e:
+        traceback.print_exc(e)
         return None
 
 
@@ -145,19 +147,19 @@ class HybridApiClient:
             await session.close()
 
     async def health(self) -> dict[str, Any]:
-        return await self.request("GET", "/health", auth=False)
+        return await self.request("GET", "/api/v3/health", auth=False)
 
     async def login(self, email: str | None = None, password: str | None = None) -> HybridSession:
         payload = {
-            "email": str(email if email is not None else self.email).strip(),
+            "identifier": str(email if email is not None else self.email).strip(),
             "password": str(password if password is not None else self.password),
         }
 
         # Supports either common route. First try /auth/login, then /login.
         try:
-            data = await self.request("POST", "/auth/login", json_data=payload, auth=False)
+            data = await self.request("POST", "/api/v3/auth/login", json_data=payload, auth=False)
         except Exception:
-            data = await self.request("POST", "/login", json_data=payload, auth=False)
+            data = await self.request("POST", "/api/v3/auth/login", json_data=payload, auth=False)
 
         session = HybridSession.from_payload(data)
         if session.access_token:
@@ -167,7 +169,7 @@ class HybridApiClient:
     async def refresh(self, refresh_token: str) -> HybridSession:
         data = await self.request(
             "POST",
-            "/auth/refresh",
+            "/api/v3/auth/refresh",
             json_data={"refresh_token": refresh_token},
             auth=False,
         )
@@ -177,7 +179,7 @@ class HybridApiClient:
         return session
 
     async def register_broker_session(self, payload: dict[str, Any]) -> dict[str, Any]:
-        return await self.request("POST", "/runtime/broker-session", json_data=dict(payload or {}))
+        return await self.request("POST", "/api/v3/runtime/broker-session", json_data=dict(payload or {}))
 
     async def request_market_data_subscription(
             self,
@@ -188,7 +190,7 @@ class HybridApiClient:
     ) -> dict[str, Any]:
         return await self.request(
             "POST",
-            "/runtime/market-data/subscribe",
+            "/api/v3/runtime/market-data/subscribe",
             json_data={
                 "symbols": list(symbols or []),
                 "timeframe": str(timeframe or "1h"),
@@ -197,26 +199,26 @@ class HybridApiClient:
         )
 
     async def place_order(self, payload: dict[str, Any]) -> dict[str, Any]:
-        return await self.request("POST", "/orders", json_data=dict(payload or {}))
+        return await self.request("POST", "/api/v3/orders", json_data=dict(payload or {}))
 
     async def cancel_order(self, order_id: str, *, session_id: str = "") -> dict[str, Any]:
         return await self.request(
             "POST",
-            f"/orders/{order_id}/cancel",
+            f"/api/v3/orders/{order_id}/cancel",
             json_data={"session_id": str(session_id or "")},
         )
 
     async def close_position(self, position_id: str, *, session_id: str = "") -> dict[str, Any]:
         return await self.request(
             "POST",
-            f"/positions/{position_id}/close",
+            f"/api/v3/positions/{position_id}/close",
             json_data={"session_id": str(session_id or "")},
         )
 
     async def trigger_kill_switch(self, reason: str, *, session_id: str = "") -> dict[str, Any]:
         return await self.request(
             "POST",
-            "/risk/kill-switch",
+            "/api/v3/risk/kill-switch",
             json_data={
                 "reason": str(reason or "Manual kill switch"),
                 "session_id": str(session_id or ""),

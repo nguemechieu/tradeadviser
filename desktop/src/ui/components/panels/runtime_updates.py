@@ -1,5 +1,6 @@
 import asyncio
 import time
+from PySide6.QtCore import QTimer
 
 INITIAL_ACCOUNT_SYNC_TIMEOUT_SECONDS = 12.0
 INITIAL_STAGE_TIMEOUT_SECONDS = 8.0
@@ -53,6 +54,32 @@ def _history_refresh_interval_seconds(terminal):
     return 15.0
 
 
+def _defer_ui_update(terminal, method_name, *args, **kwargs):
+    """Defer a UI update to the main thread using QTimer.singleShot(0, ...)
+    
+    This prevents "Timers cannot be started from another thread" errors
+    and avoids blocking the event loop with expensive table updates.
+    """
+    def _do_update():
+        if getattr(terminal, "_ui_shutting_down", False):
+            return
+        method = getattr(terminal, method_name, None)
+        if callable(method):
+            try:
+                method(*args, **kwargs)
+            except Exception as exc:
+                logger = getattr(terminal, "logger", None)
+                if logger is not None:
+                    logger.debug("Deferred UI update failed for %s: %s", method_name, exc)
+    
+    try:
+        QTimer.singleShot(0, _do_update)
+    except Exception as exc:
+        logger = getattr(terminal, "logger", None)
+        if logger is not None:
+            logger.debug("Failed to schedule deferred UI update: %s", exc)
+
+
 async def refresh_positions_async(terminal):
     if terminal._ui_shutting_down:
         return
@@ -61,8 +88,8 @@ async def refresh_positions_async(terminal):
         active_positions_snapshot = getattr(terminal, "_active_positions_snapshot", None)
         if callable(active_positions_snapshot):
             positions_snapshot = active_positions_snapshot()
-        terminal._populate_positions_table(positions_snapshot)
-        terminal._refresh_position_analysis_window()
+        _defer_ui_update(terminal, "_populate_positions_table", positions_snapshot)
+        _defer_ui_update(terminal, "_refresh_position_analysis_window")
         mark_dirty = getattr(terminal, "_mark_terminal_refresh_dirty", None)
         if callable(mark_dirty):
             mark_dirty("risk_heatmap")
@@ -84,8 +111,8 @@ async def refresh_positions_async(terminal):
     active_positions_snapshot = getattr(terminal, "_active_positions_snapshot", None)
     if callable(active_positions_snapshot):
         positions_snapshot = active_positions_snapshot()
-    terminal._populate_positions_table(positions_snapshot)
-    terminal._refresh_position_analysis_window()
+    _defer_ui_update(terminal, "_populate_positions_table", positions_snapshot)
+    _defer_ui_update(terminal, "_refresh_position_analysis_window")
     mark_dirty = getattr(terminal, "_mark_terminal_refresh_dirty", None)
     if callable(mark_dirty):
         mark_dirty("risk_heatmap")
@@ -121,7 +148,7 @@ async def refresh_open_orders_async(terminal):
     if terminal._ui_shutting_down:
         return
     if _authoritative_server_runtime(terminal):
-        terminal._populate_open_orders_table(getattr(terminal, "_latest_open_orders_snapshot", []) or [])
+        _defer_ui_update(terminal, "_populate_open_orders_table", getattr(terminal, "_latest_open_orders_snapshot", []) or [])
         terminal._last_open_orders_refresh_at = time.monotonic()
         return
     broker = getattr(terminal.controller, "broker", None)
@@ -151,7 +178,7 @@ async def refresh_open_orders_async(terminal):
     active_open_orders_snapshot = getattr(terminal, "_active_open_orders_snapshot", None)
     if callable(active_open_orders_snapshot):
         orders_snapshot = active_open_orders_snapshot()
-    terminal._populate_open_orders_table(orders_snapshot)
+    _defer_ui_update(terminal, "_populate_open_orders_table", orders_snapshot)
     terminal._last_open_orders_refresh_at = time.monotonic()
 
 
@@ -159,7 +186,7 @@ async def refresh_assets_async(terminal):
     if terminal._ui_shutting_down:
         return
     if _authoritative_server_runtime(terminal):
-        terminal._populate_assets_table(getattr(terminal, "_latest_assets_snapshot", {}) or {})
+        _defer_ui_update(terminal, "_populate_assets_table", getattr(terminal, "_latest_assets_snapshot", {}) or {})
         terminal._last_assets_refresh_at = time.monotonic()
         return
     controller = getattr(terminal, "controller", None)
@@ -181,7 +208,7 @@ async def refresh_assets_async(terminal):
             terminal.logger.debug("Assets refresh failed: %s", exc)
 
     terminal._latest_assets_snapshot = dict(balances or {})
-    terminal._populate_assets_table(terminal._latest_assets_snapshot)
+    _defer_ui_update(terminal, "_populate_assets_table", terminal._latest_assets_snapshot)
     terminal._last_assets_refresh_at = time.monotonic()
 
 
@@ -189,7 +216,7 @@ async def refresh_order_history_async(terminal):
     if terminal._ui_shutting_down:
         return
     if _authoritative_server_runtime(terminal):
-        terminal._populate_order_history_table(getattr(terminal, "_latest_order_history_snapshot", []) or [])
+        _defer_ui_update(terminal, "_populate_order_history_table", getattr(terminal, "_latest_order_history_snapshot", []) or [])
         terminal._last_order_history_refresh_at = time.monotonic()
         return
     controller = getattr(terminal, "controller", None)
@@ -228,7 +255,7 @@ async def refresh_order_history_async(terminal):
                 terminal.logger.debug("Closed-order history refresh failed: %s", exc)
 
     terminal._latest_order_history_snapshot = list(rows or [])
-    terminal._populate_order_history_table(terminal._latest_order_history_snapshot)
+    _defer_ui_update(terminal, "_populate_order_history_table", terminal._latest_order_history_snapshot)
     terminal._last_order_history_refresh_at = time.monotonic()
 
 
@@ -236,7 +263,7 @@ async def refresh_trade_history_async(terminal):
     if terminal._ui_shutting_down:
         return
     if _authoritative_server_runtime(terminal):
-        terminal._populate_trade_history_table(getattr(terminal, "_latest_trade_history_snapshot", []) or [])
+        _defer_ui_update(terminal, "_populate_trade_history_table", getattr(terminal, "_latest_trade_history_snapshot", []) or [])
         terminal._last_trade_history_refresh_at = time.monotonic()
         return
     controller = getattr(terminal, "controller", None)
@@ -270,7 +297,7 @@ async def refresh_trade_history_async(terminal):
                 terminal.logger.debug("Trade-history refresh from repository failed: %s", exc)
 
     terminal._latest_trade_history_snapshot = list(rows or [])
-    terminal._populate_trade_history_table(terminal._latest_trade_history_snapshot)
+    _defer_ui_update(terminal, "_populate_trade_history_table", terminal._latest_trade_history_snapshot)
     terminal._last_trade_history_refresh_at = time.monotonic()
 
 

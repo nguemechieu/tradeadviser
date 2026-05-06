@@ -1,0 +1,208 @@
+.strategy-research-dashboard,
+.strategy-assignment-dashboard,
+.strategy-performance-dashboard {
+  padding: 20px;
+}
+
+.strategy-research-dashboard h1,
+.strategy-assignment-dashboard h1,
+.strategy-performance-dashboard h1 {
+  color: var(--dark-text, #e0e0e0);
+  margin-bottom: 20px;
+  font-size: 2.5rem;
+}
+
+.research-metrics,
+.assignment-metrics,
+.performance-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 15px;
+  margin-bottom: 30px;
+}
+
+.backtest-table,
+.performance-table {
+  overflow-x: auto;
+}
+
+.backtest-table table,
+.performance-table table {
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.backtest-table thead,
+.performance-table thead {
+  background: rgba(0, 99, 255, 0.2);
+  border-bottom: 2px solid rgba(0, 153, 255, 0.3);
+}
+
+.backtest-table th,
+.performance-table th {
+  padding: 15px;
+  text-align: left;
+  color: #00d4ff;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.backtest-table td,
+.performance-table td {
+  padding: 12px 15px;
+  color: var(--dark-text, #e0e0e0);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.backtest-table tbody tr,
+.performance-table tbody tr {
+  transition: background 0.2s ease;
+}
+
+.backtest-table tbody tr:hover,
+.performance-table tbody tr:hover {
+  background: rgba(0, 153, 255, 0.1);
+}
+
+.strategy-name {
+  font-weight: 600;
+  color: #00d4ff;
+}
+
+.backtest-table td.positive,
+.performance-table td.positive {
+  color: #00d084;
+  font-weight: 600;
+}
+
+.backtest-table td.negative,
+.performance-table td.negative {
+  color: #ff6b6b;
+  font-weight: 600;
+}
+
+.allocation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.allocation-row {
+  display: grid;
+  grid-template-columns: 200px 1fr 150px;
+  gap: 20px;
+  align-items: center;
+  padding: 15px;
+  background: rgba(0, 99, 255, 0.05);
+  border: 1px solid rgba(0, 153, 255, 0.1);
+  border-radius: 6px;
+}
+
+.allocation-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.allocation-strategy {
+  color: #e0e0e0;
+  font-weight: 600;
+  margin: 0;
+}
+
+.status-badge {
+  display: inline-block;
+  width: fit-content;
+  padding: 4px 12px;
+  background: rgba(0, 212, 255, 0.2);
+  border: 1px solid #00d4ff;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  color: #00d4ff;
+}
+
+.status-badge.testing {
+  background: rgba(255, 193, 7, 0.2);
+  border-color: #ffc107;
+  color: #ffc107;
+}
+
+.allocation-bar-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.allocation-bar {
+  flex: 1;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.allocation-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #0099ff, #00d4ff);
+  transition: width 0.3s ease;
+}
+
+.allocation-percent {
+  min-width: 35px;
+  text-align: right;
+  color: #00d4ff;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.allocation-capital {
+  text-align: right;
+  color: #00d4ff;
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .allocation-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .allocation-bar-container {
+    width: 100%;
+  }
+
+  .backtest-table,
+  .performance-table {
+    font-size: 0.85rem;
+  }
+
+  .backtest-table th,
+  .performance-table th,
+  .backtest-table td,
+  .performance-table td {
+    padding: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .research-metrics,
+  .assignment-metrics,
+  .performance-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .backtest-table,
+  .performance-table {
+    font-size: 0.75rem;
+  }
+
+  .backtest-table th,
+  .performance-table th,
+  .backtest-table td,
+  .performance-table td {
+    padding: 8px 5px;
+  }
+}

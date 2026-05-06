@@ -4,7 +4,7 @@ import sys
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-
+import jwt_generator
 
 API_KEY = os.getenv("COINBASE_API_KEY", "").strip()
 API_SECRET = os.getenv("COINBASE_API_SECRET", "")

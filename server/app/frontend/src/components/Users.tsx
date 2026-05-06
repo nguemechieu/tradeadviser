@@ -21,7 +21,7 @@ const Users: React.FC = () => {
 
     const fetchUsers = async () => {
       try {
-        const response = await axiosPrivate.get("/api/v3/users", {
+        const response = await axiosPrivate.get("/api/v3/admin/users", {
           signal: controller.signal,
         });
         if (isMounted) setUsers(response.data);

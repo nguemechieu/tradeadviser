@@ -39,10 +39,10 @@ const Profile = () => {
 const  [errors, setErrors] = useState('');
   const fetchUserProfile = async () => {
     try {
-      const response = await axiosPrivate.get("/api/profile");
-     if (response.status === 200)
-
-      setUser(JSON.stringify(response.data));
+      const response = await axiosPrivate.get("/api/v3/auth/profile");
+      if (response.status === 200) {
+        setUser(JSON.stringify(response.data));
+      }
     } catch (err) {
       console.error("Failed to load profile:", err);
       setLoading(false);

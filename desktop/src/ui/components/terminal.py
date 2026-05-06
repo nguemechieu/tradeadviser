@@ -690,17 +690,13 @@ class Terminal(QMainWindow):
             except Exception:
                 self._app_event_filter_installed = False
 
-        self.refresh_timer = QTimer()
-        self.refresh_timer.timeout.connect(self._schedule_terminal_refresh)
-        self.refresh_timer.setInterval(1000)
-
-        self.orderbook_timer = QTimer()
-        self.orderbook_timer.timeout.connect(self._request_active_orderbook)
-        self.orderbook_timer.setInterval(1500)
-
-        self.signal_scan_timer = QTimer()
-        self.signal_scan_timer.timeout.connect(self._schedule_passive_signal_scan)
-        self.signal_scan_timer.setInterval(int(self.PASSIVE_SIGNAL_SCAN_INTERVAL_MS))
+        # Initialize timers safely on the GUI thread
+        self.refresh_timer = None
+        self.orderbook_timer = None
+        self.signal_scan_timer = None
+        
+        # Defer timer creation to GUI thread to avoid "Timers cannot be started from another thread" warnings
+        QTimer.singleShot(0, self._initialize_runtime_timers)
         QTimer.singleShot(0, self._schedule_initial_terminal_data_load)
 
         self.ai_signal.connect(self._update_ai_signal)
@@ -727,6 +723,28 @@ class Terminal(QMainWindow):
             self._workspace_ready = True
             overlay.clear_loading()
             self._start_runtime_timers()
+
+    def _initialize_runtime_timers(self):
+        """Initialize QTimer objects on the GUI thread."""
+        if getattr(self, "_runtime_timers_initialized", False):
+            return
+        
+        try:
+            self.refresh_timer = QTimer()
+            self.refresh_timer.timeout.connect(self._schedule_terminal_refresh)
+            self.refresh_timer.setInterval(1000)
+
+            self.orderbook_timer = QTimer()
+            self.orderbook_timer.timeout.connect(self._request_active_orderbook)
+            self.orderbook_timer.setInterval(1500)
+
+            self.signal_scan_timer = QTimer()
+            self.signal_scan_timer.timeout.connect(self._schedule_passive_signal_scan)
+            self.signal_scan_timer.setInterval(int(self.PASSIVE_SIGNAL_SCAN_INTERVAL_MS))
+            
+            self._runtime_timers_initialized = True
+        except Exception as exc:
+            self.logger.warning(f"Failed to initialize runtime timers: {exc}")
 
     def _start_runtime_timers(self):
         if getattr(self, "_ui_shutting_down", False):
@@ -7493,6 +7511,7 @@ class Terminal(QMainWindow):
         self._create_risk_heatmap()
         self._create_ai_signal_panel()
         self._create_live_agent_timeline_panel()
+        self._create_venue_panel()
 
     def _create_system_console_panel(self):
         create_system_console_panel(self)
@@ -11839,6 +11858,11 @@ class Terminal(QMainWindow):
     def _create_live_agent_timeline_panel(self):
         create_live_agent_timeline_panel(self)
         self._apply_dock_widget_chrome(getattr(self, "live_agent_timeline_dock", None))
+
+    def _create_venue_panel(self):
+        from ui.components.panels.system_panels import create_venue_panel_integrated
+        create_venue_panel_integrated(self)
+        self._apply_dock_widget_chrome(getattr(self, "venue_panel_dock", None))
 
     def _ai_monitor_rows(self):
         def _sort_key(item):

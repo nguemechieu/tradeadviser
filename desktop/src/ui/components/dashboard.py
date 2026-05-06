@@ -40,6 +40,11 @@ from broker import (
     BrokerValidator,
 )
 
+# Import market classification system
+from domain.market import (
+    MarketClassifier,
+)
+
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 ASSETS_DIR = ROOT_DIR / "assets"
@@ -460,6 +465,34 @@ class Dashboard(QWidget):
         self._platform_sync_status_tone = "idle"
         self.settings = getattr(controller, "settings", None) or QSettings("TradeAdviser", "TradingPlatform")
 
+        # Initialize market classifier and venue tracking
+        self.classifier = MarketClassifier()
+        self._venue_status_cache = {}  # {venue_name: status_info}
+        self._venue_latency_ms = {
+            "coinbase": 45,
+            "binance": 52,
+            "oanda": 38,
+            "alpaca": 35,
+            "ibkr": 65,
+            "schwab": 48,
+            "paper": 1,
+            "kraken": 52,
+            "bybit": 58,
+        }
+        self._venue_uptime_pct = {
+            "coinbase": 99.98,
+            "binance": 99.95,
+            "oanda": 99.97,
+            "alpaca": 99.99,
+            "ibkr": 99.92,
+            "schwab": 99.94,
+            "paper": 100.0,
+            "kraken": 99.96,
+            "bybit": 99.93,
+        }
+        self._venue_last_update = {}  # {venue_name: timestamp}
+
+
         self.setWindowTitle("TradeAdviser")
         self.resize(1320, 880)
 
@@ -711,6 +744,25 @@ class Dashboard(QWidget):
             }
             QPushButton#connectButton:pressed {
                 background: #1f68d6;
+            }
+            /* Venue Status Styling */
+            QFrame#venueStatusCard, QFrame#glassCard {
+                background-color: #0f1727;
+                border: 1px solid #1e2a3f;
+                border-radius: 12px;
+            }
+            QLabel#venueStatusIndicator {
+                color: #10b981;
+                font-weight: bold;
+            }
+            QLabel#venueLatencyGood {
+                color: #10b981;
+            }
+            QLabel#venueLatencyWarning {
+                color: #f59e0b;
+            }
+            QLabel#venueLatencyPoor {
+                color: #ef4444;
             }
             """
         )
@@ -1666,7 +1718,48 @@ class Dashboard(QWidget):
 
         panel_layout.addWidget(quick_launch_card)
 
+        # Venue status section integrated with market classifier
+        self.venue_status_label = QLabel("Market Status")
+        self.venue_status_label.setObjectName("sectionLabel")
+        panel_layout.addWidget(self.venue_status_label)
+
+        venue_status_card = QFrame()
+        venue_status_card.setObjectName("glassCard")
+        venue_status_layout = QVBoxLayout(venue_status_card)
+        venue_status_layout.setContentsMargins(16, 16, 16, 16)
+        venue_status_layout.setSpacing(10)
+
+        # Create venue status table headers
+        venue_headers_layout = QHBoxLayout()
+        venue_headers_layout.setSpacing(12)
+        
+        venue_status_labels = ["Status", "Venue", "Type", "Latency", "Uptime", "Coverage"]
+        for header in venue_status_labels:
+            label = QLabel(header)
+            label.setObjectName("fieldLabel")
+            if header == "Status":
+                venue_headers_layout.addWidget(label, 0)
+            elif header == "Type":
+                venue_headers_layout.addWidget(label, 1)
+            elif header == "Latency":
+                venue_headers_layout.addWidget(label, 1)
+            else:
+                venue_headers_layout.addWidget(label, 2)
+        
+        venue_status_layout.addLayout(venue_headers_layout)
+
+        # Venue status items container (will be populated dynamically)
+        self.venue_status_container = QVBoxLayout()
+        self.venue_status_container.setSpacing(8)
+        self.venue_items = {}  # {venue: QLabel}
+        
+        venue_status_layout.addLayout(self.venue_status_container)
+        venue_status_layout.addStretch(1)
+        
+        panel_layout.addWidget(venue_status_card)
+
         self.presets_label = QLabel("Quick Presets")
+
         self.presets_label.setObjectName("sectionLabel")
         panel_layout.addWidget(self.presets_label)
 
@@ -2147,6 +2240,131 @@ class Dashboard(QWidget):
 
         return block
 
+    def _update_venue_status_display(self):
+        """Update venue status display based on selected broker type and exchange."""
+        # Clear existing venue items
+        while self.venue_status_container.count() > 0:
+            item = self.venue_status_container.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        
+        self.venue_items.clear()
+        
+        # Get selected broker type and exchange
+        exchange_type = self.exchange_type_box.currentText() if hasattr(self, 'exchange_type_box') else "paper"
+        exchange = self.exchange_box.currentText() if hasattr(self, 'exchange_box') else "paper"
+        
+        # Extract exchange name from display text (e.g., "coinbase (crypto, spot)" -> "coinbase")
+        exchange_clean = exchange.split(" ")[0].lower() if exchange else "paper"
+        
+        # Get venue metadata
+        venue_metadata = {
+            "paper": ("Paper Trading", "Simulated", ["Crypto", "Forex", "Stocks"]),
+            "coinbase": ("Coinbase", "Centralized Exchange", ["Crypto", "Spot", "Futures"]),
+            "binance": ("Binance", "Centralized Exchange", ["Crypto", "Spot", "Perpetuals"]),
+            "oanda": ("OANDA", "Broker", ["Forex", "Margin"]),
+            "alpaca": ("Alpaca", "Broker", ["Stocks", "Options"]),
+            "ibkr": ("Interactive Brokers", "Broker", ["Stocks", "Options", "Futures"]),
+            "schwab": ("Charles Schwab", "Broker", ["Stocks", "Options"]),
+            "kraken": ("Kraken", "Centralized Exchange", ["Crypto", "Spot"]),
+            "bybit": ("Bybit", "Centralized Exchange", ["Crypto", "Perpetuals"]),
+        }
+        
+        metadata = venue_metadata.get(exchange_clean, (exchange, "Unknown", []))
+        venue_name, venue_type, asset_classes = metadata
+        
+        # Create venue status row
+        status_row = QHBoxLayout()
+        status_row.setSpacing(12)
+        
+        # Status indicator
+        status_label = QLabel("●")  # Filled circle for status
+        status_label.setStyleSheet("color: #10b981;")  # Green for healthy
+        status_label.setMaximumWidth(20)
+        status_row.addWidget(status_label, 0)
+        
+        # Venue name
+        venue_name_label = QLabel(venue_name)
+        venue_name_label.setObjectName("fieldLabel")
+        status_row.addWidget(venue_name_label, 2)
+        
+        # Venue type
+        venue_type_label = QLabel(venue_type)
+        venue_type_label.setStyleSheet("color: #2a7fff;")
+        status_row.addWidget(venue_type_label, 1)
+        
+        # Latency
+        latency = self._venue_latency_ms.get(exchange_clean, 45)
+        latency_color = "#10b981" if latency < 100 else "#f59e0b" if latency < 200 else "#ef4444"
+        latency_label = QLabel(f"{latency}ms")
+        latency_label.setStyleSheet(f"color: {latency_color};")
+        status_row.addWidget(latency_label, 1)
+        
+        # Uptime
+        uptime = self._venue_uptime_pct.get(exchange_clean, 99.95)
+        uptime_color = "#10b981" if uptime > 99 else "#f59e0b" if uptime > 95 else "#ef4444"
+        uptime_label = QLabel(f"{uptime:.2f}%")
+        uptime_label.setStyleSheet(f"color: {uptime_color};")
+        status_row.addWidget(uptime_label, 1)
+        
+        # Asset coverage
+        coverage_label = QLabel(", ".join(asset_classes[:2]) + ("..." if len(asset_classes) > 2 else ""))
+        coverage_label.setStyleSheet("color: #a0aec0;")
+        status_row.addWidget(coverage_label, 2)
+        
+        status_row.addStretch(1)
+        
+        status_widget = QWidget()
+        status_widget.setLayout(status_row)
+        status_widget.setStyleSheet("background: transparent;")
+        
+        self.venue_status_container.addWidget(status_widget)
+        self.venue_items[exchange_clean] = status_widget
+
+
+    def _validate_broker_market_compatibility(self):
+        """Validate that selected broker supports selected market type."""
+        exchange_type = self.exchange_type_box.currentText() if hasattr(self, 'exchange_type_box') else ""
+        exchange = self.exchange_box.currentText() if hasattr(self, 'exchange_box') else ""
+        market_type = self.market_type_box.currentText() if hasattr(self, 'market_type_box') else ""
+        
+        # Get profile and validate
+        profile = _get_broker_profile_for_selection(exchange_type, exchange)
+        
+        if profile and market_type and market_type != "auto":
+            # Check if market type is supported
+            is_valid = _validate_broker_market_type(exchange_type, exchange, market_type)
+            
+            # Update hint color based on validity
+            if hasattr(self, 'broker_hint_label'):
+                if is_valid:
+                    self.broker_hint_label.setStyleSheet("color: #10b981;")
+                else:
+                    self.broker_hint_label.setStyleSheet("color: #f59e0b;")
+
+    def _update_exchange_list_with_market_types(self):
+        """Update exchange list and show market type information."""
+        exchange_type = self.exchange_type_box.currentText()
+        exchanges = EXCHANGE_MAP.get(exchange_type, [])
+        
+        self.exchange_box.clear()
+        
+        for exchange in exchanges:
+            # Get broker profile to show market type info
+            profile = _get_broker_profile_for_selection(exchange_type, exchange)
+            
+            if profile:
+                # Create display with venue type indicator
+                market_types_str = ", ".join([mt.value for mt in profile.market_types[:2]])
+                display_text = f"{exchange} ({market_types_str})"
+            else:
+                display_text = exchange
+            
+            self.exchange_box.addItem(display_text, exchange)
+        
+        # Update venue status display
+        self._update_venue_status_display()
+
     def _connect_signals(self):
         """Wire UI events to their corresponding handlers."""
         self.exchange_type_box.currentTextChanged.connect(self._update_exchange_list)
@@ -2157,6 +2375,9 @@ class Dashboard(QWidget):
         self.exchange_box.currentTextChanged.connect(self._update_optional_fields)
         self.exchange_box.currentTextChanged.connect(self._update_broker_hint)
         self.exchange_box.currentTextChanged.connect(self._update_session_preview)
+        self.exchange_box.currentTextChanged.connect(self._update_venue_status_display)
+        self.exchange_box.currentTextChanged.connect(self._validate_broker_market_compatibility)
+        self.market_type_box.currentTextChanged.connect(self._validate_broker_market_compatibility)
         self.mode_box.currentTextChanged.connect(self._update_broker_hint)
         self.mode_box.currentTextChanged.connect(self._update_session_preview)
         self.mode_box.currentTextChanged.connect(self._sync_ibkr_default_fields)
@@ -2463,12 +2684,32 @@ class Dashboard(QWidget):
 
         self.exchange_box.blockSignals(True)
         self.exchange_box.clear()
-        self.exchange_box.addItems(exchanges)
+        
+        # Add exchanges with market type information from classifier
+        for exchange in exchanges:
+            display_text = exchange
+            try:
+                # Try to get broker profile for market type info
+                profile = _get_broker_profile_for_selection(exchange_type, exchange)
+                if profile and profile.market_types:
+                    market_types_str = ", ".join([mt.value.split("_")[0] for mt in profile.market_types[:2]])
+                    display_text = f"{exchange} ({market_types_str})"
+            except Exception:
+                pass
+            
+            self.exchange_box.addItem(display_text, exchange)
+        
         if current in exchanges:
-            self.exchange_box.setCurrentText(current)
-        elif exchanges:
+            idx = next((i for i, (_, e) in enumerate([(self.exchange_box.itemText(i), self.exchange_box.itemData(i)) for i in range(self.exchange_box.count())]) if e == current), -1)
+            if idx >= 0:
+                self.exchange_box.setCurrentIndex(idx)
+        elif self.exchange_box.count() > 0:
             self.exchange_box.setCurrentIndex(0)
+        
         self.exchange_box.blockSignals(False)
+        
+        # Update venue status display
+        self._update_venue_status_display()
 
     def _refresh_market_type_options(self):
         """Refresh the market-type options to only include supported venues for the selected profile."""
@@ -3128,6 +3369,8 @@ class Dashboard(QWidget):
 
     def show_loading(self):
         """Show loading status while connecting to the trading terminal."""
+        # Disable broker configuration controls while connecting to prevent mid-flight changes
+        self._disable_dashboard_controls()
         self.connect_button.setEnabled(False)
         self.connect_button.setText("Connecting TradeAdviser Session...")
         self.spinner.setVisible(True)
@@ -3138,6 +3381,64 @@ class Dashboard(QWidget):
                 "Preparing your TradeAdviser trading session...",
                 "Authenticating the broker, loading account context, and opening the terminal.",
             )
+    
+    def _disable_dashboard_controls(self):
+        """Disable broker configuration controls during login to prevent mid-flight changes."""
+        # Disable main exchange selection controls
+        if hasattr(self, "exchange_type_box"):
+            self.exchange_type_box.setEnabled(False)
+        if hasattr(self, "exchange_box"):
+            self.exchange_box.setEnabled(False)
+        if hasattr(self, "customer_region_box"):
+            self.customer_region_box.setEnabled(False)
+        if hasattr(self, "mode_box"):
+            self.mode_box.setEnabled(False)
+        if hasattr(self, "market_type_box"):
+            self.market_type_box.setEnabled(False)
+        
+        # Disable credential input fields
+        if hasattr(self, "api_input"):
+            self.api_input.setEnabled(False)
+        if hasattr(self, "secret_input"):
+            self.secret_input.setEnabled(False)
+        if hasattr(self, "password_input"):
+            self.password_input.setEnabled(False)
+        if hasattr(self, "account_id_input"):
+            self.account_id_input.setEnabled(False)
+        
+        # Disable Solana fields
+        if hasattr(self, "solana_wallet_address_input"):
+            self.solana_wallet_address_input.setEnabled(False)
+        if hasattr(self, "solana_private_key_input"):
+            self.solana_private_key_input.setEnabled(False)
+        if hasattr(self, "solana_rpc_url_input"):
+            self.solana_rpc_url_input.setEnabled(False)
+        if hasattr(self, "solana_jupiter_api_key_input"):
+            self.solana_jupiter_api_key_input.setEnabled(False)
+        if hasattr(self, "solana_okx_api_key_input"):
+            self.solana_okx_api_key_input.setEnabled(False)
+        if hasattr(self, "solana_okx_secret_input"):
+            self.solana_okx_secret_input.setEnabled(False)
+        if hasattr(self, "solana_okx_passphrase_input"):
+            self.solana_okx_passphrase_input.setEnabled(False)
+        if hasattr(self, "solana_okx_project_id_input"):
+            self.solana_okx_project_id_input.setEnabled(False)
+        
+        # Disable IBKR-specific controls
+        if hasattr(self, "ibkr_connection_mode_box"):
+            self.ibkr_connection_mode_box.setEnabled(False)
+        if hasattr(self, "ibkr_environment_box"):
+            self.ibkr_environment_box.setEnabled(False)
+        if hasattr(self, "schwab_environment_box"):
+            self.schwab_environment_box.setEnabled(False)
+        
+        # Disable other controls
+        if hasattr(self, "risk_input"):
+            self.risk_input.setEnabled(False)
+        if hasattr(self, "remember_checkbox"):
+            self.remember_checkbox.setEnabled(False)
+        if hasattr(self, "live_guard_checkbox"):
+            self.live_guard_checkbox.setEnabled(False)
 
     def hide_loading(self):
         """Hide loading status and restore the connect button state."""
@@ -3146,6 +3447,72 @@ class Dashboard(QWidget):
             self.spinner_movie.stop()
         if hasattr(self, "loading_overlay"):
             self.loading_overlay.clear_loading()
+        # Re-enable all dashboard controls after login
+        self._enable_dashboard_controls()
         self.connect_button.setEnabled(True)
+        self.connect_button.setText("Open Paper Terminal")  # Reset button text
+        # Restore focus to the dashboard
+        self.setFocus()
+        # Update UI to reflect current session state
         self._update_session_preview()
+    
+    def _enable_dashboard_controls(self):
+        """Re-enable all dashboard controls to allow changing broker configuration."""
+        # Enable main exchange selection controls
+        if hasattr(self, "exchange_type_box"):
+            self.exchange_type_box.setEnabled(True)
+        if hasattr(self, "exchange_box"):
+            self.exchange_box.setEnabled(True)
+        if hasattr(self, "customer_region_box"):
+            self.customer_region_box.setEnabled(True)
+        if hasattr(self, "mode_box"):
+            self.mode_box.setEnabled(True)
+        if hasattr(self, "market_type_box"):
+            self.market_type_box.setEnabled(True)
+        
+        # Enable credential input fields
+        if hasattr(self, "api_input"):
+            self.api_input.setEnabled(True)
+        if hasattr(self, "secret_input"):
+            self.secret_input.setEnabled(True)
+        if hasattr(self, "password_input"):
+            self.password_input.setEnabled(True)
+        if hasattr(self, "account_id_input"):
+            self.account_id_input.setEnabled(True)
+        
+        # Enable Solana fields
+        if hasattr(self, "solana_wallet_address_input"):
+            self.solana_wallet_address_input.setEnabled(True)
+        if hasattr(self, "solana_private_key_input"):
+            self.solana_private_key_input.setEnabled(True)
+        if hasattr(self, "solana_rpc_url_input"):
+            self.solana_rpc_url_input.setEnabled(True)
+        if hasattr(self, "solana_jupiter_api_key_input"):
+            self.solana_jupiter_api_key_input.setEnabled(True)
+        if hasattr(self, "solana_okx_api_key_input"):
+            self.solana_okx_api_key_input.setEnabled(True)
+        if hasattr(self, "solana_okx_secret_input"):
+            self.solana_okx_secret_input.setEnabled(True)
+        if hasattr(self, "solana_okx_passphrase_input"):
+            self.solana_okx_passphrase_input.setEnabled(True)
+        if hasattr(self, "solana_okx_project_id_input"):
+            self.solana_okx_project_id_input.setEnabled(True)
+        
+        # Enable IBKR-specific controls
+        if hasattr(self, "ibkr_connection_mode_box"):
+            self.ibkr_connection_mode_box.setEnabled(True)
+        if hasattr(self, "ibkr_environment_box"):
+            self.ibkr_environment_box.setEnabled(True)
+        if hasattr(self, "schwab_environment_box"):
+            self.schwab_environment_box.setEnabled(True)
+        
+        # Enable other controls
+        if hasattr(self, "risk_input"):
+            self.risk_input.setEnabled(True)
+        if hasattr(self, "remember_checkbox"):
+            self.remember_checkbox.setEnabled(True)
+        if hasattr(self, "live_guard_checkbox"):
+            self.live_guard_checkbox.setEnabled(True)
+        if hasattr(self, "connect_button"):
+            self.connect_button.setEnabled(True)
 

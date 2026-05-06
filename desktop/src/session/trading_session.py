@@ -7,88 +7,32 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field, is_dataclass
 from datetime import datetime, timezone
 import logging
-import re
+
 from typing import Any
 
-from core.account_identity import resolve_account_label
+from core.account_identity import resolve_account_label, _normalized_text
 from events.event_bus.event_types import EventType
 from market_data.orderbook_buffer import OrderBookBuffer
 from market_data.ticker_buffer import TickerBuffer
-from  core.trading_core import TradingCore
+from core.trading_core import TradingCore
+from shared.utils import (
+    safe_float,
+    normalized_text,
+    normalize_fraction,
+    normalize_exposure_limit,
+    is_native_contract_symbol,
+    normalize_symbol_text,
+    normalize_symbol_sequence,
+)
 
 
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _safe_float(value: Any, default: float = 0.0) -> float:
-    try:
-        return float(value)
-    except Exception:
-        return float(default)
-
-
-def _normalized_text(*values: Any) -> str:
-    for value in values:
-        text = str(value or "").strip()
-        if text:
-            return text
-    return ""
-
-
 def _looks_like_native_contract_symbol(symbol: Any) -> bool:
-    text = str(symbol or "").strip().upper()
-    if not text or "/" in text or "_" in text:
-        return False
-    if "PERP" in text:
-        return True
-    return bool(
-        re.fullmatch(r"[A-Z0-9]+-\d{2}[A-Z]{3}\d{2}-[A-Z0-9]+", text)
-        or re.fullmatch(r"[A-Z0-9]+-[A-Z0-9]+-\d{8}", text)
-    )
-
-
-def _normalize_symbol_text(symbol: Any) -> str:
-    text = str(symbol or "").strip().upper()
-    if _looks_like_native_contract_symbol(text):
-        return text
-    return text.replace("_", "/").replace("-", "/")
-
-
-def _normalize_symbol_sequence(symbols: Any) -> list[str]:
-    if symbols is None:
-        return []
-    if isinstance(symbols, str):
-        raw_values = [item for item in symbols.split(",")]
-    elif isinstance(symbols, Mapping):
-        raw_values = list(symbols.keys())
-    else:
-        raw_values = list(symbols or [])
-
-    normalized = []
-    for symbol in raw_values:
-        value = _normalize_symbol_text(symbol)
-        if value and value not in normalized:
-            normalized.append(value)
-    return normalized
-
-
-def _normalize_fraction(value: Any, default: float) -> float:
-    normalized = _safe_float(value, default)
-    if normalized < 0:
-        return 0.0
-    if normalized > 1.0:
-        normalized = normalized / 100.0
-    return normalized
-
-
-def _normalize_exposure_limit(value: Any, default: float) -> float:
-    normalized = _safe_float(value, default)
-    if normalized < 0:
-        return 0.0
-    if normalized > 5.0:
-        normalized = normalized / 100.0
-    return normalized
+    """Legacy function - use is_native_contract_symbol from utils."""
+    return is_native_contract_symbol(symbol)
 
 
 @dataclass(frozen=True)
@@ -291,7 +235,7 @@ class SessionControllerProxy:
 
     @staticmethod
     def _normalize_symbol_key(symbol: Any) -> str:
-        return _normalize_symbol_text(symbol)
+        return normalize_symbol_text(symbol)
 
     def symbol_strategy_assignment_locked(self, symbol: str) -> bool:
         normalized_symbol = self._normalize_symbol_key(symbol)
@@ -570,10 +514,10 @@ class SessionControllerProxy:
             self._parent.handle_trade_execution(payload)
 
     def trade_quantity_context(self, symbol: str) -> dict[str, Any]:
-        normalized_symbol = _normalize_symbol_text(symbol)
+        normalized_symbol = normalize_symbol_text(symbol)
         broker = getattr(self, "broker", None)
         exchange_name = str(getattr(broker, "exchange_name", "") or "").strip().lower()
-        compact = _normalize_symbol_text(normalized_symbol)
+        compact = normalize_symbol_text(normalized_symbol)
         parts = compact.split("/", 1) if "/" in compact else []
         supports_lots = False
         forex_quotes = set(getattr(self._parent, "FOREX_SYMBOL_QUOTES", set()) or set())
@@ -658,9 +602,9 @@ class TradingSession:
         self.last_strategy_debug: dict[str, Any] = {}
         self.autotrade_scope = str(getattr(parent_controller, "autotrade_scope", "all") or "all").strip().lower() or "all"
         self.autotrade_watchlist = {
-            _normalize_symbol_text(symbol)
+            normalize_symbol_text(symbol)
             for symbol in list(getattr(parent_controller, "autotrade_watchlist", set()) or set())
-            if _normalize_symbol_text(symbol)
+            if normalize_symbol_text(symbol)
         }
         self.symbol_strategy_assignments = copy.deepcopy(getattr(parent_controller, "symbol_strategy_assignments", {}) or {})
         self.symbol_strategy_rankings = copy.deepcopy(getattr(parent_controller, "symbol_strategy_rankings", {}) or {})
@@ -804,7 +748,7 @@ class TradingSession:
             else:
                 candidates = (source,)
             for candidate in candidates:
-                for symbol in _normalize_symbol_sequence(candidate):
+                for symbol in normalize_symbol_sequence(candidate):
                     if symbol not in normalized:
                         normalized.append(symbol)
         return normalized
@@ -876,7 +820,25 @@ class TradingSession:
             if hasattr(self.broker, "logger"):
                 self.broker.logger = self.logger
 
-            await self.broker.connect()
+            try:
+                await self.broker.connect()
+            except Exception as exc:
+                # Handle broker connection failures gracefully
+                error_msg = str(exc)
+                self.logger.warning(f"Broker connection failed: {error_msg}")
+                self.last_error = error_msg
+                
+                # Check if this is an IBKR service unavailability issue
+                if "Cannot connect to host" in error_msg or "refused" in error_msg.lower():
+                    self.logger.warning("Broker service unavailable. Continuing in offline mode.")
+                    self.connected = False
+                    self.status = "offline"
+                    # Allow session to continue - user can retry connection later
+                    return self
+                else:
+                    # Other connection errors are fatal
+                    raise
+            
             await self._synchronize_account_identity()
             self.connected = True
             self.balances = await self._fetch_balances_safe()
@@ -909,27 +871,27 @@ class TradingSession:
 
     def _prune_symbol_scoped_state(self) -> None:
         catalog = {
-            _normalize_symbol_text(symbol)
+            normalize_symbol_text(symbol)
             for symbol in list(self.symbol_catalog or self.symbols or [])
-            if _normalize_symbol_text(symbol)
+            if normalize_symbol_text(symbol)
         }
         if not catalog:
             return
         self.autotrade_watchlist = {symbol for symbol in set(self.autotrade_watchlist or set()) if symbol in catalog}
         self.symbol_strategy_assignments = {
-            _normalize_symbol_text(symbol): copy.deepcopy(rows)
+            normalize_symbol_text(symbol): copy.deepcopy(rows)
             for symbol, rows in dict(self.symbol_strategy_assignments or {}).items()
-            if _normalize_symbol_text(symbol) in catalog
+            if normalize_symbol_text(symbol) in catalog
         }
         self.symbol_strategy_rankings = {
-            _normalize_symbol_text(symbol): copy.deepcopy(rows)
+            normalize_symbol_text(symbol): copy.deepcopy(rows)
             for symbol, rows in dict(self.symbol_strategy_rankings or {}).items()
-            if _normalize_symbol_text(symbol) in catalog
+            if normalize_symbol_text(symbol) in catalog
         }
         self.symbol_strategy_locks = {
-            _normalize_symbol_text(symbol)
+            normalize_symbol_text(symbol)
             for symbol in set(self.symbol_strategy_locks or set())
-            if _normalize_symbol_text(symbol) in catalog
+            if normalize_symbol_text(symbol) in catalog
         }
 
     async def start_trading(self) -> "TradingSession":
@@ -1031,7 +993,7 @@ class TradingSession:
 
     @staticmethod
     def _normalize_runtime_symbol(symbol: Any) -> str:
-        return _normalize_symbol_text(symbol)
+        return normalize_symbol_text(symbol)
 
     @staticmethod
     def _normalize_runtime_timestamp(timestamp: Any) -> tuple[float | None, str]:
@@ -1328,7 +1290,7 @@ class TradingSession:
             return None
         keys = ("ask", "price", "last", "close") if str(side or "").strip().lower() == "buy" else ("bid", "price", "last", "close")
         for key in keys:
-            price = _safe_float(ticker.get(key), 0.0)
+            price = safe_float(ticker.get(key), 0.0)
             if price > 0:
                 return {
                     "session_id": self.session_id,
@@ -1499,7 +1461,7 @@ class TradingSession:
                     if name:
                         normalized.append(str(name).strip())
             symbols = normalized
-        normalized = _normalize_symbol_sequence(symbols)
+        normalized = normalize_symbol_sequence(symbols)
         if not normalized:
             normalized = self._configured_symbol_hints()
         self.symbol_catalog = list(normalized)
@@ -1554,23 +1516,23 @@ class TradingSession:
     def _extract_equity_value(self) -> float:
         balances = dict(self.balances or {})
         for key in ("nav", "equity", "net_liquidation", "account_value", "balance", "cash"):
-            value = _safe_float(balances.get(key), 0.0)
+            value = safe_float(balances.get(key), 0.0)
             if value > 0:
                 return value
         total = balances.get("total")
         if isinstance(total, dict):
             for currency in ("USD", "USDT", "USDC", "BUSD", "EUR", "GBP"):
-                value = _safe_float(total.get(currency), 0.0)
+                value = safe_float(total.get(currency), 0.0)
                 if value > 0:
                     return value
             if len(total) == 1:
-                only_value = _safe_float(next(iter(total.values())), 0.0)
+                only_value = safe_float(next(iter(total.values())), 0.0)
                 if only_value > 0:
                     return only_value
         free_bucket = balances.get("free")
         if isinstance(free_bucket, dict):
             for currency in ("USD", "USDT", "USDC", "BUSD", "EUR", "GBP"):
-                value = _safe_float(free_bucket.get(currency), 0.0)
+                value = safe_float(free_bucket.get(currency), 0.0)
                 if value > 0:
                     return value
         return 0.0
@@ -1580,7 +1542,7 @@ class TradingSession:
         if isinstance(total, dict):
             parts = []
             for currency in ("USD", "USDT", "USDC", "EUR", "GBP", "BTC"):
-                value = _safe_float(total.get(currency), 0.0)
+                value = safe_float(total.get(currency), 0.0)
                 if value > 0:
                     parts.append(f"{currency} {value:,.2f}")
                 if len(parts) >= 2:
@@ -1594,21 +1556,21 @@ class TradingSession:
         risk_config = getattr(config, "risk", None)
         broker_options = dict(getattr(getattr(config, "broker", None), "options", None) or {})
         return SessionRiskLimits(
-            max_drawdown_pct=_normalize_fraction(
+            max_drawdown_pct=normalize_fraction(
                 broker_options.get(
                     "max_drawdown_pct",
                     getattr(risk_config, "max_daily_drawdown", getattr(risk_config, "max_drawdown", 0.10)),
                 ),
                 0.10,
             ),
-            max_position_size_pct=_normalize_fraction(
+            max_position_size_pct=normalize_fraction(
                 broker_options.get(
                     "max_position_size_pct",
                     getattr(risk_config, "max_position_size_pct", 0.10),
                 ),
                 0.10,
             ),
-            max_gross_exposure_pct=_normalize_exposure_limit(
+            max_gross_exposure_pct=normalize_exposure_limit(
                 broker_options.get(
                     "max_gross_exposure_pct",
                     getattr(risk_config, "max_gross_exposure_pct", 2.0),
@@ -1616,30 +1578,30 @@ class TradingSession:
                 2.0,
             ),
             max_leverage=(
-                    _safe_float(broker_options.get("max_leverage", getattr(risk_config, "max_leverage", None)), 0.0) or None
+                    safe_float(broker_options.get("max_leverage", getattr(risk_config, "max_leverage", None)), 0.0) or None
             ),
         )
 
     def _position_notional(self, position: dict[str, Any]) -> float:
         for key in ("notional", "notional_value", "position_value", "market_value", "exposure", "value", "cost"):
-            value = _safe_float(position.get(key), 0.0)
+            value = safe_float(position.get(key), 0.0)
             if value > 0:
                 return abs(value)
         quantity = 0.0
         for key in ("contracts", "contract_size", "size", "qty", "quantity", "amount", "units"):
-            quantity = _safe_float(position.get(key), 0.0)
+            quantity = safe_float(position.get(key), 0.0)
             if quantity > 0:
                 break
         price = 0.0
         for key in ("markPrice", "mark_price", "price", "entryPrice", "entry_price", "avgPrice", "average"):
-            price = _safe_float(position.get(key), 0.0)
+            price = safe_float(position.get(key), 0.0)
             if price > 0:
                 break
         return abs(quantity * price)
 
     def _position_leverage(self, position: dict[str, Any]) -> float:
         for key in ("leverage", "effective_leverage"):
-            value = _safe_float(position.get(key), 0.0)
+            value = safe_float(position.get(key), 0.0)
             if value > 0:
                 return value
         return 0.0
@@ -1648,7 +1610,7 @@ class TradingSession:
         for key in ("unrealizedPnl", "unrealized_pnl", "floatingProfit", "floating_profit", "pnl", "profit"):
             if key not in position:
                 continue
-            return _safe_float(position.get(key), 0.0)
+            return safe_float(position.get(key), 0.0)
         return 0.0
 
     def _positions_unrealized_pnl(self) -> float:

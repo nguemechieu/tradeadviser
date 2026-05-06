@@ -1,0 +1,235 @@
+.system-health-dashboard,
+.broker-status-dashboard,
+.deployment-dashboard {
+  padding: 20px;
+}
+
+.system-health-dashboard h1,
+.broker-status-dashboard h1,
+.deployment-dashboard h1 {
+  color: var(--dark-text, #e0e0e0);
+  margin-bottom: 20px;
+  font-size: 2.5rem;
+}
+
+.health-metrics,
+.status-metrics,
+.deployment-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 15px;
+  margin-bottom: 30px;
+}
+
+.services-table,
+.status-table,
+.deployment-table {
+  overflow-x: auto;
+}
+
+.services-table table,
+.status-table table,
+.deployment-table table {
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.services-table thead,
+.status-table thead,
+.deployment-table thead {
+  background: rgba(0, 99, 255, 0.2);
+  border-bottom: 2px solid rgba(0, 153, 255, 0.3);
+}
+
+.services-table th,
+.status-table th,
+.deployment-table th {
+  padding: 15px;
+  text-align: left;
+  color: #00d4ff;
+  font-weight: 600;
+}
+
+.services-table td,
+.status-table td,
+.deployment-table td {
+  padding: 12px 15px;
+  color: var(--dark-text, #e0e0e0);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.services-table tbody tr,
+.status-table tbody tr,
+.deployment-table tbody tr {
+  transition: background 0.2s ease;
+}
+
+.services-table tbody tr:hover,
+.status-table tbody tr:hover,
+.deployment-table tbody tr:hover {
+  background: rgba(0, 153, 255, 0.1);
+}
+
+.services-table tbody tr.status-healthy,
+.status-table tbody tr.status-operational,
+.deployment-table tbody tr.status-healthy {
+  border-left: 3px solid #00d084;
+}
+
+.services-table tbody tr.status-degraded,
+.status-table tbody tr.status-degraded,
+.deployment-table tbody tr.status-testing {
+  border-left: 3px solid #ff9800;
+}
+
+.service-name,
+.broker-name {
+  font-weight: 600;
+  color: #00d4ff;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.status-badge.healthy,
+.status-badge.operational {
+  background: rgba(0, 208, 132, 0.2);
+  color: #00d084;
+  border: 1px solid #00d084;
+}
+
+.status-badge.degraded {
+  background: rgba(255, 152, 0, 0.2);
+  color: #ff9800;
+  border: 1px solid #ff9800;
+}
+
+.status-badge.active {
+  background: rgba(0, 208, 132, 0.2);
+  color: #00d084;
+  border: 1px solid #00d084;
+}
+
+.status-badge.previous {
+  background: rgba(100, 100, 100, 0.2);
+  color: #999;
+  border: 1px solid #666;
+}
+
+.status-badge.testing {
+  background: rgba(255, 193, 7, 0.2);
+  color: #ffc107;
+  border: 1px solid #ffc107;
+}
+
+.cpu-usage {
+  color: #00d4ff;
+}
+
+.cpu-usage.high {
+  color: #ff6b6b;
+  font-weight: 600;
+}
+
+.cpu-usage.warning {
+  color: #ff9800;
+}
+
+.timestamp {
+  font-size: 0.85rem;
+  color: #999;
+}
+
+.env-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(0, 99, 255, 0.2);
+  color: #00d4ff;
+  border: 1px solid #00d4ff;
+}
+
+.env-badge.staging {
+  background: rgba(255, 152, 0, 0.2);
+  color: #ff9800;
+  border: 1px solid #ff9800;
+}
+
+.health-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.health-badge.healthy {
+  background: rgba(0, 208, 132, 0.2);
+  color: #00d084;
+}
+
+.health-badge.testing {
+  background: rgba(255, 152, 0, 0.2);
+  color: #ff9800;
+}
+
+.version {
+  font-weight: 600;
+  color: #00d4ff;
+}
+
+@media (max-width: 768px) {
+  .health-metrics,
+  .status-metrics,
+  .deployment-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .services-table,
+  .status-table,
+  .deployment-table {
+    font-size: 0.85rem;
+  }
+
+  .services-table th,
+  .status-table th,
+  .deployment-table th,
+  .services-table td,
+  .status-table td,
+  .deployment-table td {
+    padding: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .health-metrics,
+  .status-metrics,
+  .deployment-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .services-table,
+  .status-table,
+  .deployment-table {
+    font-size: 0.75rem;
+  }
+
+  .services-table th,
+  .status-table th,
+  .deployment-table th,
+  .services-table td,
+  .status-table td,
+  .deployment-table td {
+    padding: 8px 5px;
+  }
+}

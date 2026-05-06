@@ -1606,7 +1606,7 @@ class ServerServiceContainer:
             ),
             self._create_user_record(
                 email="admin@sopotek.local",
-                password="admin123",
+                password="Admin123",
                 username="admin",
                 display_name="Desk Administrator",
                 role="admin",

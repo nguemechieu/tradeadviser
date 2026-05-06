@@ -1,0 +1,137 @@
+.quantpm-dashboard {
+  padding: 20px;
+}
+
+.quantpm-dashboard h1 {
+  color: var(--dark-text, #e0e0e0);
+  margin-bottom: 20px;
+  font-size: 2.5rem;
+}
+
+.quant-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 15px;
+  margin-bottom: 30px;
+}
+
+.risk-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.risk-metric {
+  padding: 15px;
+  background: rgba(0, 99, 255, 0.1);
+  border-radius: 8px;
+  border-left: 3px solid #0099ff;
+}
+
+.risk-label {
+  display: block;
+  color: #999;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+}
+
+.risk-value {
+  display: block;
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: #00d4ff;
+}
+
+.risk-value.negative {
+  color: #ff6b6b;
+}
+
+.models-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.model-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  background: rgba(0, 99, 255, 0.05);
+  border: 1px solid rgba(0, 153, 255, 0.1);
+  border-radius: 6px;
+  transition: background 0.3s ease;
+}
+
+.model-row:hover {
+  background: rgba(0, 99, 255, 0.15);
+}
+
+.model-info {
+  flex: 1;
+}
+
+.model-name {
+  color: #e0e0e0;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.model-status {
+  display: inline-block;
+  padding: 4px 12px;
+  background: rgba(0, 212, 255, 0.2);
+  border: 1px solid #00d4ff;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  color: #00d4ff;
+}
+
+.model-status.testing {
+  background: rgba(255, 193, 7, 0.2);
+  border-color: #ffc107;
+  color: #ffc107;
+}
+
+.model-status.monitoring {
+  background: rgba(255, 152, 0, 0.2);
+  border-color: #ff9800;
+  color: #ff9800;
+}
+
+.model-metrics {
+  display: flex;
+  gap: 20px;
+  font-size: 0.9rem;
+}
+
+.model-score,
+.model-sharpe {
+  color: #999;
+}
+
+@media (max-width: 768px) {
+  .risk-metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .model-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .model-metrics {
+    margin-top: 10px;
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .risk-metrics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .quant-metrics {
+    grid-template-columns: 1fr;
+  }
+}

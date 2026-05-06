@@ -1,24 +1,307 @@
-.register-section {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background-color: #f0f2f5;
-  min-height: 100vh;
-  padding: 2rem;
-}
+/* Register Component Styles - Enhanced for better button visibility */
 
-.register-card {
-  background-color: rgba(10, 92, 80, 0.94);
-  border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-  width: 100%;
-  max-width: 600px;
-  padding: 2rem;
-}
-
-.register-form {
-  margin-top: 1rem;
+/* Register Card Layout */
+.auth-card-register {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  overflow: hidden;
+  height: 100%;
+  max-height: 100vh;
+}
+
+/* Header Section - Fixed at top */
+.register-header-section {
+  flex-shrink: 0;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(0, 212, 255, 0.1);
+}
+
+/* Content Section - Scrollable in the middle */
+.register-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 20px 0;
+  min-height: 0;
+}
+
+.register-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.register-content::-webkit-scrollbar-track {
+  background: rgba(0, 212, 255, 0.05);
+  border-radius: 4px;
+}
+
+.register-content::-webkit-scrollbar-thumb {
+  background: rgba(0, 212, 255, 0.3);
+  border-radius: 4px;
+}
+
+.register-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 212, 255, 0.5);
+}
+
+/* Form styling */
+.register-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Button Section - Fixed at bottom */
+.register-button-section {
+  flex-shrink: 0;
+  padding-top: 20px;
+  border-top: 1px solid rgba(0, 212, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: rgba(20, 30, 50, 0.3);
+  margin: 0 -40px -60px -40px;
+  padding: 20px 40px;
+}
+
+.submit-button-register {
+  width: 100%;
+  padding: 16px 24px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  height: auto;
+  min-height: 48px;
+  box-shadow: 0 4px 24px rgba(0, 153, 255, 0.3);
+}
+
+.submit-button-register:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0, 153, 255, 0.5);
+}
+
+.signup-link-register {
+  margin: 0;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+/* Form Row - Two columns */
+.auth-form .form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* Error text styling */
+.error-text {
+  display: block;
+  color: #ff9999;
+  font-size: 0.8rem;
+  margin-top: 6px;
+  font-weight: 500;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.error-text-small {
+  font-size: 0.75rem;
+  max-height: 50px;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.form-input.has-error {
+  background: rgba(255, 107, 107, 0.05);
+  border-color: #ff6b6b;
+}
+
+.form-input.has-error:focus {
+  background: rgba(255, 107, 107, 0.1);
+  border-color: #ff6b6b;
+}
+
+/* Success Message */
+.success-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100vh;
+  background: linear-gradient(135deg, #0f1419 0%, #1a2332 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.success-content {
+  text-align: center;
+  position: relative;
+  z-index: 1;
+  animation: slideUp 0.6s ease;
+}
+
+.success-icon {
+  font-size: 4rem;
+  color: #00d084;
+  display: block;
+  margin-bottom: 20px;
+  animation: bounce 0.8s ease infinite;
+}
+
+.success-content h2 {
+  font-size: 2rem;
+  color: #ffffff;
+  margin-bottom: 12px;
+  font-weight: 700;
+}
+
+.success-content p {
+  font-size: 1rem;
+  color: #a0a0a0;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+  .auth-wrapper-register {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-branding {
+    display: none;
+  }
+
+  .auth-card {
+    border-left: none;
+  }
+
+  .auth-card-register {
+    max-height: 100vh;
+  }
+
+  .register-button-section {
+    margin: 0 -24px -40px -24px;
+    padding: 20px 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  .auth-form .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-card {
+    padding: 40px 24px;
+  }
+
+  .register-header-section {
+    padding-bottom: 16px;
+  }
+
+  .register-content {
+    padding: 16px 0;
+  }
+
+  .register-button-section {
+    padding: 16px 24px;
+    margin: 0 -24px -40px -24px;
+  }
+
+  .success-content h2 {
+    font-size: 1.6rem;
+  }
+
+  .success-icon {
+    font-size: 3rem;
+  }
+
+  .submit-button-register {
+    padding: 14px 20px;
+    font-size: 1rem;
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 480px) {
+  .error-text {
+    font-size: 0.75rem;
+  }
+
+  .error-text-small {
+    font-size: 0.7rem;
+  }
+
+  .success-content h2 {
+    font-size: 1.4rem;
+  }
+
+  .success-icon {
+    font-size: 2.5rem;
+  }
+
+  .auth-card {
+    padding: 32px 16px;
+  }
+
+  .register-header-section {
+    padding-bottom: 12px;
+  }
+
+  .register-content {
+    padding: 12px 0;
+  }
+
+  .register-button-section {
+    padding: 12px 16px;
+    margin: 0 -16px -32px -16px;
+    gap: 10px;
+  }
+
+  .submit-button-register {
+    padding: 12px 16px;
+    font-size: 0.95rem;
+    min-height: 40px;
+  }
+
+  .signup-link-register {
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-height: 800px) {
+  .register-header-section {
+    padding-bottom: 12px;
+  }
+
+  .register-content {
+    padding: 12px 0;
+  }
+
+  .register-button-section {
+    padding: 12px 40px;
+    gap: 8px;
+  }
+
+  .submit-button-register {
+    padding: 12px 20px;
+    min-height: 40px;
+    font-size: 0.95rem;
+  }
 }

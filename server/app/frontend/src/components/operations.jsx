@@ -25,13 +25,13 @@ export function OperationsDashboard({ token, onError }) {
       setError("");
 
       const [healthRes, brokerRes, statsRes] = await Promise.all([
-        fetch("/admin/operations/health", {
+        fetch("/api/v3/admin/operations/health", {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        fetch("/admin/operations/broker-status", {
+        fetch("/api/v3/admin/operations/broker-status", {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        fetch("/admin/operations/trade-stats?period=1h", {
+        fetch("/api/v3/admin/operations/trade-stats?period=1h", {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);
@@ -127,24 +127,103 @@ export function OperationsDashboard({ token, onError }) {
         </div>
       </Card>
 
-      {/* Broker Connectivity */}
-      <Card title="Broker Connectivity" subtitle="Connection status to trading venues">
-        <div className="broker-status">
-          <MetricBox
-            label="Overall"
-            value={
-              <>
-                <StatusIndicator status={brokerStatus?.overall || "offline"} />
-                {brokerStatus?.overall || "offline"}
-              </>
-            }
-          />
-          {brokerStatus?.brokers && Object.entries(brokerStatus.brokers).map(([broker, status]) => (
-            <div key={broker} className="broker-item">
-              <StatusIndicator status={status.status} />
-              <span>{broker}</span>
+      {/* Trading Venues - InvestPro Style */}
+      <Card title="Trading Venues" subtitle="Real-time connection status and performance metrics">
+        <div className="venues-container">
+          {/* Overall Status Summary */}
+          <div className="venues-summary">
+            <div className="summary-item">
+              <div className="summary-value">
+                <StatusIndicator status={brokerStatus?.overall || "offline"} size="large" />
+              </div>
+              <div className="summary-text">
+                <p className="summary-label">Overall Status</p>
+                <p className="summary-status">{brokerStatus?.overall || "offline"}</p>
+              </div>
             </div>
-          ))}
+            {brokerStatus?.brokers && (
+              <>
+                <div className="summary-item">
+                  <div className="summary-value">{Object.keys(brokerStatus.brokers).filter(b => brokerStatus.brokers[b].status === 'healthy').length}</div>
+                  <div className="summary-text">
+                    <p className="summary-label">Connected Venues</p>
+                    <p className="summary-status">{Object.keys(brokerStatus.brokers).length} Total</p>
+                  </div>
+                </div>
+                <div className="summary-item">
+                  <div className="summary-value">{brokerStatus?.avg_latency_ms?.toFixed(0) || 0}ms</div>
+                  <div className="summary-text">
+                    <p className="summary-label">Avg Latency</p>
+                    <p className="summary-status">Network Response</p>
+                  </div>
+                </div>
+                <div className="summary-item">
+                  <div className="summary-value">{brokerStatus?.total_volume_24h || 0}</div>
+                  <div className="summary-text">
+                    <p className="summary-label">24h Volume</p>
+                    <p className="summary-status">Traded</p>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Venues Table */}
+          {brokerStatus?.brokers && (
+            <div className="venues-table-wrapper">
+              <table className="venues-table">
+                <thead>
+                  <tr>
+                    <th className="col-status">Status</th>
+                    <th className="col-venue">Venue Name</th>
+                    <th className="col-type">Type</th>
+                    <th className="col-latency">Latency</th>
+                    <th className="col-connections">Active Connections</th>
+                    <th className="col-uptime">Uptime</th>
+                    <th className="col-volume">Volume (24h)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(brokerStatus.brokers).map(([venue, data]) => (
+                    <tr key={venue} className={`venue-row venue-${data.status}`}>
+                      <td className="col-status">
+                        <StatusIndicator status={data.status} />
+                      </td>
+                      <td className="col-venue">
+                        <div className="venue-name">
+                          <span className="venue-icon">{data.icon || '📊'}</span>
+                          <span className="venue-label">{venue}</span>
+                        </div>
+                      </td>
+                      <td className="col-type">
+                        <span className="venue-type">{data.type || 'Broker'}</span>
+                      </td>
+                      <td className="col-latency">
+                        <span className={`latency-value latency-${data.latency_ms > 200 ? 'high' : data.latency_ms > 100 ? 'medium' : 'low'}`}>
+                          {data.latency_ms || 0}ms
+                        </span>
+                      </td>
+                      <td className="col-connections">
+                        <span className="connection-count">{data.connections || 0}</span>
+                      </td>
+                      <td className="col-uptime">
+                        <div className="uptime-bar">
+                          <div 
+                            className="uptime-fill" 
+                            style={{ width: `${(data.uptime_pct || 100) * 100}%` }}
+                          />
+                        </div>
+                        <span className="uptime-text">{(data.uptime_pct || 100).toFixed(1)}%</span>
+                      </td>
+                      <td className="col-volume">
+                        <span className="volume-value">${(data.volume_24h || 0) / 1e6 > 0 ? (data.volume_24h / 1e6).toFixed(1) : 0}M</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </Card>
 

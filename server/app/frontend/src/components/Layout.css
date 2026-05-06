@@ -1,9 +1,21 @@
-/* Layout Styles */
+/* =========================================================
+   TradeAdviser Layout Styles
+   File: layout.css
+   ========================================================= */
+
+/* -----------------------------
+   Layout Wrapper
+------------------------------ */
 
 .layout-wrapper {
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(56, 189, 248, 0.08), transparent 32%),
+    radial-gradient(circle at top right, rgba(120, 230, 200, 0.08), transparent 28%),
+    #070b12;
+  color: #e5e7eb;
 }
 
 .layout-content {
@@ -11,55 +23,111 @@
   width: 100%;
 }
 
-/* Footer Styles */
+/* Optional page container */
+.layout-container {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* -----------------------------
+   Footer
+------------------------------ */
+
 .layout-footer {
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(20, 30, 50, 0.95));
-  border-top: 1px solid rgba(120, 230, 200, 0.1);
-  padding: 30px 20px;
-  margin-top: 40px;
-  backdrop-filter: blur(10px);
+  margin-top: 48px;
+  padding: 34px 24px;
+  border-top: 1px solid rgba(120, 230, 200, 0.14);
+  background:
+    linear-gradient(
+      135deg,
+      rgba(15, 23, 42, 0.96),
+      rgba(12, 20, 34, 0.98)
+    );
+  backdrop-filter: blur(14px);
+  box-shadow: 0 -18px 50px rgba(0, 0, 0, 0.28);
 }
 
 .footer-content {
+  width: 100%;
   max-width: 1400px;
   margin: 0 auto;
   text-align: center;
 }
 
+.footer-brand {
+  margin: 0 0 10px;
+  color: #e5e7eb;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
 .footer-content p {
   margin: 8px 0;
-  color: rgba(120, 230, 200, 0.7);
+  color: rgba(203, 213, 225, 0.72);
   font-size: 0.95rem;
+  line-height: 1.6;
 }
+
+.footer-copy {
+  color: rgba(148, 163, 184, 0.75);
+}
+
+/* -----------------------------
+   Footer Links
+------------------------------ */
 
 .footer-links {
   display: flex;
   justify-content: center;
-  gap: 12px;
   align-items: center;
+  gap: 14px;
   flex-wrap: wrap;
+  margin-top: 14px;
 }
 
 .footer-links a {
   color: #78e6c8;
+  font-size: 0.92rem;
+  font-weight: 700;
   text-decoration: none;
-  transition: all 0.2s ease;
-  font-weight: 500;
+  transition:
+    color 180ms ease,
+    transform 180ms ease,
+    text-shadow 180ms ease;
 }
 
 .footer-links a:hover {
   color: #53b4ff;
-  text-decoration: underline;
+  text-shadow: 0 0 18px rgba(83, 180, 255, 0.35);
+  transform: translateY(-1px);
+}
+
+.footer-links a:focus-visible {
+  outline: 2px solid rgba(83, 180, 255, 0.75);
+  outline-offset: 4px;
+  border-radius: 6px;
 }
 
 .divider {
-  color: rgba(120, 230, 200, 0.3);
+  color: rgba(120, 230, 200, 0.32);
+  user-select: none;
 }
 
+/* -----------------------------
+   Responsive
+------------------------------ */
+
 @media (max-width: 768px) {
+  .layout-container {
+    padding: 0 18px;
+  }
+
   .layout-footer {
-    padding: 20px 16px;
-    margin-top: 30px;
+    margin-top: 32px;
+    padding: 26px 18px;
   }
 
   .footer-content p {
@@ -67,6 +135,21 @@
   }
 
   .footer-links {
+    gap: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .layout-footer {
+    padding: 24px 16px;
+  }
+
+  .footer-links {
+    flex-direction: column;
     gap: 8px;
+  }
+
+  .divider {
+    display: none;
   }
 }

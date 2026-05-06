@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { Card, MetricBox, DataTable, StatusIndicator, Badge, Button } from "./shared";
+import { Card, MetricBox, DataTable, StatusIndicator, Badge, Button, Alert } from "./shared";
 
 export function AgentsDashboard({ token, onError }) {
   const [overview, setOverview] = useState(null);
@@ -25,10 +25,10 @@ export function AgentsDashboard({ token, onError }) {
       setError("");
 
       const [overviewRes, agentsRes] = await Promise.all([
-        fetch("/api/admin/agents/overview", {
+        fetch("/api/v3/admin/agents/overview", {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        fetch("/api/admin/agents/", {
+        fetch("/api/v3/admin/agents/", {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);

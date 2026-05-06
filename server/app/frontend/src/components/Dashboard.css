@@ -1,0 +1,280 @@
+.dashboard-page {
+  min-height: 100vh;
+  padding: 32px;
+  background:
+    radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 32%),
+    radial-gradient(circle at top right, rgba(168, 85, 247, 0.1), transparent 28%),
+    #070b12;
+  color: #e5e7eb;
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+.dashboard-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: flex-start;
+  margin-bottom: 28px;
+  padding: 28px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent),
+    #101827;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+}
+
+.dashboard-kicker {
+  display: inline-flex;
+  margin-bottom: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.14);
+  color: #38bdf8;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dashboard-hero h1 {
+  margin: 0;
+  font-size: clamp(32px, 4vw, 48px);
+  line-height: 1;
+  letter-spacing: -0.05em;
+}
+
+.dashboard-hero p {
+  max-width: 760px;
+  margin: 14px 0 0;
+  color: #94a3b8;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.dashboard-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.btn {
+  min-height: 42px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+  color: #04111d;
+}
+
+.btn-secondary {
+  background: #151f31;
+  border-color: rgba(148, 163, 184, 0.18);
+  color: #e5e7eb;
+}
+
+.dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.dashboard-card,
+.dashboard-panel {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent),
+    #101827;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+}
+
+.dashboard-card {
+  padding: 20px;
+}
+
+.dashboard-card-label {
+  margin: 0 0 8px;
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.dashboard-card h2 {
+  margin: 0 0 12px;
+  font-size: 26px;
+  letter-spacing: -0.04em;
+}
+
+.dashboard-badge {
+  display: inline-flex;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.dashboard-badge.positive,
+.dashboard-badge.safe {
+  background: rgba(34, 197, 94, 0.14);
+  color: #86efac;
+}
+
+.dashboard-badge.neutral {
+  background: rgba(56, 189, 248, 0.14);
+  color: #38bdf8;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.8fr);
+  gap: 20px;
+}
+
+.dashboard-panel {
+  padding: 22px;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.panel-header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.panel-header p {
+  margin: 6px 0 0;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.live-badge {
+  height: fit-content;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.14);
+  color: #86efac;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.market-list,
+.status-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.market-row,
+.status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 14px;
+  background: #0b111c;
+}
+
+.market-row strong {
+  display: block;
+  font-size: 14px;
+}
+
+.market-row span,
+.status-row span {
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.market-signal {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.signal {
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.signal.buy {
+  background: rgba(34, 197, 94, 0.14);
+  color: #86efac;
+}
+
+.signal.sell {
+  background: rgba(239, 68, 68, 0.14);
+  color: #fca5a5;
+}
+
+.signal.hold {
+  background: rgba(245, 158, 11, 0.14);
+  color: #fcd34d;
+}
+
+.market-signal small {
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+.status-online {
+  color: #86efac;
+}
+
+.status-warning {
+  color: #fcd34d;
+}
+
+@media (max-width: 1100px) {
+  .dashboard-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .dashboard-page {
+    padding: 18px;
+  }
+
+  .dashboard-hero {
+    flex-direction: column;
+    padding: 22px;
+  }
+
+  .dashboard-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .dashboard-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .btn {
+    width: 100%;
+  }
+}

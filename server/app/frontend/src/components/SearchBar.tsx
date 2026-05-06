@@ -22,8 +22,14 @@ const SearchBar: React.FC<SearchBarProps> = ({ onResults }) => {
 
     const fetchResults = async (keyword: string) => {
         try {
-            const res = await axiosPrivate.get(`/api/users?search=${keyword}`);
-            onResults(res.data);
+            const res = await axiosPrivate.get(`/api/v3/admin/users`);
+            // Filter results client-side based on keyword
+            const filtered = res.data.filter((user: any) => 
+                user.email?.toLowerCase().includes(keyword.toLowerCase()) ||
+                user.username?.toLowerCase().includes(keyword.toLowerCase()) ||
+                user.display_name?.toLowerCase().includes(keyword.toLowerCase())
+            );
+            onResults(filtered);
         } catch (error) {
             console.error("Search error:", error);
         }

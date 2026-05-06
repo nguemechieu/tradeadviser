@@ -24,10 +24,10 @@ export function RiskDashboard({ token, onError }) {
       setError("");
 
       const [overviewRes, breachesRes] = await Promise.all([
-        fetch("/admin/risk/overview", {
+        fetch("/api/v3/admin/risk/api/overview", {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        fetch("/admin/risk/breaches", {
+        fetch("/api/v3/admin/risk/api/breaches", {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);

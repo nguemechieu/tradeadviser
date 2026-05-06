@@ -874,10 +874,7 @@ class AppController(QMainWindow):
         self.event_scheduler = None
 
         # === Cache Maintenance ===
-        self._cache_trim_timer = QTimer()
-        self._cache_trim_timer.timeout.connect(self._trim_application_caches)
-        self._cache_trim_timer.setInterval(300000)  # 5 minutes
-        self._cache_trim_timer.setSingleShot(False)
+        self._cache_trim_timer = None  # Will be initialized on GUI thread
 
         # === Final Initialization ===
         try:
@@ -885,7 +882,8 @@ class AppController(QMainWindow):
             self._setup_data()
             self._setup_ui(self.controller)
             self.setWindowTitle(self.tr("app.window_title"))
-            safe_timer_start(self._cache_trim_timer, 300000)  # Start cache trimming after successful initialization
+            # Defer cache timer initialization to GUI thread
+            QTimer.singleShot(0, self._initialize_cache_timer)
         except Exception as exc:
             traceback.print_exc()
             startup_message = self._friendly_startup_error(exc)
@@ -11924,6 +11922,21 @@ class AppController(QMainWindow):
                 system_console.log(message, level="WARN")
             except Exception:
                 pass
+
+    def _initialize_cache_timer(self):
+        """Initialize the cache trimming timer on the GUI thread."""
+        if self._cache_trim_timer is not None:
+            return
+        
+        try:
+            self._cache_trim_timer = QTimer()
+            self._cache_trim_timer.timeout.connect(self._trim_application_caches)
+            self._cache_trim_timer.setInterval(300000)  # 5 minutes
+            self._cache_trim_timer.setSingleShot(False)
+            safe_timer_start(self._cache_trim_timer, 300000)  # Start cache trimming
+        except Exception as exc:
+            if getattr(self, "logger", None) is not None:
+                self.logger.warning(f"Failed to initialize cache timer: {exc}")
 
     def _trim_application_caches(self):
         """Periodically trim application caches to prevent unbounded memory growth.

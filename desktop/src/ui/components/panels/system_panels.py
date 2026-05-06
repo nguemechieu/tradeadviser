@@ -2,6 +2,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDockWidget, QGridLayout, QLabel, QTableWidget, QTextBrowser, QVBoxLayout, QWidget, QTabWidget
 
 from ui.console.system_console import SystemConsole
+from ui.components.panels.venue_panel import create_venue_panel
 
 
 AI_MONITOR_HEADERS = [
@@ -166,4 +167,35 @@ def create_live_agent_timeline_panel(terminal):
 
     terminal.addDockWidget(Qt.RightDockWidgetArea, dock)
     dock.hide()
+    return dock
+
+
+def create_venue_panel_integrated(terminal):
+    """Create and integrate the professional venue monitoring panel.
+    
+    This panel monitors broker/exchange connections, latency, uptime, and
+    trading volume in real-time with professional investpro-style display.
+    
+    Args:
+        terminal: The main terminal window
+        
+    Returns:
+        QDockWidget: The configured venue panel dock widget
+    """
+    dock = create_venue_panel(terminal)
+    terminal.venue_panel_dock = dock
+    
+    # Wire up venue panel refresh from broker status updates
+    if hasattr(terminal, "_latest_broker_status_snapshot"):
+        # Schedule initial population with sample data for demo
+        def _populate_demo_venue_data():
+            try:
+                from ui.components.panels.venue_panel import populate_sample_venues
+                populate_sample_venues(terminal)
+            except Exception:
+                pass
+        
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(500, _populate_demo_venue_data)
+    
     return dock

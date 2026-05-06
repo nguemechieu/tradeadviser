@@ -1,6 +1,8 @@
 import { useRef, useState, useEffect, FormEvent, ChangeEvent, FC } from 'react';
 import useAuth from '../hooks/useAuth';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { axiosPublic } from '../api/axios';
+import Logo from './Logo';
 
 import './Login.css';
 
@@ -135,7 +137,7 @@ const Login: FC = () => {
         {/* Left side - Branding */}
         <div className="auth-branding">
           <div className="branding-content">
-            <h2>TradeAdviser</h2>
+            <Logo size="large" showText={true} />
             <p>Professional Trading Platform</p>
             <ul className="features">
               <li>✓ Real-time trading signals</li>

@@ -246,8 +246,13 @@ class CCXTBroker(BaseBroker):
     # ==========================================================
 
     def _exchange_class(self):
+        # Extract base exchange name (strip market type suffix like "(spot)", "(futures)", etc.)
+        exchange_name = str(self.exchange_name or "").strip()
+        # Remove anything in parentheses: "coinbase (spot)" -> "coinbase"
+        exchange_name = exchange_name.split('(')[0].strip()
+        
         try:
-            exchange_class = getattr(ccxt, self.exchange_name)
+            exchange_class = getattr(ccxt, exchange_name)
         except AttributeError as exc:
             raise ValueError(f"Unsupported CCXT exchange: {self.exchange_name}") from exc
         if self._exchange_code() == "coinbase":
@@ -384,6 +389,53 @@ class CCXTBroker(BaseBroker):
             if self.secret and any(ch.isspace() for ch in self.secret):
                 raise ValueError(
                     f"{exchange_code.upper()} API secret contains whitespace. Paste the secret exactly as issued by the exchange."
+                )
+        elif exchange_code == "coinbase":
+            # Coinbase requires API key and a PEM-formatted private key
+            if not self.api_key:
+                raise ValueError("Coinbase requires an API key.")
+            if not self.secret:
+                raise ValueError("Coinbase requires a private key. Ensure the private key (secret) is provided.")
+            
+            # Strict PEM format validation for Coinbase
+            secret_str = str(self.secret).strip()
+            if len(secret_str) < 100:
+                raise ValueError(
+                    "Coinbase private key is too short or invalid. "
+                    "Ensure you're using the full PEM-formatted EC private key from Coinbase. "
+                    f"Expected at least 100 characters, got {len(secret_str)}."
+                )
+            if not secret_str.startswith("-----BEGIN"):
+                raise ValueError(
+                    "Coinbase private key must be in PEM format (starting with '-----BEGIN'). "
+                    "Ensure you copied the complete private key from Coinbase without modification."
+                )
+            if not secret_str.endswith("-----"):
+                raise ValueError(
+                    "Coinbase private key must be in PEM format (ending with '-----'). "
+                    "Ensure you copied the complete private key from Coinbase without truncation."
+                )
+            # Check for common key type
+            if "PRIVATE KEY" not in secret_str:
+                raise ValueError(
+                    "Coinbase private key must contain 'PRIVATE KEY' in the header. "
+                    "Ensure you're using the correct private key format from Coinbase."
+                )
+            
+            # Try to validate that the PEM key has valid structure
+            lines = secret_str.split('\n')
+            if len(lines) < 3:
+                raise ValueError(
+                    "Coinbase private key appears incomplete. "
+                    "It should have multiple lines. Ensure you copied the entire key from Coinbase."
+                )
+            # Check that there's actual key data between BEGIN and END
+            middle_content = '\n'.join(lines[1:-1]).strip()
+            if len(middle_content) < 50:
+                raise ValueError(
+                    "Coinbase private key content appears incomplete or corrupted. "
+                    "The key data between BEGIN and END markers is too short. "
+                    "Ensure you copied the complete, unmodified private key from Coinbase."
                 )
 
     def _default_open_orders_symbol(self, symbol=None):
@@ -940,7 +992,29 @@ class CCXTBroker(BaseBroker):
             except Exception as exc:
                 self.logger.debug("Coinbase fast market bootstrap fell back to load_markets: %s", exc)
 
-        loaded = await self.exchange.load_markets()
+        try:
+            loaded = await self.exchange.load_markets()
+        except Exception as exc:
+            if exchange_code == "coinbase":
+                # Coinbase-specific error handling for authentication issues
+                exc_msg = str(exc).lower()
+                if "index" in exc_msg or "der" in exc_msg or "pem" in exc_msg or "ecdsa" in exc_msg or "range" in exc_msg:
+                    raise ValueError(
+                        "Coinbase authentication failed: Invalid private key format or content. "
+                        "Your private key appears to be corrupted or incomplete. \n"
+                        "Please verify:\n"
+                        "  1. You're using the complete EC PRIVATE KEY from Coinbase\n"
+                        "  2. The key hasn't been truncated or modified\n"
+                        "  3. Newlines are preserved correctly (use literal newlines, not \\n)\n"
+                        "  4. No extra whitespace is at the beginning or end\n"
+                        f"\nError: {exc}"
+                    ) from exc
+                # For other errors, still provide context
+                raise ValueError(
+                    f"Coinbase market loading failed: {exc}"
+                ) from exc
+            raise
+        
         markets = getattr(self.exchange, "markets", None)
         if exchange_code == "coinbase":
             markets = self._install_exchange_markets(markets if isinstance(markets, dict) and markets else loaded)
@@ -2619,6 +2693,15 @@ class CCXTBroker(BaseBroker):
             return
 
         self._normalize_credentials()
+        
+        # Log Coinbase credentials for debugging (without exposing the secret)
+        if self._exchange_code() == "coinbase":
+            self.logger.debug(
+                f"Coinbase credentials check: api_key={'*' + str(self.api_key)[-4:] if self.api_key else 'None'}, "
+                f"secret_length={len(str(self.secret).strip()) if self.secret else 0}, "
+                f"secret_starts_with={str(self.secret)[:30] if self.secret else 'None'}"
+            )
+        
         self._validate_credentials()
 
         exchange_class = self._exchange_class()

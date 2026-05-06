@@ -48,7 +48,7 @@ def main():
         env = environ.get("ENV", "production")
         reload = env == "development"
 
-        logger.info(f"Starting TradeAdviser System Server")
+        logger.info(f"Starting Backend Server")
         logger.info(f"Host: {host}")
         logger.info(f"Port: {port}")
         logger.info(f"Environment: {env}")

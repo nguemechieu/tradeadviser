@@ -3,7 +3,7 @@ import axiosRetry from "axios-retry";
 
 // if using React context (only usable in a hook!)
 
-const BASE_URL = "http://localhost:8080";
+const BASE_URL = "http://localhost:8000";
 
 // 🔓 Public instance (no auth)
 const axiosPublic = axios.create({

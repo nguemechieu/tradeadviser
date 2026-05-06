@@ -1,0 +1,325 @@
+.ai-trade-review-dashboard,
+.ai-position-manager-dashboard,
+.ai-audit-dashboard {
+  padding: 20px;
+}
+
+.ai-trade-review-dashboard h1,
+.ai-position-manager-dashboard h1,
+.ai-audit-dashboard h1 {
+  color: var(--dark-text, #e0e0e0);
+  margin-bottom: 20px;
+  font-size: 2.5rem;
+}
+
+.review-stats,
+.pm-stats,
+.audit-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 15px;
+  margin-bottom: 30px;
+}
+
+.reviews-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.review-item {
+  padding: 15px;
+  background: rgba(0, 99, 255, 0.05);
+  border: 1px solid rgba(0, 153, 255, 0.1);
+  border-radius: 8px;
+}
+
+.review-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.trade-id {
+  font-weight: 600;
+  color: #00d4ff;
+  font-size: 0.9rem;
+}
+
+.review-status {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.review-status.approved {
+  background: rgba(0, 208, 132, 0.2);
+  color: #00d084;
+  border: 1px solid #00d084;
+}
+
+.review-status.flagged {
+  background: rgba(255, 152, 0, 0.2);
+  color: #ff9800;
+  border: 1px solid #ff9800;
+}
+
+.review-details {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.symbol-type {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.symbol {
+  font-weight: 600;
+  color: #00d4ff;
+  padding: 4px 8px;
+  background: rgba(0, 212, 255, 0.1);
+  border-radius: 4px;
+}
+
+.type-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.type-badge.buy {
+  background: rgba(0, 208, 132, 0.2);
+  color: #00d084;
+  border: 1px solid #00d084;
+}
+
+.type-badge.sell {
+  background: rgba(255, 107, 107, 0.2);
+  color: #ff6b6b;
+  border: 1px solid #ff6b6b;
+}
+
+.review-reason {
+  color: var(--dark-text, #e0e0e0);
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.confidence-score {
+  font-size: 0.85rem;
+  color: #999;
+}
+
+.recommendations-table {
+  overflow-x: auto;
+}
+
+.recommendations-table table {
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.recommendations-table thead {
+  background: rgba(0, 99, 255, 0.2);
+  border-bottom: 2px solid rgba(0, 153, 255, 0.3);
+}
+
+.recommendations-table th {
+  padding: 15px;
+  text-align: left;
+  color: #00d4ff;
+  font-weight: 600;
+}
+
+.recommendations-table td {
+  padding: 12px 15px;
+  color: var(--dark-text, #e0e0e0);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.recommendations-table tbody tr:hover {
+  background: rgba(0, 153, 255, 0.1);
+}
+
+.position-name {
+  font-weight: 600;
+  color: #00d4ff;
+}
+
+.suggested-action {
+  padding: 4px 8px;
+  background: rgba(0, 212, 255, 0.2);
+  border-radius: 4px;
+  font-weight: 600;
+  color: #00d4ff;
+}
+
+.reason {
+  font-size: 0.9rem;
+}
+
+.recommendations-table td.positive {
+  color: #00d084;
+  font-weight: 600;
+}
+
+.recommendations-table td.negative {
+  color: #ff6b6b;
+  font-weight: 600;
+}
+
+.audit-metrics-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.audit-metric-row {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 15px;
+  background: rgba(0, 99, 255, 0.05);
+  border-left: 3px solid #0099ff;
+  border-radius: 4px;
+}
+
+.audit-metric-row.healthy {
+  border-left-color: #00d084;
+}
+
+.audit-metric-row.warning {
+  border-left-color: #ff9800;
+}
+
+.metric-name {
+  min-width: 200px;
+  color: var(--dark-text, #e0e0e0);
+  font-weight: 600;
+}
+
+.metric-bar {
+  flex: 1;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.metric-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #0099ff, #00d4ff);
+  transition: width 0.3s ease;
+}
+
+.audit-metric-row.warning .metric-fill {
+  background: linear-gradient(90deg, #ff9800, #ffc107);
+}
+
+.metric-values {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 100px;
+}
+
+.metric-value {
+  font-weight: 600;
+  color: #00d4ff;
+  font-size: 0.95rem;
+}
+
+.metric-threshold {
+  font-size: 0.75rem;
+  color: #999;
+}
+
+.health-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+}
+
+.health-item {
+  padding: 15px;
+  background: rgba(0, 208, 132, 0.1);
+  border: 1px solid rgba(0, 208, 132, 0.3);
+  border-radius: 6px;
+  text-align: center;
+}
+
+.health-label {
+  display: block;
+  color: #999;
+  font-size: 0.9rem;
+  margin-bottom: 8px;
+}
+
+.health-status {
+  display: block;
+  font-weight: 600;
+  color: #00d084;
+}
+
+@media (max-width: 768px) {
+  .review-stats,
+  .pm-stats,
+  .audit-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .audit-metric-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .metric-name {
+    width: 100%;
+  }
+
+  .metric-values {
+    width: 100%;
+    align-items: flex-start;
+  }
+
+  .recommendations-table {
+    font-size: 0.85rem;
+  }
+
+  .recommendations-table th,
+  .recommendations-table td {
+    padding: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .review-stats,
+  .pm-stats,
+  .audit-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .health-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .recommendations-table {
+    font-size: 0.75rem;
+  }
+
+  .recommendations-table th,
+  .recommendations-table td {
+    padding: 8px 5px;
+  }
+}

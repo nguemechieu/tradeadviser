@@ -1,26 +1,26 @@
 import React from "react";
+import { Box } from "@mui/material";
 import "./Header.css";
 import NavBar from "./NavBar";
 
 const Header = () => {
-
     return (
-        <header className="App-header">
-            {/* Logo Section */}
+        <header className="header-container">
+            <Box className="header-content">
+                {/* Logo Section */}
+                <Box className="header-logo-section">
+                    <div className="logo-wrapper">
+                        <img src="/logo192.png" alt="TradeAdviser Logo" className="logo" />
+                    </div>
+                    <div className="logo-text">
+                        <h1 className="site-title">TradeAdviser</h1>
+                        <p className="site-subtitle">Intelligent Trading Advisory Platform</p>
+                    </div>
+                </Box>
 
-                <a
-                    href="https://localhost:3000/"
-                    className="site-title"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                >
-                    <img src="/logo192.png" alt="Sopotek Logo" className="logo" />
-
-                </a>
-            <NavBar/>
-
-
-
+                {/* Navigation */}
+                <NavBar />
+            </Box>
         </header>
     );
 };

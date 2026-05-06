@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from "react";
-import {axiosPrivate} from "../api/axiosPrivate";
+import { useEffect, useState } from "react";
+import { axiosPrivate } from "../api/axios";
+
 
 const Security = () => {
   const [password, setPassword] = useState("");
@@ -13,7 +14,7 @@ const Security = () => {
   const handleChangePassword = async (e) => {
     e.preventDefault();
 
-    await axiosPrivate.post("/api/reset-password", {
+      await axiosPrivate.post("/api/v3/reset-password", {
       current_password: password,
       new_password: newPassword,
     });

@@ -4,7 +4,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "homepage": "https://tradeadviser.org",
+  "homepage": "http://localhost:8000",
   "author": {
     "name": "Sopotek Inc",
     "email": "info@sopotek.com",
@@ -12,10 +12,10 @@
   },
   "license": "MIT",
   "scripts": {
-    "dev": "vite --host 0.0.0.0 --port 5173",
+    "dev": "vite --host 0.0.0.0 --port 8000",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0 --port 4173",
-    "lint": "eslint src --ext .js,.jsx,.ts,.tsx",
+    "lint": "eslint src",
     "test": "vitest",
     "type-check": "tsc --noEmit"
   },
@@ -37,6 +37,7 @@
     "react-toastify": "^9.1.3"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^20.0.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
@@ -46,7 +47,9 @@
     "eslint": "^8.57.1",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^4.6.2",
+    "globals": "^17.6.0",
     "typescript": "^5.6.3",
+    "typescript-eslint": "^8.59.2",
     "vite": "^7.0.0",
     "vitest": "^1.0.0"
   }
